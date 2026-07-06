@@ -42,7 +42,7 @@ const input = {
   pathElements,
   pathIndices,
 };
-writeFileSync("build/input.json", JSON.stringify(input, null, 2));
+writeFileSync("input.json", JSON.stringify(input, null, 2));
 console.log("commitment =", commitment.toString(16));
 console.log("root       =", root.toString(16));
 console.log("nullifier  =", nullifier.toString(16));
