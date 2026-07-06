@@ -46,6 +46,12 @@ function scProof(proof: RawProof): xdr.ScVal {
 const toBytes = (v: unknown): Uint8Array =>
   v instanceof Uint8Array ? v : new Uint8Array(v as ArrayBuffer);
 
+// --- wallet-agnostic signer -------------------------------------------------
+
+/// A wallet plugs in by providing its address and a way to sign a prepared XDR,
+/// returning the signed XDR. Freighter and Privy both implement this.
+export type Signer = { address: string; sign: (unsignedXdr: string) => Promise<string> };
+
 // --- Freighter --------------------------------------------------------------
 
 export async function connectWallet(): Promise<string> {
@@ -55,6 +61,17 @@ export async function connectWallet(): Promise<string> {
   const access = await requestAccess();
   if (access.error) throw new Error(String(access.error));
   return access.address;
+}
+
+export function freighterSigner(address: string): Signer {
+  return {
+    address,
+    sign: async (unsignedXdr: string) => {
+      const signed = await signTransaction(unsignedXdr, { networkPassphrase, address });
+      if (signed.error) throw new Error(String(signed.error));
+      return signed.signedTxXdr;
+    }
+  };
 }
 
 // --- read + write helpers ---------------------------------------------------
@@ -77,24 +94,22 @@ export async function simulateRead(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function invoke(
-  publicKey: string,
+  signer: Signer,
   contractId: string,
   method: string,
   args: xdr.ScVal[] = []
 ): Promise<unknown> {
-  const account = await server.getAccount(publicKey);
+  const account = await server.getAccount(signer.address);
   const built = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase })
     .addOperation(new Contract(contractId).call(method, ...args))
     .setTimeout(120)
     .build();
   const prepared = await server.prepareTransaction(built);
-  return signSendPoll(prepared.toXDR(), publicKey);
+  return sendPoll(await signer.sign(prepared.toXDR()));
 }
 
-async function signSendPoll(unsignedXdr: string, publicKey: string): Promise<unknown> {
-  const signed = await signTransaction(unsignedXdr, { networkPassphrase, address: publicKey });
-  if (signed.error) throw new Error(String(signed.error));
-  const tx = TransactionBuilder.fromXDR(signed.signedTxXdr, networkPassphrase);
+async function sendPoll(signedXdr: string): Promise<unknown> {
+  const tx = TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
   const sent = await server.sendTransaction(tx);
   if (sent.status === "ERROR") {
     throw new Error("Submission failed: " + JSON.stringify(sent.errorResult ?? sent));
@@ -124,13 +139,28 @@ export async function usdcBalanceLabel(publicKey: string): Promise<string> {
   return fromBaseUnits(await usdcBalance(publicKey));
 }
 
-export async function addUsdcTrustline(publicKey: string): Promise<void> {
-  const account = await server.getAccount(publicKey);
+export async function accountExists(address: string): Promise<boolean> {
+  try {
+    await server.getAccount(address);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/// Testnet only: create+fund an account via friendbot if it doesn't exist yet.
+export async function ensureFunded(address: string): Promise<void> {
+  if (await accountExists(address)) return;
+  await fetch(`https://friendbot.stellar.org/?addr=${encodeURIComponent(address)}`);
+}
+
+export async function addUsdcTrustline(signer: Signer): Promise<void> {
+  const account = await server.getAccount(signer.address);
   const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase })
     .addOperation(Operation.changeTrust({ asset: new Asset("USDC", usdcIssuer) }))
     .setTimeout(60)
     .build();
-  await signSendPoll(tx.toXDR(), publicKey);
+  await sendPoll(await signer.sign(tx.toXDR()));
 }
 
 // --- registry ---------------------------------------------------------------
@@ -143,13 +173,13 @@ export type OlioAccount = {
 };
 
 export async function registerUsername(
-  publicKey: string,
+  signer: Signer,
   username: string,
   notePubkey: Uint8Array,
   viewPubkey: Uint8Array
 ): Promise<void> {
-  await invoke(publicKey, registryId, "register", [
-    scAddr(publicKey),
+  await invoke(signer, registryId, "register", [
+    scAddr(signer.address),
     scStr(username),
     scBytes(notePubkey),
     scBytes(viewPubkey)
@@ -182,14 +212,14 @@ export async function usernameOf(publicKey: string): Promise<string | null> {
 // --- pool -------------------------------------------------------------------
 
 export async function poolDeposit(
-  publicKey: string,
+  signer: Signer,
   commitment: Uint8Array,
   amount: bigint,
   ephemeralPk: Uint8Array,
   ciphertext: Uint8Array
 ): Promise<number> {
-  const idx = await invoke(publicKey, poolId, "deposit", [
-    scAddr(publicKey),
+  const idx = await invoke(signer, poolId, "deposit", [
+    scAddr(signer.address),
     scBytes(commitment),
     scI128(amount),
     scBytes(ephemeralPk),
@@ -199,14 +229,14 @@ export async function poolDeposit(
 }
 
 export async function poolWithdraw(
-  publicKey: string,
+  signer: Signer,
   recipientStrkey: string,
   amount: bigint,
   root: Uint8Array,
   nullifier: Uint8Array,
   proof: RawProof
 ): Promise<void> {
-  await invoke(publicKey, poolId, "withdraw", [
+  await invoke(signer, poolId, "withdraw", [
     scStr(recipientStrkey),
     scI128(amount),
     scBytes(root),

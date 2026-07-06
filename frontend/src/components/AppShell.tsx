@@ -9,7 +9,7 @@ function shortKey(k: string) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { address, connect, connecting } = useWallet();
+  const { address, walletType, connecting, connectPrivy, disconnect } = useWallet();
 
   return (
     <>
@@ -22,12 +22,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link href="/">Home</Link>
             <Link href="/wallet">Wallet</Link>
             {address ? (
-              <span className="pubkey" title={address}>
+              <span className="pubkey" title={`${address} (${walletType})`} onClick={disconnect}>
                 {shortKey(address)}
               </span>
             ) : (
-              <button onClick={() => connect().catch(() => {})} disabled={connecting}>
-                {connecting ? "Connecting…" : "Connect"}
+              <button onClick={connectPrivy} disabled={connecting}>
+                {connecting ? "Signing in…" : "Sign In"}
               </button>
             )}
           </nav>

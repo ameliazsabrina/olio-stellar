@@ -1,76 +1,75 @@
 # Olio — private USDC payments on Stellar
 
 Confidential USDC payment links for freelancers and small businesses. Share a
-link, get paid in USDC as an unlinkable note in a Soroban shielded pool, and
-cash out when you want. **Private by default, provable on demand.**
+link, get paid in USDC as an **unlinkable, zero-knowledge** note in a Soroban
+shielded pool, and cash out when you want. **Private by default, provable on demand.**
 
-This repo is **Milestone 1 (testnet)** — the smallest honest slice of Olio that
-runs the full loop end to end:
+This repo is **Iteration 2 (testnet)** — real zero-knowledge privacy end to end:
 
-- `programs/olio-registry` — username accounts (`@dinar` is the payment link)
-- `programs/olio-pool` — the shielded pool: notes, an incremental Merkle tree of
-  commitments, nullifiers, and USDC custody via the Stellar Asset Contract
-- `frontend` — a Next.js + Freighter app: create an account, receive payments,
-  scan for your notes, and claim/withdraw
-- `scripts/deploy-testnet.sh` — build, deploy, and wire everything to testnet USDC
+- `programs/olio-registry` — username accounts (`@dinar` is the payment link);
+  holds each user's Poseidon note key + x25519 viewing key
+- `programs/olio-pool` — the shielded pool: a Poseidon Merkle tree of commitments,
+  nullifiers, USDC custody via the SAC, and an **on-chain Groth16 verifier (BN254)**
+- `circuits/` — the `withdraw.circom` circuit + Groth16 trusted setup
+- `frontend` — Next.js + Freighter: create an account, receive encrypted notes,
+  and **generate a withdrawal proof in your browser** to claim
+- `scripts/deploy-testnet.sh` — build, deploy, wire USDC, and register the VK
 
-> ### ⚠️ Milestone-1 privacy caveat
-> This iteration is the deployable **plumbing**: correct custody, commitments,
-> Merkle membership, and double-spend prevention. It is **not yet unlinkable** —
-> `withdraw` reveals a note's fields and Merkle path on-chain, and deposit events
-> carry `amount`/`salt` in the clear for discovery. True zero-knowledge
-> unlinkability arrives in the next iteration, when a Groth16 verifier (over
-> Stellar's BLS12-381 host functions) + in-browser proving replace the in-contract
-> path checks. Hashing is keccak256 in M1 and moves to Poseidon to match the circuit.
+## What's private
+
+A deposit publishes only a Poseidon `commitment` (inserted into the Merkle tree)
+plus note metadata **encrypted to the recipient's viewing key** — so observers
+can't link a deposit to a username. A withdrawal submits a Groth16 proof that
+proves note ownership + Merkle membership + nullifier **in zero knowledge**; the
+contract learns only `{root, nullifier, recipient, amount}`. The deposit↔withdrawal
+link is broken cryptographically. Amounts remain visible at withdrawal (hiding
+amounts is a PRD v1 non-goal).
+
+> The Groth16 trusted setup here is **dev-only**. A production launch needs a real
+> multi-party ceremony, plus a security audit of the circuit and contracts.
 
 ## How it works
 
 ```
-Payer (Freighter)                      Recipient (Freighter)
-   │  pay @username                        │  register @username
-   ▼                                       ▼
-olio-registry  ──resolve(@username)──►  note_pubkey
-   │                                       ▲
-   ▼                                       │ scan events, match, claim
-olio-pool (holds USDC via SAC) ── deposit → commitment leaf → Merkle tree
-                                └ withdraw → nullifier + payout USDC
+Payer (Freighter)                         Recipient (Freighter)
+   │  resolve @username → note_pk + view_pk   │  register @username
+   ▼                                          ▼
+olio-pool.deposit(commitment, amount,       scan events → x25519-decrypt → my notes
+                  ephemeral_pk, ciphertext) ─────────────┐
+   │  Poseidon leaf → Merkle tree                        │ browser: snarkjs proof
+   ▼                                                     ▼
+olio-pool.withdraw(recipient, amount, root, nullifier, proof)
+   └── BN254 Groth16 verify → pay USDC, record nullifier
 ```
 
-Note model (keccak256 byte layouts, shared by contract and client):
+Note model (Poseidon over BN254 — circomlib params, identical in circuit /
+contract / browser):
 
-- `owner_pk   = keccak256(owner_secret[32])`
-- `commitment = keccak256(amount_be[16] ++ owner_pk[32] ++ salt[32])`
-- `nullifier  = keccak256(owner_secret[32] ++ leaf_index_be_u64[8])`
+- `owner_pk   = Poseidon([owner_secret])`
+- `commitment = Poseidon([amount, owner_pk, salt])`
+- `nullifier  = Poseidon([owner_secret, leaf_index])`
+- `node       = Poseidon([left, right])`
 
 ## Prerequisites
 
-- Rust with the `wasm32v1-none` target (`rustup target add wasm32v1-none`)
-- Stellar CLI 27+
-- Node 20+ and pnpm 10+
+- Rust with `wasm32v1-none`; Stellar CLI 27+
+- Node 20+, pnpm 10+; **circom 2** + snarkjs (for the circuit build)
 - The [Freighter](https://www.freighter.app/) browser extension
 
-## Contracts
+## Build & test
 
 ```sh
-cargo test -p olio-registry -p olio-pool   # unit tests + JS↔Rust hash-parity gate
-stellar contract build                     # build both wasms
+# Contracts (unit tests incl. an on-chain proof + full withdraw flow with a real proof)
+cargo test -p olio-registry -p olio-pool
+
+# Circuit + trusted setup (reuses Powers-of-Tau if present; stages wasm/zkey + VK)
+cd circuits && npm install && ./build.sh
 ```
 
 ## Deploy to testnet
 
 ```sh
-./scripts/deploy-testnet.sh alice
-```
-
-This creates+funds the `alice` identity if needed, derives the Circle testnet
-USDC Stellar Asset Contract, deploys the registry + pool, initializes the pool,
-and writes all IDs into `frontend/.env.local`.
-
-Verify hash parity against the deployed empty tree:
-
-```sh
-NODE_PATH=frontend/node_modules node scripts/parity.cjs
-# zeros_root20 must equal the pool's current_root
+./scripts/deploy-testnet.sh alice   # deploys, initializes, registers the VK, writes .env.local
 ```
 
 ## Frontend
@@ -80,22 +79,31 @@ pnpm install
 pnpm --filter frontend dev   # http://localhost:3000
 ```
 
-To **pay** a link you need testnet USDC: connect Freighter, use the "Add USDC
-trustline" button on the home page, then fund at
-[faucet.circle.com](https://faucet.circle.com). Receiving notes needs no USDC.
+To **pay**, you need testnet USDC: connect Freighter, "Add USDC trustline", then
+fund at [faucet.circle.com](https://faucet.circle.com). Receiving needs no USDC.
 
-### End-to-end test (two Freighter accounts)
+### End-to-end (two Freighter accounts)
 
-1. **Recipient** opens `/`, connects, and claims a username (e.g. `dinar`).
-2. **Payer** (second account with testnet USDC) opens `/pay/dinar`, enters an
-   amount, and pays. A note is minted into the pool.
-3. **Recipient** opens `/wallet`; the note appears with a claimable balance.
-   Claim it to any address — funds arrive and the note is marked spent.
-   Re-claiming is rejected (nullifier reuse).
+1. **Recipient** opens `/`, connects, claims a username (keys are generated locally).
+2. **Payer** (funded) opens `/pay/<username>`, enters an amount, pays — a note is
+   minted with metadata encrypted to the recipient.
+3. **Recipient** opens `/wallet`; the note is discovered by decryption. Claiming
+   generates a zk proof in the browser (~a few seconds) and withdraws to any
+   address. Replays are rejected (nullifier); a swapped recipient fails (bound in
+   the proof).
 
-## Deferred to later phases
+## Key implementation notes
 
-Real zk unlinkability (Circom circuit + trusted setup + WASM proving + on-chain
-BLS12-381 Groth16 verifier), passkeys/gasless, cross-chain CCTP deposits, SEP-24
-fiat off-ramp, digital-product delivery, selective disclosure + ASP screening,
-B2B multisig, a dedicated event indexer, and a security audit.
+- Curve **BN254** end to end (snarkjs-native + Soroban `bn254` host functions), so
+  no proof conversion. Poseidon via `soroban-poseidon` (contract) / `circomlibjs`
+  (browser) / `circomlib` (circuit) — all circomlib-compatible.
+- snarkjs → Soroban serialization: G1 `X‖Y` (32B BE each); **G2 per coordinate
+  `c1‖c0`** (imaginary-first swap from snarkjs's `[c0,c1]`); Fr 32B BE. Proof `A`
+  is passed as-is (the verifier negates it). This is validated on-chain by
+  `groth16_verifies_real_proof`.
+- Contract pinned to **soroban-sdk 26** (matches `soroban-poseidon` + BN254).
+
+## Deferred (later phases)
+Production MPC ceremony + security audit, fixed-denomination anonymity sets,
+selective disclosure + ASP screening, passkeys/gasless, cross-chain CCTP, SEP-24
+off-ramp, a dedicated event indexer.

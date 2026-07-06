@@ -26,6 +26,8 @@ pub use groth16::{Proof, VerificationKey};
 #[cfg(test)]
 mod fixture;
 #[cfg(test)]
+mod withdraw_fixture;
+#[cfg(test)]
 mod test;
 
 const ROOT_HISTORY_SIZE: u32 = 30;

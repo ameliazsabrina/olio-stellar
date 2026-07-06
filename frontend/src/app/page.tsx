@@ -23,7 +23,7 @@ import {
 const configured = Boolean(registryId && poolId);
 
 export default function Home() {
-  const { address, connect } = useWallet();
+  const { address, getSigner } = useWallet();
   const [username, setUsername] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,12 +56,12 @@ export default function Home() {
       return;
     }
     setBusy(true);
-    setStatus({ kind: "info", msg: "Approve the transaction in Freighter…" });
     try {
-      const addr = address || (await connect());
+      const signer = getSigner();
+      setStatus({ kind: "info", msg: "Approve the transaction in your wallet…" });
       const acct = ensureAccount();
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
-      await registerUsername(addr, name, notePubkey, viewPubkey);
+      await registerUsername(signer, name, notePubkey, viewPubkey);
       setStoredUsername(name);
       setUsername(name);
       setStatus({ kind: "ok", msg: `@${name} is yours. Share your link to get paid privately.` });
@@ -70,22 +70,22 @@ export default function Home() {
     } finally {
       setBusy(false);
     }
-  }, [address, connect, input]);
+  }, [getSigner, input]);
 
   const addTrustline = useCallback(async () => {
     setBusy(true);
-    setStatus({ kind: "info", msg: "Approve the trustline in Freighter…" });
     try {
-      const addr = address || (await connect());
-      await addUsdcTrustline(addr);
-      setBalance(await usdcBalanceLabel(addr));
+      const signer = getSigner();
+      setStatus({ kind: "info", msg: "Approve the trustline in your wallet…" });
+      await addUsdcTrustline(signer);
+      setBalance(await usdcBalanceLabel(signer.address));
       setStatus({ kind: "ok", msg: "USDC trustline added." });
     } catch (e) {
       setStatus({ kind: "err", msg: e instanceof Error ? e.message : "Failed to add trustline." });
     } finally {
       setBusy(false);
     }
-  }, [address, connect]);
+  }, [getSigner]);
 
   if (!configured) {
     return (

@@ -141,6 +141,47 @@ fn withdraw_requires_verifier_key() {
     assert_eq!(err, Ok(Error::VerifierKeyNotSet));
 }
 
+// Full withdraw path with a real snarkjs proof bound to a real recipient strkey:
+// exercises proof verification + recipient binding + nullifier + payout.
+#[test]
+fn withdraw_full_flow() {
+    use super::withdraw_fixture::*;
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+    let token = token::Client::new(&f.env, &f.asset);
+
+    f.pool.deposit(&f.payer, &decode::<32>(&f.env, WD_COMMITMENT), &WD_AMOUNT, &eph, &ct);
+    // Contract Poseidon tree matches the circuit's proved root.
+    assert_eq!(f.pool.current_root(), decode::<32>(&f.env, WD_ROOT));
+    f.pool.set_verifier_key(&f.admin, &fixture_vk(&f.env));
+    assert_eq!(token.balance(&f.pool.address), WD_AMOUNT);
+
+    // Fixture proof is bound to a contract address (SAC transfers to contracts
+    // need no trustline). The keccak(strkey) binding is identical for G-addresses,
+    // which the live testnet e2e exercises against a real wallet.
+    let recipient = String::from_str(&f.env, WD_RECIPIENT);
+    let dest = Address::from_string(&recipient);
+    let root = decode::<32>(&f.env, WD_ROOT);
+    let nullifier = decode::<32>(&f.env, WD_NULLIFIER);
+    let proof = Proof {
+        a: decode::<64>(&f.env, WD_PROOF_A),
+        b: decode::<128>(&f.env, WD_PROOF_B),
+        c: decode::<64>(&f.env, WD_PROOF_C),
+    };
+
+    f.pool.withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof);
+    assert_eq!(token.balance(&dest), WD_AMOUNT);
+    assert_eq!(token.balance(&f.pool.address), 0);
+
+    // Replay is rejected by the nullifier.
+    let err = f
+        .pool
+        .try_withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof)
+        .err()
+        .unwrap();
+    assert_eq!(err, Ok(Error::DoubleSpend));
+}
+
 #[test]
 fn withdraw_unknown_root_rejected() {
     let f = setup();

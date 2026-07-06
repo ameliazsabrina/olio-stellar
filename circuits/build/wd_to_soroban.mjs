@@ -1,0 +1,17 @@
+import { readFileSync, writeFileSync } from "fs";
+const proof = JSON.parse(readFileSync("wd_proof.json"));
+const meta = JSON.parse(readFileSync("wd_meta.json"));
+const be32 = (dec) => BigInt(dec).toString(16).padStart(64, "0");
+const G1 = (p) => be32(p[0]) + be32(p[1]);
+const G2 = (p) => be32(p[0][1]) + be32(p[0][0]) + be32(p[1][1]) + be32(p[1][0]);
+let out = "// AUTO-GENERATED withdraw fixture (proof bound to a real recipient strkey).\n\n";
+out += `pub const WD_RECIPIENT: &str = "${meta.recipient}";\n`;
+out += `pub const WD_COMMITMENT: &str = "${meta.commitment}";\n`;
+out += `pub const WD_ROOT: &str = "${meta.root}";\n`;
+out += `pub const WD_NULLIFIER: &str = "${meta.nullifier}";\n`;
+out += `pub const WD_AMOUNT: i128 = ${meta.amount};\n`;
+out += `pub const WD_PROOF_A: &str = "${G1(proof.pi_a)}";\n`;
+out += `pub const WD_PROOF_B: &str = "${G2(proof.pi_b)}";\n`;
+out += `pub const WD_PROOF_C: &str = "${G1(proof.pi_c)}";\n`;
+writeFileSync("../../programs/olio-pool/src/withdraw_fixture.rs", out);
+console.log("wrote withdraw_fixture.rs");

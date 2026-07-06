@@ -16,7 +16,7 @@ import { proveWithdraw } from "../../lib/prover";
 import { poolWithdraw } from "../../lib/stellar";
 
 export default function WalletPage() {
-  const { address, connect } = useWallet();
+  const { address, getSigner } = useWallet();
   const [acct, setAcct] = useState<LocalAccount | null>(null);
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -66,7 +66,7 @@ export default function WalletPage() {
       }
       setBusyLeaf(note.leafIndex);
       try {
-        const submitter = address || (await connect());
+        const signer = getSigner();
 
         setStatus({ kind: "info", msg: "Generating zero-knowledge proof in your browser…" });
         const { root, pathElements, pathIndices } = await merkleProof(
@@ -88,8 +88,8 @@ export default function WalletPage() {
           pathIndices
         });
 
-        setStatus({ kind: "info", msg: `Proof ready in ${Math.round(ms)} ms. Approve in Freighter…` });
-        await poolWithdraw(submitter, destination, note.amount, toBE32(root), toBE32(nf), proof);
+        setStatus({ kind: "info", msg: `Proof ready in ${Math.round(ms)} ms. Approve in your wallet…` });
+        await poolWithdraw(signer, destination, note.amount, toBE32(root), toBE32(nf), proof);
 
         setStatus({
           kind: "ok",
@@ -102,7 +102,7 @@ export default function WalletPage() {
         setBusyLeaf(null);
       }
     },
-    [address, connect, dest, doScan, scan]
+    [address, getSigner, dest, doScan, scan]
   );
 
   if (!acct) {

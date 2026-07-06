@@ -16,7 +16,7 @@ import { poolDeposit, resolveUsername, usdcBalance, type OlioAccount } from "../
 export default function PayPage() {
   const params = useParams<{ username: string }>();
   const username = decodeURIComponent(params.username || "").toLowerCase();
-  const { address, connect } = useWallet();
+  const { address, getSigner } = useWallet();
 
   const [account, setAccount] = useState<OlioAccount | null | "loading">("loading");
   const [amount, setAmount] = useState("");
@@ -38,8 +38,8 @@ export default function PayPage() {
     }
     setBusy(true);
     try {
-      const addr = address || (await connect());
-      if ((await usdcBalance(addr)) < units) {
+      const signer = getSigner();
+      if ((await usdcBalance(signer.address)) < units) {
         setStatus({
           kind: "err",
           msg: "Not enough testnet USDC. Add a trustline and fund at faucet.circle.com."
@@ -47,7 +47,7 @@ export default function PayPage() {
         setBusy(false);
         return;
       }
-      setStatus({ kind: "info", msg: "Approve the payment in Freighter…" });
+      setStatus({ kind: "info", msg: "Approve the payment in your wallet…" });
 
       // Build a shielded note the recipient can spend, with metadata encrypted to them.
       const salt = randomFieldElement();
@@ -55,7 +55,7 @@ export default function PayPage() {
       const note = toBE32(await commitment(units, ownerPkField, salt));
       const { ephemeralPk, ciphertext } = encryptNote(account.view_pubkey, units, salt);
 
-      const leafIndex = await poolDeposit(addr, note, units, ephemeralPk, ciphertext);
+      const leafIndex = await poolDeposit(signer, note, units, ephemeralPk, ciphertext);
       setStatus({
         kind: "ok",
         msg: `Paid ${amount} USDC to @${username}. Private note #${leafIndex} delivered.`
@@ -66,7 +66,7 @@ export default function PayPage() {
     } finally {
       setBusy(false);
     }
-  }, [account, address, amount, connect, username]);
+  }, [account, amount, getSigner, username]);
 
   if (account === "loading") {
     return <div className="panel"><h2>Loading @{username}…</h2></div>;
@@ -104,7 +104,7 @@ export default function PayPage() {
             </button>
           </div>
           <span className="hint">
-            {address ? "Paying from your connected wallet." : "You'll connect Freighter to pay."}
+            {address ? "Paying from your connected wallet." : "Connect a wallet (top right) to pay."}
           </span>
         </div>
       </div>
