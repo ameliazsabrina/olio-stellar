@@ -1,0 +1,15 @@
+[package]
+name = "olio-pool"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = { version = "26.0.0", features = ["hazmat-crypto"] }
+soroban-poseidon = { git = "https://github.com/stellar/rs-soroban-poseidon", tag = "v26.0.0" }
+
+[dev-dependencies]
+soroban-sdk = { version = "26.0.0", features = ["testutils", "hazmat-crypto"] }

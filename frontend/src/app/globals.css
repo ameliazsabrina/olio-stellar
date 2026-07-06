@@ -1,0 +1,356 @@
+:root {
+  color-scheme: light;
+  --paper: #f5f4ee;
+  --paper-2: #eeeee4;
+  --panel: #fbfaf5;
+  --ink: #20261a;
+  --olive: #4c5d34;
+  --olive-deep: #333e22;
+  --gold: #9c7420;
+  --sage: #e8e9dd;
+  --line: #d6d6c8;
+  --line-soft: #e2e2d6;
+  --muted: #6b6e5d;
+  --ok: #16784c;
+  --warn: #9c7420;
+  --err: #9a3b2a;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Space Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--olive);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--olive-deep);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--olive);
+  border-radius: 8px;
+  background: var(--olive);
+  color: var(--paper);
+  cursor: pointer;
+  padding: 0 18px;
+  font-weight: 600;
+  transition: background 0.15s, opacity 0.15s;
+}
+button:hover:not(:disabled) {
+  background: var(--olive-deep);
+}
+button.secondary {
+  background: transparent;
+  color: var(--olive-deep);
+}
+button.secondary:hover:not(:disabled) {
+  background: var(--sage);
+}
+button.link {
+  border: 0;
+  background: none;
+  color: var(--olive-deep);
+  min-height: 0;
+  padding: 0;
+  text-decoration: underline;
+}
+/* Anchors/Links styled as buttons (valid HTML — no nested interactives). */
+.btnlike {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--olive);
+  border-radius: 8px;
+  background: var(--olive);
+  color: var(--paper);
+  padding: 0 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnlike:hover {
+  background: var(--olive-deep);
+  color: var(--paper);
+}
+.btnlike.secondary {
+  background: transparent;
+  color: var(--olive-deep);
+}
+.btnlike.secondary:hover {
+  background: var(--sage);
+  color: var(--olive-deep);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 14px;
+}
+input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+/* Header */
+.appheader {
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #f7f6f0, #f2f1e8);
+}
+.appheader-inner {
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+}
+.wordmark {
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  color: var(--olive-deep);
+}
+.wordmark span {
+  color: var(--gold);
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.nav a {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 15px;
+}
+.nav a:hover {
+  color: var(--olive-deep);
+}
+.pubkey {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--olive-deep);
+  background: var(--sage);
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  padding: 6px 12px;
+}
+
+main {
+  width: min(720px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 80px;
+  display: grid;
+  gap: 18px;
+}
+
+.hero h1 {
+  margin: 0 0 6px;
+  font-size: clamp(26px, 5vw, 38px);
+  letter-spacing: -0.02em;
+  color: var(--olive-deep);
+}
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.panel h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--olive-deep);
+}
+.panel .sub {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+.field label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.field .hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+.inline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.inline input {
+  flex: 1;
+}
+
+.banner {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  background: #f1eedf;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 12px 16px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.banner b {
+  color: var(--gold);
+}
+
+.status {
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.status.info {
+  background: var(--sage);
+  color: var(--olive-deep);
+}
+.status.ok {
+  background: #e2efe4;
+  color: var(--ok);
+}
+.status.err {
+  background: #f3e2dd;
+  color: var(--err);
+}
+
+.bignum {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--olive-deep);
+}
+.bignum small {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.qr {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.qr .box {
+  background: #fff;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.linkrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.notes {
+  display: grid;
+  gap: 8px;
+}
+.note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  font-size: 14px;
+}
+.note .amt {
+  font-weight: 600;
+  color: var(--olive-deep);
+}
+.tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+.tag.spent {
+  background: var(--paper-2);
+  color: var(--muted);
+}
+.tag.avail {
+  background: var(--sage);
+  color: var(--olive-deep);
+}
+
+.foot {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .nav {
+    gap: 12px;
+  }
+  .nav a {
+    font-size: 14px;
+  }
+  .pubkey {
+    display: none;
+  }
+}

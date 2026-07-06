@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+node_modules/
+.next/
+out/
+dist/
+
+target/
+*.wasm
+*.optimized.wasm
+
+.stellar/
+.claude
