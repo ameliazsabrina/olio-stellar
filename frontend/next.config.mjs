@@ -30,7 +30,12 @@ if (fs.existsSync(rootEnv)) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: repoRoot,
-  reactStrictMode: true
+  reactStrictMode: true,
+  // These pull in native addons (sodium-native's signing fallback, mongodb's
+  // optional drivers) that webpack can't statically bundle for the Node.js
+  // server runtime — require them directly from node_modules at runtime
+  // instead of trying to bundle them.
+  serverExternalPackages: ["@stellar/stellar-sdk", "@stellar/stellar-base", "sodium-native", "mongodb"]
 };
 
 export default nextConfig;

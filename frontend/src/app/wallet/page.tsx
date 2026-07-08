@@ -14,6 +14,23 @@ import {
 import { getAccount, scanMyNotes, type LocalAccount, type MyNote, type ScanResult } from "../../lib/notes";
 import { proveWithdraw } from "../../lib/prover";
 import { poolWithdraw } from "../../lib/stellar";
+import {
+  amt,
+  bignum,
+  btn,
+  btnSecondary,
+  field,
+  foot,
+  heroSection,
+  heroTitle,
+  hint,
+  note,
+  notes,
+  panel,
+  status as statusClass,
+  sub,
+  tag,
+} from "../../lib/ui";
 
 export default function WalletPage() {
   const { address, getSigner } = useWallet();
@@ -107,10 +124,10 @@ export default function WalletPage() {
 
   if (!acct) {
     return (
-      <div className="panel">
-        <h2>No account on this device</h2>
-        <p className="sub">Create your Olio account first — your keys live in this browser.</p>
-        <Link className="btnlike" href="/">
+      <div className={panel}>
+        <h2 className="text-lg font-semibold text-ink">No account on this device</h2>
+        <p className={sub}>Create your Olio account first — your keys live in this browser.</p>
+        <Link className={`${btn} self-start`} href="/">
           Create account →
         </Link>
       </div>
@@ -121,52 +138,56 @@ export default function WalletPage() {
 
   return (
     <>
-      <section className="hero">
-        <h1>Wallet</h1>
-        <p>Notes you&apos;ve received in the shielded pool. Claim to any Stellar address.</p>
+      <section className={heroSection}>
+        <h1 className={heroTitle}>Wallet</h1>
+        <p className={sub}>
+          Notes you&apos;ve received in the shielded pool. Claim to any Stellar address.
+        </p>
       </section>
 
-      <div className="panel">
-        <h2>Claimable balance</h2>
-        <div className="bignum">
-          {claimable} <small>USDC</small>
+      <div className={panel}>
+        <h2 className="text-lg font-semibold text-ink">Claimable balance</h2>
+        <div className={bignum}>
+          {claimable} <small className="text-base font-normal text-muted">USDC</small>
         </div>
-        <button className="secondary" onClick={doScan} disabled={scanning}>
+        <button className={`${btnSecondary} self-start`} onClick={doScan} disabled={scanning}>
           {scanning ? "Scanning…" : "Rescan"}
         </button>
       </div>
 
-      <div className="panel">
-        <h2>Claim to</h2>
-        <div className="field">
+      <div className={panel}>
+        <h2 className="text-lg font-semibold text-ink">Claim to</h2>
+        <div className={field}>
           <label htmlFor="dest">Destination address</label>
           <input
             id="dest"
-            className="mono"
+            className="min-h-11 w-full rounded-lg border border-line bg-white px-3.5 font-mono text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-1"
             placeholder="G…"
             value={dest}
             onChange={(e) => setDest(e.target.value.trim())}
           />
-          <span className="hint">
+          <span className={hint}>
             A zero-knowledge proof breaks the link between the deposit and this payout.
           </span>
         </div>
       </div>
 
-      <div className="panel">
-        <h2>Your notes</h2>
+      <div className={panel}>
+        <h2 className="text-lg font-semibold text-ink">Your notes</h2>
         {scan && scan.notes.length ? (
-          <div className="notes">
+          <div className={notes}>
             {scan.notes.map((n) => (
-              <div className="note" key={n.leafIndex}>
-                <span className="amt">{fromBaseUnits(n.amount)} USDC</span>
-                <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>
-                  note #{n.leafIndex}
-                </span>
+              <div className={note} key={n.leafIndex}>
+                <span className={amt}>{fromBaseUnits(n.amount)} USDC</span>
+                <span className="font-mono text-xs text-muted">note #{n.leafIndex}</span>
                 {n.spent ? (
-                  <span className="tag spent">spent</span>
+                  <span className={`${tag} ml-auto`}>spent</span>
                 ) : (
-                  <button onClick={() => claim(n)} disabled={busyLeaf !== null}>
+                  <button
+                    className={`${btn} ml-auto`}
+                    onClick={() => claim(n)}
+                    disabled={busyLeaf !== null}
+                  >
                     {busyLeaf === n.leafIndex ? "Proving…" : "Claim"}
                   </button>
                 )}
@@ -174,12 +195,12 @@ export default function WalletPage() {
             ))}
           </div>
         ) : (
-          <p className="sub">Nothing here yet.</p>
+          <p className={sub}>Nothing here yet.</p>
         )}
       </div>
 
-      {status ? <div className={`status ${status.kind}`}>{status.msg}</div> : null}
-      <p className="foot">Proofs generated locally · your secrets never leave this device</p>
+      {status ? <div className={statusClass(status.kind)}>{status.msg}</div> : null}
+      <p className={foot}>Proofs generated locally · your secrets never leave this device</p>
     </>
   );
 }

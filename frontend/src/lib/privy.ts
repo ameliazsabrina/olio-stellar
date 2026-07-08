@@ -5,7 +5,7 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { Buffer } from "buffer";
 import { Keypair, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
-import type { AppRouter } from "../server/api/trpc";
+import type { AppRouter } from "../server/root";
 import { networkPassphrase, type Signer } from "./stellar";
 
 export type PrivyWallet = { address: string; walletId: string };

@@ -1,7 +1,7 @@
-// Server-only Privy helpers. Uses the app SECRET — must never be imported into a
-// client component. Stellar is a Privy "tier-2" chain, so wallet creation and
-// signing go through Privy's REST API; token verification uses the SDK.
+// Uses the app SECRET. Stellar is a Privy "tier-2" chain, so wallet creation
+// and signing go through Privy's REST API; token verification uses the SDK.
 
+import "server-only";
 import { Buffer } from "buffer";
 import { PrivyClient } from "@privy-io/server-auth";
 

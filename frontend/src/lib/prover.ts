@@ -1,11 +1,3 @@
-// In-browser Groth16 proving for the withdraw circuit, plus serialization of the
-// snarkjs proof into Soroban's BN254 byte layout.
-//
-// Encoding (validated on-chain by the contract's fixture test):
-// - G1 = X‖Y (each 32B BE)
-// - G2 = per coordinate c1‖c0 (imaginary-first swap from snarkjs's [c0,c1])
-// - Proof A is passed as-is; the contract negates it internally.
-
 import { toBE32 } from "./crypto";
 
 export type WithdrawInput = {
@@ -28,7 +20,7 @@ const g2 = (p: string[][]) =>
     toBE32(BigInt(p[0][1])),
     toBE32(BigInt(p[0][0])),
     toBE32(BigInt(p[1][1])),
-    toBE32(BigInt(p[1][0]))
+    toBE32(BigInt(p[1][0])),
   );
 
 function concat(...chunks: Uint8Array[]): Uint8Array {
@@ -51,14 +43,18 @@ function encodeProof(proof: SnarkProof): RawProof {
 /// Generate and serialize a withdraw proof. Returns timing so the UI can surface
 /// proving performance (the PRD launch-gate metric).
 export async function proveWithdraw(
-  input: WithdrawInput
+  input: WithdrawInput,
 ): Promise<{ proof: RawProof; publicSignals: string[]; ms: number }> {
   const snarkjs = await import("snarkjs");
   const started = performance.now();
   const { proof, publicSignals } = await snarkjs.groth16.fullProve(
     input,
     "/zk/withdraw.wasm",
-    "/zk/withdraw.zkey"
+    "/zk/withdraw.zkey",
   );
-  return { proof: encodeProof(proof as SnarkProof), publicSignals, ms: performance.now() - started };
+  return {
+    proof: encodeProof(proof as SnarkProof),
+    publicSignals,
+    ms: performance.now() - started,
+  };
 }

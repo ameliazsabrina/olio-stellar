@@ -15,13 +15,16 @@ import {
   xdr
 } from "@stellar/stellar-sdk";
 import { isConnected, requestAccess, signTransaction } from "@stellar/freighter-api";
-import { fromBaseUnits } from "./crypto";
+import { bytesToHex, fromBaseUnits, hexToBytes } from "./crypto";
 import type { RawProof } from "./prover";
+import { api } from "../trpc/client";
 
 export const networkPassphrase =
   process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
 export const rpcUrl =
   process.env.NEXT_PUBLIC_STELLAR_RPC_URL || "https://soroban-testnet.stellar.org";
+export const horizonUrl =
+  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || "https://horizon-testnet.stellar.org";
 export const registryId = process.env.NEXT_PUBLIC_OLIO_REGISTRY_ID || "";
 export const poolId = process.env.NEXT_PUBLIC_OLIO_POOL_ID || "";
 export const usdcSacId = process.env.NEXT_PUBLIC_USDC_SAC_ID || "";
@@ -154,6 +157,35 @@ export async function ensureFunded(address: string): Promise<void> {
   await fetch(`https://friendbot.stellar.org/?addr=${encodeURIComponent(address)}`);
 }
 
+export type AccountStatus = {
+  exists: boolean;
+  xlm: string;
+  usdc: string;
+  hasUsdcTrustline: boolean;
+};
+
+/// XLM + USDC balances and trustline state, read from Horizon in one call.
+export async function accountStatus(address: string): Promise<AccountStatus> {
+  const res = await fetch(`${horizonUrl}/accounts/${address}`);
+  if (res.status === 404) {
+    return { exists: false, xlm: "0", usdc: "0", hasUsdcTrustline: false };
+  }
+  if (!res.ok) throw new Error(`Horizon ${res.status}`);
+  const account = (await res.json()) as {
+    balances: Array<{ asset_type: string; asset_code?: string; asset_issuer?: string; balance: string }>;
+  };
+  const status: AccountStatus = { exists: true, xlm: "0", usdc: "0", hasUsdcTrustline: false };
+  for (const b of account.balances) {
+    if (b.asset_type === "native") {
+      status.xlm = b.balance;
+    } else if (b.asset_code === "USDC" && b.asset_issuer === usdcIssuer) {
+      status.usdc = b.balance;
+      status.hasUsdcTrustline = true;
+    }
+  }
+  return status;
+}
+
 export async function addUsdcTrustline(signer: Signer): Promise<void> {
   const account = await server.getAccount(signer.address);
   const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase })
@@ -186,7 +218,10 @@ export async function registerUsername(
   ]);
 }
 
-export async function resolveUsername(username: string): Promise<OlioAccount | null> {
+/// Direct on-chain registry read — no cache, always current. Used as the
+/// fallback when the Mongo-backed `usernames` API is unavailable, and as the
+/// cache-miss source of truth for that API's server-side router.
+export async function resolveUsernameOnChain(username: string): Promise<OlioAccount | null> {
   try {
     const rec = (await simulateRead(registryId, "resolve", [scStr(username)])) as {
       owner: string;
@@ -205,8 +240,36 @@ export async function resolveUsername(username: string): Promise<OlioAccount | n
   }
 }
 
-export async function usernameOf(publicKey: string): Promise<string | null> {
+/// Direct on-chain registry read — see `resolveUsernameOnChain`.
+export async function usernameOfOnChain(publicKey: string): Promise<string | null> {
   return ((await simulateRead(registryId, "username_of", [scAddr(publicKey)])) as string) ?? null;
+}
+
+/// Resolve `@username` -> account. Tries the Mongo-backed cache via tRPC
+/// first (fast, persistent); falls back to a direct chain read if the API
+/// is unreachable (e.g. local dev without Mongo running).
+export async function resolveUsername(username: string): Promise<OlioAccount | null> {
+  try {
+    const rec = await api.usernames.resolve.query({ username });
+    if (!rec) return null;
+    return {
+      owner: rec.owner,
+      note_pubkey: hexToBytes(rec.notePubkeyHex),
+      view_pubkey: hexToBytes(rec.viewPubkeyHex),
+      created: BigInt(Math.floor(new Date(rec.createdAt).getTime() / 1000))
+    };
+  } catch {
+    return resolveUsernameOnChain(username);
+  }
+}
+
+/// Owner address -> `@username`. See `resolveUsername` for the cache/fallback pattern.
+export async function usernameOf(publicKey: string): Promise<string | null> {
+  try {
+    return await api.usernames.byOwner.query({ owner: publicKey });
+  } catch {
+    return usernameOfOnChain(publicKey);
+  }
 }
 
 // --- pool -------------------------------------------------------------------
@@ -258,39 +321,86 @@ export type DepositEvent = {
   ciphertext: Uint8Array;
 };
 
-export async function scanDeposits(): Promise<DepositEvent[]> {
+/// Parse one contract event into a deposit, or `null` if it's not
+/// deposit-shaped (e.g. a `withdraw` event, which has a different arity).
+export function parseDepositEvent(e: rpc.Api.EventResponse): DepositEvent | null {
+  const val = scValToNative(
+    typeof e.value === "string" ? xdr.ScVal.fromXDR(e.value, "base64") : e.value
+  );
+  if (!Array.isArray(val) || val.length !== 4) return null;
+  return {
+    leafIndex: Number(val[0]),
+    commitment: toBytes(val[1]),
+    ephemeralPk: toBytes(val[2]),
+    ciphertext: toBytes(val[3])
+  };
+}
+
+/// Fetch pool contract events starting from `sinceLedger + 1`, falling back
+/// through progressively wider windows if that ledger has fallen outside the
+/// RPC's event-retention horizon. Returns which ledger it actually scanned
+/// from, so callers doing incremental sync can detect a retention gap.
+export async function fetchPoolEventsSince(
+  sinceLedger: number
+): Promise<{ events: rpc.Api.EventResponse[]; scannedFromLedger: number; latestLedger: number }> {
   const latest = await server.getLatestLedger();
   const filters = [{ type: "contract" as const, contractIds: [poolId] }];
-  const windows = [17280, 8000, 2000, 500];
 
-  let events: rpc.Api.EventResponse[] = [];
+  const preferred = Math.max(1, sinceLedger + 1);
+  try {
+    const events = await pageEvents(preferred, filters);
+    return { events, scannedFromLedger: preferred, latestLedger: latest.sequence };
+  } catch {
+    // preferred start is outside RPC retention; fall back to whatever's still retained.
+  }
+
+  const windows = [17280, 8000, 2000, 500];
   for (const w of windows) {
+    const start = Math.max(1, latest.sequence - w);
     try {
-      events = await pageEvents(Math.max(1, latest.sequence - w), filters);
-      break;
+      const events = await pageEvents(start, filters);
+      return { events, scannedFromLedger: start, latestLedger: latest.sequence };
     } catch {
       // window too large for retention; try a smaller one
     }
   }
+  return { events: [], scannedFromLedger: latest.sequence, latestLedger: latest.sequence };
+}
 
+/// Direct on-chain event scan — no cache, subject to RPC retention. Used as
+/// the fallback when the Mongo-backed `deposits` API is unavailable, and as
+/// the sync source of truth for that API's server-side router.
+export async function scanDepositsOnChain(): Promise<DepositEvent[]> {
+  const { events } = await fetchPoolEventsSince(0);
   const out: DepositEvent[] = [];
   for (const e of events) {
-    const val = scValToNative(
-      typeof e.value === "string" ? xdr.ScVal.fromXDR(e.value, "base64") : e.value
-    );
-    if (!Array.isArray(val) || val.length !== 4) continue; // skip withdraw events
-    out.push({
-      leafIndex: Number(val[0]),
-      commitment: toBytes(val[1]),
-      ephemeralPk: toBytes(val[2]),
-      ciphertext: toBytes(val[3])
-    });
+    const parsed = parseDepositEvent(e);
+    if (parsed) out.push(parsed);
   }
   out.sort((a, b) => a.leafIndex - b.leafIndex);
   return out;
 }
 
-async function pageEvents(
+/// All pool deposits. Tries the Mongo-backed cache via tRPC first (persists
+/// past RPC's short event-retention window); falls back to a direct on-chain
+/// scan if the API is unreachable.
+export async function scanDeposits(): Promise<DepositEvent[]> {
+  try {
+    const rows = await api.deposits.list.query({ since: -1 });
+    return rows
+      .map((r) => ({
+        leafIndex: r.leafIndex,
+        commitment: hexToBytes(r.commitmentHex),
+        ephemeralPk: hexToBytes(r.ephemeralPkHex),
+        ciphertext: hexToBytes(r.ciphertextHex)
+      }))
+      .sort((a, b) => a.leafIndex - b.leafIndex);
+  } catch {
+    return scanDepositsOnChain();
+  }
+}
+
+export async function pageEvents(
   startLedger: number,
   filters: rpc.Server.GetEventsRequest["filters"]
 ): Promise<rpc.Api.EventResponse[]> {

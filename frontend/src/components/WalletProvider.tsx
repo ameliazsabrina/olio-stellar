@@ -56,7 +56,6 @@ function WalletCore({
   const [error, setError] = useState("");
   const privyWalletRef = useRef<PrivyWallet | null>(null);
 
-  // Once Privy is authenticated, provision + fund the Stellar wallet.
   useEffect(() => {
     if (!privy?.ready || !privy.authenticated || privyWalletRef.current) return;
     (async () => {
@@ -92,7 +91,7 @@ function WalletCore({
       return;
     }
     setError("");
-    if (!privy.authenticated) privy.login(); // opens the Google/Passkey modal; effect provisions the wallet
+    if (!privy.authenticated) privy.login();
   }, [privy]);
 
   const disconnect = useCallback(async () => {
@@ -160,7 +159,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <PrivyProvider
       appId={appId}
-      config={{ loginMethods: ["google", "passkey"] }}
+      config={{ loginMethods: ["email", "google", "passkey", "wallet"] }}
     >
       <PrivyBridge>{children}</PrivyBridge>
     </PrivyProvider>

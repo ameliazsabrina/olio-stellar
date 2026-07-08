@@ -1,8 +1,3 @@
-#!/usr/bin/env bash
-# Compile the withdraw circuit, run a (dev-only) Groth16 trusted setup, and stage
-# the proving assets + verification key. Reuses an existing Powers-of-Tau if
-# present (the slow step). Requires: circom on PATH, npx (snarkjs), circomlib +
-# circomlibjs installed here (npm install).
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.cargo/bin:$PATH"

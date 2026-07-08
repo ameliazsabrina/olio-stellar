@@ -1,9 +1,3 @@
-// Local account state + note discovery for the Olio wallet (iteration 2).
-//
-// Two secrets live in localStorage (testnet ergonomics; passkeys/recovery later):
-//   - ownerSecret (field element): spending authority for received notes
-//   - viewSecret (x25519):        decrypts note metadata from deposit events
-
 import {
   bytesToHex,
   commitment,
@@ -16,7 +10,7 @@ import {
   randomFieldElement,
   toBE32,
   TREE_DEPTH,
-  viewPubkey
+  viewPubkey,
 } from "./crypto";
 import { DepositEvent, isSpent, scanDeposits } from "./stellar";
 
@@ -46,11 +40,11 @@ export function ensureAccount(): LocalAccount {
 
 /// Public keys to register: Poseidon owner_pk (32B BE) + x25519 view_pubkey.
 export async function accountPubkeys(
-  acct: LocalAccount
+  acct: LocalAccount,
 ): Promise<{ notePubkey: Uint8Array; viewPubkey: Uint8Array }> {
   return {
     notePubkey: toBE32(await ownerPk(acct.ownerSecret)),
-    viewPubkey: viewPubkey(acct.viewSk)
+    viewPubkey: viewPubkey(acct.viewSk),
   };
 }
 
@@ -63,8 +57,17 @@ export function setStoredUsername(username: string): void {
   window.localStorage.setItem(USERNAME_KEY, username);
 }
 
-export type MyNote = { leafIndex: number; amount: bigint; salt: bigint; spent: boolean };
-export type ScanResult = { notes: MyNote[]; leaves: bigint[]; claimable: bigint };
+export type MyNote = {
+  leafIndex: number;
+  amount: bigint;
+  salt: bigint;
+  spent: boolean;
+};
+export type ScanResult = {
+  notes: MyNote[];
+  leaves: bigint[];
+  claimable: bigint;
+};
 
 /// Scan the pool, decrypting each deposit; the ones that decrypt are ours.
 /// Also returns the full ordered leaf set needed to build Merkle proofs.
@@ -79,12 +82,22 @@ export async function scanMyNotes(acct: LocalAccount): Promise<ScanResult> {
     const dec = decryptNote(acct.viewSk, d.ephemeralPk, d.ciphertext);
     if (!dec) continue;
     // Belt-and-suspenders: the recomputed commitment must match the leaf.
-    if ((await commitment(dec.amount, myPk, dec.salt)) !== fromBE(d.commitment)) continue;
-    const spent = await isSpent(toBE32(await nullifier(acct.ownerSecret, d.leafIndex)));
-    notes.push({ leafIndex: d.leafIndex, amount: dec.amount, salt: dec.salt, spent });
+    if ((await commitment(dec.amount, myPk, dec.salt)) !== fromBE(d.commitment))
+      continue;
+    const spent = await isSpent(
+      toBE32(await nullifier(acct.ownerSecret, d.leafIndex)),
+    );
+    notes.push({
+      leafIndex: d.leafIndex,
+      amount: dec.amount,
+      salt: dec.salt,
+      spent,
+    });
   }
 
-  const claimable = notes.filter((n) => !n.spent).reduce((s, n) => s + n.amount, 0n);
+  const claimable = notes
+    .filter((n) => !n.spent)
+    .reduce((s, n) => s + n.amount, 0n);
   return { notes, leaves, claimable };
 }
 

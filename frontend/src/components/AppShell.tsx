@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useWallet } from "./WalletProvider";
 
 function shortKey(k: string) {
@@ -9,31 +11,61 @@ function shortKey(k: string) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { address, walletType, connecting, connectPrivy, disconnect } = useWallet();
+  const { address, walletType, connecting, connectPrivy, disconnect } =
+    useWallet();
+  const pathname = usePathname();
+
+  if (pathname === "/") {
+    return <main className="block w-full m-0 p-0">{children}</main>;
+  }
 
   return (
     <>
-      <header className="appheader">
-        <div className="appheader-inner">
-          <Link href="/" className="wordmark" aria-label="Olio home">
-            Oli<span>o</span>
-          </Link>
-          <nav className="nav">
-            <Link href="/">Home</Link>
-            <Link href="/wallet">Wallet</Link>
+      <header className="border-b border-line bg-gradient-to-b from-[#f7f6f0] to-[#f2f1e8]">
+        <div className="mx-auto flex w-[min(980px,calc(100%-32px))] items-center justify-between gap-4 py-4">
+          <Image
+            src="/assets/olio.svg"
+            alt="logo"
+            width={40}
+            height={40}
+            className="h-10 w-10"
+          />
+          <nav className="flex items-center gap-[18px]">
+            <Link
+              href="/"
+              className="text-[15px] font-semibold text-muted hover:text-olive-deep"
+            >
+              Home
+            </Link>
+            <Link
+              href="/wallet"
+              className="text-[15px] font-semibold text-muted hover:text-olive-deep"
+            >
+              Wallet
+            </Link>
             {address ? (
-              <span className="pubkey" title={`${address} (${walletType})`} onClick={disconnect}>
+              <span
+                className="cursor-pointer rounded-full border border-line bg-sage px-3 py-1.5 font-sans text-xs text-olive-deep hover:border-olive"
+                title={`${address} (${walletType})`}
+                onClick={disconnect}
+              >
                 {shortKey(address)}
               </span>
             ) : (
-              <button onClick={connectPrivy} disabled={connecting}>
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-olive bg-olive px-[18px] font-semibold text-paper transition-colors hover:bg-olive-deep disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-olive"
+                onClick={connectPrivy}
+                disabled={connecting}
+              >
                 {connecting ? "Signing in…" : "Sign In"}
               </button>
             )}
           </nav>
         </div>
       </header>
-      <main>{children}</main>
+      <main className="mx-auto grid w-full gap-[18px] pb-20 [&>*]:mx-auto [&>*]:w-[min(720px,calc(100%-32px))]">
+        {children}
+      </main>
     </>
   );
 }

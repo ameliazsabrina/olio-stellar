@@ -12,5 +12,8 @@
   },
   "workspaces": [
     "frontend"
-  ]
+  ],
+  "dependencies": {
+    "@fontsource/aileron": "^5.2.5"
+  }
 }
