@@ -14,7 +14,7 @@ import {
   scValToNative,
   xdr
 } from "@stellar/stellar-sdk";
-import { isConnected, requestAccess, signTransaction } from "@stellar/freighter-api";
+import type { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
 import { bytesToHex, fromBaseUnits, hexToBytes } from "./crypto";
 import type { RawProof } from "./prover";
 import { api } from "../trpc/client";
@@ -52,27 +52,45 @@ const toBytes = (v: unknown): Uint8Array =>
 // --- wallet-agnostic signer -------------------------------------------------
 
 /// A wallet plugs in by providing its address and a way to sign a prepared XDR,
-/// returning the signed XDR. Freighter and Privy both implement this.
+/// returning the signed XDR. External wallets (via stellar-wallets-kit) and
+/// Privy both implement this.
 export type Signer = { address: string; sign: (unsignedXdr: string) => Promise<string> };
 
-// --- Freighter --------------------------------------------------------------
+// --- external wallet (Freighter / LOBSTR via stellar-wallets-kit) ----------
 
-export async function connectWallet(): Promise<string> {
-  const conn = await isConnected();
-  if ("error" in conn && conn.error) throw new Error(String(conn.error));
-  if (!conn.isConnected) throw new Error("Freighter is not installed or unavailable.");
-  const access = await requestAccess();
-  if (access.error) throw new Error(String(access.error));
-  return access.address;
+// The kit registers browser-only side effects (theme CSS vars on <html>) at
+// import time, so it's loaded lazily on first use — never during SSR/build —
+// to avoid hydration mismatches and keep it out of the initial bundle.
+let kitPromise: Promise<typeof StellarWalletsKit> | null = null;
+function getKit(): Promise<typeof StellarWalletsKit> {
+  if (!kitPromise) {
+    kitPromise = (async () => {
+      const { StellarWalletsKit, Networks } = await import("@creit.tech/stellar-wallets-kit");
+      const { FreighterModule } = await import("@creit.tech/stellar-wallets-kit/modules/freighter");
+      const { LobstrModule } = await import("@creit.tech/stellar-wallets-kit/modules/lobstr");
+      const network =
+        Object.values(Networks).find((n) => n === networkPassphrase) ?? Networks.TESTNET;
+      StellarWalletsKit.init({ network, modules: [new FreighterModule(), new LobstrModule()] });
+      return StellarWalletsKit;
+    })();
+  }
+  return kitPromise;
 }
 
-export function freighterSigner(address: string): Signer {
+/// Opens the wallet-kit picker, scoped to Freighter and LOBSTR only.
+export async function connectExternalWallet(): Promise<string> {
+  const kit = await getKit();
+  const { address } = await kit.authModal();
+  return address;
+}
+
+export function externalWalletSigner(address: string): Signer {
   return {
     address,
     sign: async (unsignedXdr: string) => {
-      const signed = await signTransaction(unsignedXdr, { networkPassphrase, address });
-      if (signed.error) throw new Error(String(signed.error));
-      return signed.signedTxXdr;
+      const kit = await getKit();
+      const { signedTxXdr } = await kit.signTransaction(unsignedXdr, { networkPassphrase, address });
+      return signedTxXdr;
     }
   };
 }

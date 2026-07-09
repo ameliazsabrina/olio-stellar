@@ -48,11 +48,6 @@ export async function accountPubkeys(
   };
 }
 
-export function getStoredUsername(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(USERNAME_KEY);
-}
-
 export function setStoredUsername(username: string): void {
   window.localStorage.setItem(USERNAME_KEY, username);
 }

@@ -18,9 +18,6 @@ export const btn =
 export const btnSecondary =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-olive bg-transparent px-[18px] font-semibold text-olive-deep transition-colors hover:bg-sage disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent";
 
-export const btnLink =
-  "min-h-0 border-0 bg-none p-0 font-semibold text-olive-deep underline";
-
 export function status(kind: "info" | "ok" | "err") {
   const tone =
     kind === "ok"
@@ -52,7 +49,6 @@ export const balval = "font-mono text-lg font-semibold text-ink";
 export const notes = "mt-2 grid gap-2";
 export const note =
   "flex items-center gap-3 rounded-lg border border-line px-3 py-2";
-export const amt = "font-semibold text-ink";
 
 export const edGrid =
   "grid grid-cols-2 gap-[clamp(24px,3vw,44px)] [@media(max-width:620px)]:grid-cols-1";

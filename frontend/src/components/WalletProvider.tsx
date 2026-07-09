@@ -12,14 +12,15 @@ import {
 } from "react";
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import {
-  connectWallet,
+  connectExternalWallet,
   ensureFunded,
-  freighterSigner,
+  externalWalletSigner,
+  usernameOf,
   type Signer,
 } from "../lib/stellar";
 import { fetchPrivyWallet, privySigner, type PrivyWallet } from "../lib/privy";
 
-export type WalletType = "freighter" | "privy" | null;
+export type WalletType = "external" | "privy" | null;
 
 type PrivyBits = {
   ready: boolean;
@@ -35,7 +36,13 @@ type WalletState = {
   connecting: boolean;
   error: string;
   privyEnabled: boolean;
-  connectFreighter: () => Promise<void>;
+  username: string | null;
+  usernameResolved: boolean;
+  setUsername: (u: string | null) => void;
+  usernameModalOpen: boolean;
+  openUsernameModal: () => void;
+  closeUsernameModal: () => void;
+  connectExternal: () => Promise<void>;
   connectPrivy: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigner: () => Signer;
@@ -54,7 +61,47 @@ function WalletCore({
   const [walletType, setWalletType] = useState<WalletType>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
+  const [usernameResolved, setUsernameResolved] = useState(false);
+  const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const privyWalletRef = useRef<PrivyWallet | null>(null);
+
+  // Resolve the connected address to its on-chain username so the nav and the
+  // onboarding modal can react to it. Runs for both connect paths.
+  useEffect(() => {
+    if (!address) {
+      setUsername(null);
+      setUsernameResolved(false);
+      return;
+    }
+    let cancelled = false;
+    setUsernameResolved(false);
+    usernameOf(address)
+      .then((name) => {
+        if (!cancelled) {
+          setUsername(name);
+          setUsernameResolved(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUsername(null);
+          setUsernameResolved(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  // Once we know a connected user has no username, prompt them to claim one.
+  // Dismissal sticks (deps don't change on close); the nav CTA can reopen it.
+  useEffect(() => {
+    if (address && usernameResolved && !username) setUsernameModalOpen(true);
+  }, [address, usernameResolved, username]);
+
+  const openUsernameModal = useCallback(() => setUsernameModalOpen(true), []);
+  const closeUsernameModal = useCallback(() => setUsernameModalOpen(false), []);
 
   useEffect(() => {
     if (!privy?.ready || !privy.authenticated || privyWalletRef.current) return;
@@ -71,15 +118,15 @@ function WalletCore({
     );
   }, [privy]);
 
-  const connectFreighter = useCallback(async () => {
+  const connectExternal = useCallback(async () => {
     setConnecting(true);
     setError("");
     try {
-      const a = await connectWallet();
+      const a = await connectExternalWallet();
       setAddress(a);
-      setWalletType("freighter");
+      setWalletType("external");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Freighter connect failed");
+      setError(e instanceof Error ? e.message : "Wallet connect failed");
     } finally {
       setConnecting(false);
     }
@@ -99,10 +146,11 @@ function WalletCore({
     privyWalletRef.current = null;
     setAddress("");
     setWalletType(null);
+    setUsernameModalOpen(false);
   }, [walletType, privy]);
 
   const getSigner = useCallback((): Signer => {
-    if (walletType === "freighter") return freighterSigner(address);
+    if (walletType === "external") return externalWalletSigner(address);
     if (walletType === "privy" && privy && privyWalletRef.current) {
       return privySigner(privyWalletRef.current, privy.getAccessToken);
     }
@@ -116,7 +164,13 @@ function WalletCore({
       connecting,
       error,
       privyEnabled: Boolean(privy),
-      connectFreighter,
+      username,
+      usernameResolved,
+      setUsername,
+      usernameModalOpen,
+      openUsernameModal,
+      closeUsernameModal,
+      connectExternal,
       connectPrivy,
       disconnect,
       getSigner,
@@ -127,7 +181,12 @@ function WalletCore({
       connecting,
       error,
       privy,
-      connectFreighter,
+      username,
+      usernameResolved,
+      usernameModalOpen,
+      openUsernameModal,
+      closeUsernameModal,
+      connectExternal,
       connectPrivy,
       disconnect,
       getSigner,
@@ -153,14 +212,10 @@ function PrivyBridge({ children }: { children: ReactNode }) {
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   if (!appId) {
-    // Privy not configured → Freighter-only.
     return <WalletCore privy={null}>{children}</WalletCore>;
   }
   return (
-    <PrivyProvider
-      appId={appId}
-      config={{ loginMethods: ["email", "google", "passkey", "wallet"] }}
-    >
+    <PrivyProvider appId={appId} config={{ loginMethods: ["email", "google"] }}>
       <PrivyBridge>{children}</PrivyBridge>
     </PrivyProvider>
   );

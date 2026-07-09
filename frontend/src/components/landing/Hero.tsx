@@ -26,6 +26,7 @@ export function EditionsHero() {
       const q = gsap.utils.selector(root);
       const leftHand = q("[data-ed-hand-left]")[0] as HTMLElement | undefined;
       const rightHand = q("[data-ed-hand-right]")[0] as HTMLElement | undefined;
+      const bg = q("[data-ed-bg]")[0] as HTMLElement | undefined;
       const frameRect = q("[data-ed-frame] rect")[0] as unknown as
         | SVGRectElement
         | undefined;
@@ -46,29 +47,50 @@ export function EditionsHero() {
 
           if (reduceMotion) return;
 
-          // Entrance: hands sweep in from the edges, frame draws, box fades up.
-          const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+          // Entrance: hands reach in from the edges with a soft, staggered
+          // settle; frame draws; content rises.
+          const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
           tl.from(
             leftHand,
-            { xPercent: -60, autoAlpha: 0, rotation: -6, duration: 1.2 },
+            {
+              xPercent: -40,
+              yPercent: 6,
+              rotation: -5,
+              scale: 1.05,
+              autoAlpha: 0,
+              duration: 1.5,
+            },
             0,
           ).from(
             rightHand,
-            { xPercent: 60, autoAlpha: 0, rotation: 6, duration: 1.2 },
-            0.05,
+            {
+              xPercent: 40,
+              yPercent: 8,
+              rotation: 5,
+              scale: 1.05,
+              autoAlpha: 0,
+              duration: 1.5,
+            },
+            0.18,
           );
 
           if (frameRect) {
             tl.from(
               frameRect,
               { strokeDashoffset: 1, duration: 1.4, ease: "power2.out" },
-              0.3,
+              0.5,
             );
           }
           tl.from(
             q("[data-ed-hero-inner] > *"),
-            { y: 26, autoAlpha: 0, duration: 0.8, stagger: 0.09 },
-            0.5,
+            {
+              y: 22,
+              autoAlpha: 0,
+              duration: 0.9,
+              stagger: 0.12,
+              ease: "power2.out",
+            },
+            0.65,
           );
 
           // Scroll parallax: hands drift apart + down and fade, box eases out.
@@ -93,22 +115,17 @@ export function EditionsHero() {
             )
             .to(box, { y: -40, autoAlpha: 0.35, ease: "none" }, 0);
 
-          if (!isDesktop) return;
+          if (!isDesktop || !bg) return;
 
-          // Desktop pointer parallax on the hands.
-          const xToLeft = gsap.quickTo(leftHand, "x", {
+          // Desktop pointer interaction: the background stays gently zoomed in
+          // and pans to follow the cursor's direction. The zoom leaves overflow
+          // room so the pan never reveals the image edges.
+          gsap.set(bg, { scale: 1.1, transformOrigin: "center center" });
+          const xTo = gsap.quickTo(bg, "x", {
             duration: 0.8,
             ease: "power3.out",
           });
-          const yToLeft = gsap.quickTo(leftHand, "y", {
-            duration: 0.8,
-            ease: "power3.out",
-          });
-          const xToRight = gsap.quickTo(rightHand, "x", {
-            duration: 0.8,
-            ease: "power3.out",
-          });
-          const yToRight = gsap.quickTo(rightHand, "y", {
+          const yTo = gsap.quickTo(bg, "y", {
             duration: 0.8,
             ease: "power3.out",
           });
@@ -121,16 +138,13 @@ export function EditionsHero() {
             const rect = root.getBoundingClientRect();
             const nx = clamp(mapX(e.clientX - rect.left));
             const ny = clamp(mapY(e.clientY - rect.top));
-            xToLeft(nx * -22);
-            yToLeft(ny * -14);
-            xToRight(nx * 22);
-            yToRight(ny * 18);
+            // Follow the cursor's direction, subtly.
+            xTo(nx * 14);
+            yTo(ny * 10);
           };
           const onLeave = () => {
-            xToLeft(0);
-            yToLeft(0);
-            xToRight(0);
-            yToRight(0);
+            xTo(0);
+            yTo(0);
           };
           root.addEventListener("pointermove", onMove);
           root.addEventListener("pointerleave", onLeave);
@@ -154,7 +168,8 @@ export function EditionsHero() {
       aria-labelledby="ed-hero-title"
     >
       <Image
-        className="z-[-3] object-cover"
+        data-ed-bg
+        className="z-[-3] object-cover will-change-transform"
         src="/assets/section1-bg.jpg"
         alt=""
         fill
@@ -165,25 +180,32 @@ export function EditionsHero() {
         className="pointer-events-none absolute inset-0 z-[-2] bg-[radial-gradient(48%_56%_at_50%_47%,rgba(16,20,9,0.5),rgba(16,20,9,0.05)_76%),linear-gradient(to_bottom,rgba(16,20,9,0.5),transparent_22%,transparent_60%,rgba(16,20,9,0.6))]"
         aria-hidden="true"
       />
-      <div className="pointer-events-none absolute inset-0 z-[-1]" aria-hidden="true">
-        <Image
-          data-ed-hand-left
-          className="absolute top-1/2 h-auto w-[min(46vw,600px)] -translate-y-[46%] will-change-transform [filter:drop-shadow(0_26px_40px_rgba(0,0,0,0.45))] max-lg:w-[62vw] max-lg:origin-left max-lg:-translate-y-[58%] max-lg:scale-90 max-[620px]:w-[76vw] max-[620px]:opacity-70 left-0"
-          src="/assets/left-hand.png"
-          alt=""
-          width={550}
-          height={550}
-          priority
-        />
-        <Image
-          data-ed-hand-right
-          className="absolute top-1/2 h-auto w-[min(46vw,600px)] -translate-y-[40%] will-change-transform [filter:drop-shadow(0_26px_40px_rgba(0,0,0,0.45))] max-lg:w-[62vw] max-lg:origin-right max-lg:-translate-y-[16%] max-lg:scale-90 max-[620px]:w-[76vw] max-[620px]:opacity-70 right-0"
-          src="/assets/right-hand.png"
-          alt=""
-          width={550}
-          height={550}
-          priority
-        />
+      <div
+        className="pointer-events-none absolute inset-0 z-[-1]"
+        aria-hidden="true"
+      >
+        <div className="absolute left-0 top-1/2 origin-left -translate-y-[46%] max-lg:-translate-y-[58%] max-lg:scale-90 max-[620px]:opacity-70">
+          <Image
+            data-ed-hand-left
+            className="block h-auto w-[min(46vw,600px)] will-change-transform [filter:drop-shadow(0_26px_40px_rgba(0,0,0,0.45))] max-lg:w-[62vw] max-[620px]:w-[76vw]"
+            src="/assets/left-hand.png"
+            alt=""
+            width={550}
+            height={550}
+            priority
+          />
+        </div>
+        <div className="absolute right-0 top-1/2 origin-right -translate-y-[40%] max-lg:-translate-y-[16%] max-lg:scale-90 max-[620px]:opacity-70">
+          <Image
+            data-ed-hand-right
+            className="block h-auto w-[min(46vw,600px)] will-change-transform [filter:drop-shadow(0_26px_40px_rgba(0,0,0,0.45))] max-lg:w-[62vw] max-[620px]:w-[76vw]"
+            src="/assets/right-hand.png"
+            alt=""
+            width={550}
+            height={550}
+            priority
+          />
+        </div>
       </div>
 
       <div
@@ -209,7 +231,7 @@ export function EditionsHero() {
         </svg>
         <div data-ed-hero-inner className="relative flex w-full flex-col">
           <h1
-            className="m-0 mt-4 flex flex-col font-bold text-[clamp(40px,5vw,60px)] leading-[0.92] tracking-[-0.02em] text-ed-cream"
+            className="m-0 mt-4 flex flex-col font-medium text-[clamp(40px,5vw,60px)] leading-[0.92] tracking-[-0.02em] text-ed-cream"
             id="ed-hero-title"
           >
             <span>Private</span>
@@ -218,7 +240,7 @@ export function EditionsHero() {
             </span>
             <span>payments</span>
           </h1>
-          <p className="mt-5 max-w-[26ch] text-[13px] uppercase leading-[1.5] tracking-[0.08em] text-ed-cream/70">
+          <p className="mt-5 max-w-[28ch] text-[13px] uppercase leading-[1.5] tracking-[0.08em] text-ed-cream/70">
             Get paid in USDC without publishing your income.
           </p>
           <div className="mt-7 flex flex-wrap gap-2.5">

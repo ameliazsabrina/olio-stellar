@@ -5,18 +5,39 @@ import Image from "next/image";
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useWallet } from "./WalletProvider";
+import { UsernameModal } from "./UsernameModal";
 
 function shortKey(k: string) {
   return k ? `${k.slice(0, 4)}…${k.slice(-4)}` : "";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { address, walletType, connecting, connectPrivy, disconnect } =
-    useWallet();
+  const {
+    address,
+    walletType,
+    connecting,
+    username,
+    usernameResolved,
+    openUsernameModal,
+    usernameModalOpen,
+    closeUsernameModal,
+    connectPrivy,
+    connectExternal,
+    disconnect,
+  } = useWallet();
   const pathname = usePathname();
 
+  const usernameModal = (
+    <UsernameModal open={usernameModalOpen} onClose={closeUsernameModal} />
+  );
+
   if (pathname === "/") {
-    return <main className="block w-full m-0 p-0">{children}</main>;
+    return (
+      <>
+        <main className="block w-full m-0 p-0">{children}</main>
+        {usernameModal}
+      </>
+    );
   }
 
   return (
@@ -37,19 +58,30 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Home
             </Link>
-            <Link
-              href="/wallet"
-              className="text-[15px] font-semibold text-muted hover:text-olive-deep"
-            >
-              Wallet
-            </Link>
+            {!address && (
+              <button
+                className="text-[15px] font-semibold text-muted transition-colors hover:text-olive-deep disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={connectExternal}
+                disabled={connecting}
+              >
+                {connecting ? "Connecting…" : "Use Stellar Wallets"}
+              </button>
+            )}
+            {address && usernameResolved && !username && (
+              <button
+                className="text-[15px] font-semibold text-olive-deep transition-colors hover:text-olive"
+                onClick={openUsernameModal}
+              >
+                Claim username
+              </button>
+            )}
             {address ? (
               <span
                 className="cursor-pointer rounded-full border border-line bg-sage px-3 py-1.5 font-sans text-xs text-olive-deep hover:border-olive"
                 title={`${address} (${walletType})`}
                 onClick={disconnect}
               >
-                {shortKey(address)}
+                {username ? `@${username}` : shortKey(address)}
               </span>
             ) : (
               <button
@@ -66,6 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto grid w-full gap-[18px] pb-20 [&>*]:mx-auto [&>*]:w-[min(720px,calc(100%-32px))]">
         {children}
       </main>
+      {usernameModal}
     </>
   );
 }

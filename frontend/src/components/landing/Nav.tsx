@@ -1,17 +1,21 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useState } from "react";
 import { useWallet } from "../WalletProvider";
-
-const LINKS = [
-  { id: "links", label: "Payment links" },
-  { id: "shield", label: "Shielded pool" },
-  { id: "withdraw", label: "Withdrawals" },
-];
+import { StellarWalletModal } from "./StellarWalletModal";
 
 export function EditionsTopNav() {
-  const { address, connecting, connectPrivy, disconnect } = useWallet();
+  const {
+    address,
+    connecting,
+    username,
+    usernameResolved,
+    openUsernameModal,
+    connectPrivy,
+    disconnect,
+  } = useWallet();
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   return (
     <header
@@ -27,41 +31,43 @@ export function EditionsTopNav() {
         <Image
           src="/assets/olio-white.svg"
           alt=""
-          width={48}
-          height={48}
+          width={40}
+          height={40}
           priority
           className="scale-125"
         />
       </a>
 
-      <nav className="hidden items-center gap-[26px] lg:flex" aria-label="Sections">
-        {LINKS.map((l) => (
-          <a
-            key={l.id}
-            href={`#${l.id}`}
-            data-ed-navlink={l.id}
-            className="text-sm font-medium text-ed-cream/72 transition-colors data-[active=true]:text-ed-cream"
+      <div className="flex flex-none items-center gap-6">
+        {!address && (
+          <button
+            type="button"
+            className="text-md font-medium text-ed-cream/72 transition-colors hover:text-ed-cream"
+            onClick={() => setWalletModalOpen(true)}
           >
-            {l.label}
-          </a>
-        ))}
-      </nav>
-
-      <div className="flex flex-none items-center gap-3">
-        <Link href="/wallet" className="text-sm font-medium text-ed-cream/72 hover:text-ed-cream">
-          Wallet
-        </Link>
+            Use Stellar Wallets
+          </button>
+        )}
+        {address && usernameResolved && !username && (
+          <button
+            type="button"
+            className="text-md font-medium text-ed-gold transition-colors hover:text-ed-cream"
+            onClick={openUsernameModal}
+          >
+            Claim username
+          </button>
+        )}
         {address ? (
           <button
             className="inline-flex min-h-[38px] items-center rounded-full border border-ed-line bg-transparent px-[18px] font-mono text-sm font-medium text-ed-cream transition-colors hover:border-ed-cream/40 hover:bg-ed-cream/[0.06]"
             onClick={disconnect}
             title={`${address} — click to disconnect`}
           >
-            {`${address.slice(0, 4)}…${address.slice(-4)}`}
+            {username ? `@${username}` : `${address.slice(0, 4)}…${address.slice(-4)}`}
           </button>
         ) : (
           <button
-            className="inline-flex min-h-[38px] items-center rounded-full border border-ed-cream bg-ed-cream px-[18px] text-sm font-semibold text-ed-dark transition-colors hover:bg-white disabled:cursor-default disabled:opacity-55"
+            className="inline-flex min-h-[38px] items-center rounded-full border border-ed-cream bg-ed-cream px-[18px] text-md font-semibold text-ed-dark transition-colors hover:bg-white disabled:cursor-default disabled:opacity-55"
             onClick={connectPrivy}
             disabled={connecting}
           >
@@ -69,6 +75,11 @@ export function EditionsTopNav() {
           </button>
         )}
       </div>
+
+      <StellarWalletModal
+        open={walletModalOpen}
+        onClose={() => setWalletModalOpen(false)}
+      />
     </header>
   );
 }

@@ -1,22 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { CreateAccountForm } from "../components/CreateAccountForm";
+import { DepositForm } from "../components/DepositForm";
 import { EditionsChrome } from "../components/landing/Chrome";
 import { EditionsHero } from "../components/landing/Hero";
 import { EdArticle, EditionsSection } from "../components/landing/Section";
 import { useWallet } from "../components/WalletProvider";
 import { WalletStatus } from "../components/WalletStatus";
-import { getAccount, getStoredUsername, setStoredUsername } from "../lib/notes";
-import {
-  addUsdcTrustline,
-  poolId,
-  registryId,
-  usdcBalanceLabel,
-  usernameOf,
-} from "../lib/stellar";
+import { getAccount } from "../lib/notes";
+import { addUsdcTrustline, poolId, registryId, usdcBalanceLabel } from "../lib/stellar";
 import {
   bignum,
   btn,
@@ -31,8 +24,7 @@ import {
 const configured = Boolean(registryId && poolId);
 
 export default function Home() {
-  const { address, getSigner } = useWallet();
-  const [username, setUsername] = useState<string | null>(null);
+  const { address, getSigner, username, openUsernameModal } = useWallet();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{
     kind: "info" | "ok" | "err";
@@ -42,32 +34,15 @@ export default function Home() {
   const [origin, setOrigin] = useState("");
 
   useEffect(() => {
-    setUsername(getStoredUsername());
     setOrigin(window.location.origin);
   }, []);
 
   useEffect(() => {
     if (!address) return;
-    usernameOf(address)
-      .then((name) => {
-        if (name) {
-          setUsername(name);
-          setStoredUsername(name);
-        }
-      })
-      .catch(() => {});
     usdcBalanceLabel(address)
       .then(setBalance)
       .catch(() => {});
   }, [address]);
-
-  const onClaimed = useCallback((name: string) => {
-    setUsername(name);
-    setStatus({
-      kind: "ok",
-      msg: `@${name} is yours. Share your link to get paid privately.`,
-    });
-  }, []);
 
   const addTrustline = useCallback(async () => {
     setBusy(true);
@@ -202,8 +177,29 @@ export default function Home() {
 
             <WalletStatus />
 
-            {hasAccount ? (
+            {!address ? (
+              <div className={`${panel} bg-ed-cream border-ink/10`}>
+                <h2 className="text-lg font-semibold text-ink">Connect your wallet</h2>
+                <p className={sub}>
+                  Connect a wallet (top right) to claim your username and start
+                  getting paid privately.
+                </p>
+              </div>
+            ) : !hasAccount ? (
+              <div className={`${panel} bg-ed-cream border-ink/10`}>
+                <h2 className="text-lg font-semibold text-ink">Claim your username</h2>
+                <p className={sub}>
+                  Pick a username to get your payment link and start receiving
+                  private payments.
+                </p>
+                <button className={`${btn} self-start`} onClick={openUsernameModal}>
+                  Claim your username →
+                </button>
+              </div>
+            ) : (
               <>
+                <DepositForm />
+
                 <div className={`${panel} bg-ed-cream border-ink/10`}>
                   <h2 className="text-lg font-semibold text-ink">Your payment link</h2>
                   <p className={sub}>
@@ -239,8 +235,8 @@ export default function Home() {
                   </div>
                   <p className={sub}>
                     Your wallet needs a USDC trustline (and testnet USDC) to{" "}
-                    <em>pay</em> links. Received notes live in the pool — see{" "}
-                    <Link href="/wallet">Wallet</Link>.
+                    <em>pay</em> links and deposit. Each payment you receive
+                    arrives as a fresh, private note only you can read.
                   </p>
                   <div className={inline}>
                     <button
@@ -259,13 +255,8 @@ export default function Home() {
                       Get testnet USDC ↗
                     </a>
                   </div>
-                  <Link className={`${btn} self-start`} href="/wallet">
-                    Open wallet →
-                  </Link>
                 </div>
               </>
-            ) : (
-              <CreateAccountForm onClaimed={onClaimed} />
             )}
 
             {status ? (

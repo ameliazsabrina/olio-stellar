@@ -35,7 +35,16 @@ const nextConfig = {
   // optional drivers) that webpack can't statically bundle for the Node.js
   // server runtime — require them directly from node_modules at runtime
   // instead of trying to bundle them.
-  serverExternalPackages: ["@stellar/stellar-sdk", "@stellar/stellar-base", "sodium-native", "mongodb"]
+  serverExternalPackages: ["@stellar/stellar-sdk", "@stellar/stellar-base", "sodium-native", "mongodb"],
+  webpack: (config, { dev }) => {
+    // The dependency graph (Privy's EVM/Solana wallet stack, snarkjs/wasmcurves)
+    // makes Next's persistent filesystem cache balloon to ~2GB. In dev, use an
+    // in-memory cache instead so nothing accumulates on disk between restarts.
+    if (dev) {
+      config.cache = { type: "memory" };
+    }
+    return config;
+  }
 };
 
 export default nextConfig;

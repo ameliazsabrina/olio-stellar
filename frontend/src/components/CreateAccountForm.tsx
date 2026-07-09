@@ -7,6 +7,7 @@ import { usernameSchema } from "../server/modules/usernames/usernames.schema";
 import { useWallet } from "./WalletProvider";
 import { accountPubkeys, ensureAccount, setStoredUsername } from "../lib/notes";
 import { registerUsername } from "../lib/stellar";
+import { api } from "../trpc/client";
 import { btn, field, hint, inline, input, panel, status, sub } from "../lib/ui";
 
 const claimInput = z.object({ username: usernameSchema });
@@ -29,6 +30,14 @@ export function CreateAccountForm({ onClaimed }: { onClaimed: (username: string)
       const acct = ensureAccount();
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
       await registerUsername(signer, username, notePubkey, viewPubkey);
+      // Mirror the fresh registration into Mongo now. Soft-fail: the on-chain
+      // register already succeeded, and the resolve cache self-heals on the
+      // next lookup, so a mirror hiccup shouldn't block the claim.
+      try {
+        await api.usernames.register.mutate({ username });
+      } catch (err) {
+        console.warn("username saved on-chain but Mongo mirror failed", err);
+      }
       setStoredUsername(username);
       onClaimed(username);
     } catch (e) {
