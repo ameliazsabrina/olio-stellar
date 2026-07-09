@@ -25,9 +25,9 @@ npx snarkjs groth16 fullprove input.json withdraw_js/withdraw.wasm withdraw_fina
 npx snarkjs groth16 verify verification_key.json public.json proof.json
 node to_soroban.mjs   # writes programs/olio-pool/src/fixture.rs + vk_soroban.json
 
-echo "==> staging frontend proving assets"
-mkdir -p ../../frontend/public/zk
-cp withdraw_js/withdraw.wasm ../../frontend/public/zk/withdraw.wasm
-cp withdraw_final.zkey ../../frontend/public/zk/withdraw.zkey
-cp verification_key.json ../../frontend/public/zk/verification_key.json
+echo "==> staging web proving assets"
+mkdir -p ../../web/public/zk
+cp withdraw_js/withdraw.wasm ../../web/public/zk/withdraw.wasm
+cp withdraw_final.zkey ../../web/public/zk/withdraw.zkey
+cp verification_key.json ../../web/public/zk/verification_key.json
 echo "circuit build complete"

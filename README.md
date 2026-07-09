@@ -11,7 +11,7 @@ This repo is **Iteration 2 (testnet)** — real zero-knowledge privacy end to en
 - `programs/olio-pool` — the shielded pool: a Poseidon Merkle tree of commitments,
   nullifiers, USDC custody via the SAC, and an **on-chain Groth16 verifier (BN254)**
 - `circuits/` — the `withdraw.circom` circuit + Groth16 trusted setup
-- `frontend` — Next.js + Freighter: create an account, receive encrypted notes,
+- `web` — Next.js + Freighter: create an account, receive encrypted notes,
   and **generate a withdrawal proof in your browser** to claim
 - `scripts/deploy-testnet.sh` — build, deploy, wire USDC, and register the VK
 
@@ -72,11 +72,11 @@ cd circuits && npm install && ./build.sh
 ./scripts/deploy-testnet.sh alice   # deploys, initializes, registers the VK, writes .env.local
 ```
 
-## Frontend
+## Web
 
 ```sh
 pnpm install
-pnpm --filter frontend dev   # http://localhost:3000
+pnpm --filter web dev   # http://localhost:3000
 ```
 
 To **pay**, you need testnet USDC: connect Freighter, "Add USDC trustline", then

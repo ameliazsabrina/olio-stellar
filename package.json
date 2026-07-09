@@ -3,15 +3,15 @@
   "private": true,
   "packageManager": "pnpm@10.4.1",
   "scripts": {
-    "dev": "pnpm --filter frontend dev",
-    "build": "pnpm --filter frontend build",
-    "lint": "pnpm --filter frontend lint",
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
     "contract:build": "stellar contract build",
     "contract:test": "cargo test -p olio-registry -p olio-pool",
     "deploy:testnet": "./scripts/deploy-testnet.sh"
   },
   "workspaces": [
-    "frontend"
+    "web"
   ],
   "dependencies": {
     "@fontsource/aileron": "^5.2.5"

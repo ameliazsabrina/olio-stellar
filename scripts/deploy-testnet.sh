@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build + deploy Olio (registry + shielded pool) to Stellar Testnet, wire them
-# to Circle's testnet USDC, and write the resulting IDs into frontend/.env.local.
+# to Circle's testnet USDC, and write the resulting IDs into web/.env.local.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -14,7 +14,7 @@ POOL_DEPTH="${POOL_DEPTH:-20}"
 
 REGISTRY_WASM="target/wasm32v1-none/release/olio_registry.wasm"
 POOL_WASM="target/wasm32v1-none/release/olio_pool.wasm"
-ENV_FILE="frontend/.env.local"
+ENV_FILE="web/.env.local"
 
 log() { printf '\033[0;36m==>\033[0m %s\n' "$*"; }
 
@@ -82,7 +82,7 @@ stellar contract invoke \
   --admin "${ADMIN_ADDR}" \
   --vk "$(cat "${VK_FILE}")"
 
-# 7. Write frontend env.
+# 7. Write web env.
 NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 RPC_URL="${STELLAR_RPC_URL:-https://soroban-testnet.stellar.org}"
 log "Writing ${ENV_FILE}"
