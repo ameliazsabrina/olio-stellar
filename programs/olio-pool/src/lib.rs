@@ -28,6 +28,8 @@ mod fixture;
 #[cfg(test)]
 mod withdraw_fixture;
 #[cfg(test)]
+mod transfer_fixture;
+#[cfg(test)]
 mod test;
 
 const ROOT_HISTORY_SIZE: u32 = 30;
@@ -53,6 +55,7 @@ pub struct Config {
 enum DataKey {
     Config,
     Vk,
+    VkTransfer,
     Zeros,
     Filled,
     NextIndex,
@@ -113,11 +116,25 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Set / rotate the Groth16 verification key (admin only).
+    /// Set / rotate the withdraw Groth16 verification key (admin only).
     pub fn set_verifier_key(env: Env, admin: Address, vk: VerificationKey) -> Result<(), Error> {
         admin.require_auth();
         load_config(&env)?;
         env.storage().instance().set(&DataKey::Vk, &vk);
+        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        Ok(())
+    }
+
+    /// Set / rotate the transfer Groth16 verification key (admin only). The
+    /// transfer circuit is distinct from withdraw, so it needs its own key.
+    pub fn set_transfer_verifier_key(
+        env: Env,
+        admin: Address,
+        vk: VerificationKey,
+    ) -> Result<(), Error> {
+        admin.require_auth();
+        load_config(&env)?;
+        env.storage().instance().set(&DataKey::VkTransfer, &vk);
         env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         Ok(())
     }
@@ -211,6 +228,81 @@ impl PoolContract {
         Ok(())
     }
 
+    /// Shielded transfer: spend one note in zero knowledge and mint two new
+    /// notes — one for the recipient, one for the sender's change — without any
+    /// value leaving the pool. The proof guarantees Merkle membership + nullifier
+    /// derivation of the input and value conservation across the outputs; the
+    /// contract only ever sees `{root, nullifier, recipient_commitment,
+    /// change_commitment}` (amounts and identities stay private). Each output is
+    /// published via the same `deposit` event as a deposit, carrying its note
+    /// metadata encrypted to the owner's viewing key, so the existing indexer and
+    /// client scan discover both notes unchanged.
+    ///
+    /// Authorization is the proof itself (a valid one-time nullifier), so no
+    /// `require_auth` is taken — the sender's wallet is never revealed. A relayer
+    /// submits the (empty-auth) invocation.
+    #[allow(clippy::too_many_arguments)]
+    pub fn transfer(
+        env: Env,
+        root: BytesN<32>,
+        nullifier: BytesN<32>,
+        proof: Proof,
+        recipient_commitment: BytesN<32>,
+        recipient_ephemeral_pk: BytesN<32>,
+        recipient_ciphertext: Bytes,
+        change_commitment: BytesN<32>,
+        change_ephemeral_pk: BytesN<32>,
+        change_ciphertext: Bytes,
+    ) -> Result<(u32, u32), Error> {
+        let config = load_config(&env)?;
+        let vk: VerificationKey = env
+            .storage()
+            .instance()
+            .get(&DataKey::VkTransfer)
+            .ok_or(Error::VerifierKeyNotSet)?;
+
+        if !root_is_known(&env, &root) {
+            return Err(Error::UnknownRoot);
+        }
+        let store = env.storage().persistent();
+        if store.has(&DataKey::Nullifier(nullifier.clone())) {
+            return Err(Error::DoubleSpend);
+        }
+
+        // Public signals, in the circuit's order:
+        // [root, nullifier, outCommitmentRecipient, outCommitmentChange].
+        let signals = vec![
+            &env,
+            Bn254Fr::from_u256(to_u256(&env, &root)),
+            Bn254Fr::from_u256(to_u256(&env, &nullifier)),
+            Bn254Fr::from_u256(to_u256(&env, &recipient_commitment)),
+            Bn254Fr::from_u256(to_u256(&env, &change_commitment)),
+        ];
+        if !groth16::verify(&env, &vk, &proof, &signals) {
+            return Err(Error::InvalidProof);
+        }
+
+        store.set(&DataKey::Nullifier(nullifier.clone()), &true);
+        store.extend_ttl(&DataKey::Nullifier(nullifier.clone()), TTL_THRESHOLD, TTL_EXTEND);
+
+        // Insert both output notes; value stays in the pool (no token transfer).
+        let recipient_leaf = to_u256(&env, &recipient_commitment);
+        let recipient_index = insert(&env, &config, &recipient_leaf)?;
+        let change_leaf = to_u256(&env, &change_commitment);
+        let change_index = insert(&env, &config, &change_leaf)?;
+
+        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.events().publish(
+            (symbol_short!("deposit"),),
+            (recipient_index, recipient_commitment, recipient_ephemeral_pk, recipient_ciphertext),
+        );
+        env.events().publish(
+            (symbol_short!("deposit"),),
+            (change_index, change_commitment, change_ephemeral_pk, change_ciphertext),
+        );
+        Ok((recipient_index, change_index))
+    }
+
     // ---- views -------------------------------------------------------------
 
     pub fn get_config(env: Env) -> Result<Config, Error> {
@@ -233,6 +325,10 @@ impl PoolContract {
 
     pub fn has_verifier_key(env: Env) -> bool {
         env.storage().instance().has(&DataKey::Vk)
+    }
+
+    pub fn has_transfer_verifier_key(env: Env) -> bool {
+        env.storage().instance().has(&DataKey::VkTransfer)
     }
 }
 

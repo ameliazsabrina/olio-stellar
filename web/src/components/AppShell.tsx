@@ -3,8 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import { StellarWalletModal } from "./landing/StellarWalletModal";
 import { UsernameModal } from "./UsernameModal";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { useWallet } from "./WalletProvider";
 
 function shortKey(k: string) {
@@ -14,21 +17,25 @@ function shortKey(k: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const {
     address,
-    walletType,
     connecting,
     username,
     usernameResolved,
     openUsernameModal,
     usernameModalOpen,
     closeUsernameModal,
-    connectPrivy,
-    connectExternal,
     disconnect,
   } = useWallet();
   const pathname = usePathname();
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   const usernameModal = (
     <UsernameModal open={usernameModalOpen} onClose={closeUsernameModal} />
+  );
+  const walletModal = (
+    <StellarWalletModal
+      open={walletModalOpen}
+      onClose={() => setWalletModalOpen(false)}
+    />
   );
 
   if (pathname === "/") {
@@ -36,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <>
         <main className="block w-full m-0 p-0">{children}</main>
         {usernameModal}
+        {walletModal}
       </>
     );
   }
@@ -54,19 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-[18px]">
             <Link
               href="/"
-              className="text-[15px] font-semibold text-muted hover:text-olive-deep"
+              className="text-[15px] font-semibold text-muted-foreground hover:text-olive-deep"
             >
               Home
             </Link>
-            {!address && (
-              <button
-                className="text-[15px] font-semibold text-muted transition-colors hover:text-olive-deep disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={connectExternal}
-                disabled={connecting}
-              >
-                {connecting ? "Connecting…" : "Use Stellar Wallets"}
-              </button>
-            )}
             {address && usernameResolved && !username && (
               <button
                 className="text-[15px] font-semibold text-olive-deep transition-colors hover:text-olive"
@@ -76,21 +75,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             )}
             {address ? (
-              <span
-                className="cursor-pointer rounded-full border border-line bg-sage px-3 py-1.5 font-sans text-xs text-olive-deep hover:border-olive"
-                title={`${address} (${walletType})`}
+              <Badge
+                variant="secondary"
+                className="h-auto cursor-pointer rounded-full px-3 py-1.5 font-sans text-xs hover:border-olive"
+                title={address}
                 onClick={disconnect}
               >
                 {username ? `@${username}` : shortKey(address)}
-              </span>
+              </Badge>
             ) : (
-              <button
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-olive bg-olive px-[18px] font-semibold text-paper transition-colors hover:bg-olive-deep disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-olive"
-                onClick={connectPrivy}
+              <Button
+                className="min-h-11"
+                onClick={() => setWalletModalOpen(true)}
                 disabled={connecting}
               >
                 {connecting ? "Signing in…" : "Sign In"}
-              </button>
+              </Button>
             )}
           </nav>
         </div>
@@ -99,6 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       {usernameModal}
+      {walletModal}
     </>
   );
 }

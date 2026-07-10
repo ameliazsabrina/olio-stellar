@@ -1,14 +1,11 @@
-import type { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
 import {
   Account,
   Address,
-  Asset,
   BASE_FEE,
   Contract,
   Keypair,
   Networks,
   nativeToScVal,
-  Operation,
   rpc,
   scValToNative,
   TransactionBuilder,
@@ -24,19 +21,13 @@ export const networkPassphrase =
 export const rpcUrl =
   process.env.NEXT_PUBLIC_STELLAR_RPC_URL ||
   "https://soroban-testnet.stellar.org";
-export const horizonUrl =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org";
 export const registryId = process.env.NEXT_PUBLIC_OLIO_REGISTRY_ID || "";
 export const poolId = process.env.NEXT_PUBLIC_OLIO_POOL_ID || "";
 export const usdcSacId = process.env.NEXT_PUBLIC_USDC_SAC_ID || "";
-export const usdcIssuer = process.env.NEXT_PUBLIC_USDC_ISSUER || "";
 
 export const server = new rpc.Server(rpcUrl, {
   allowHttp: rpcUrl.startsWith("http://"),
 });
-
-// --- ScVal builders ---------------------------------------------------------
 
 const scAddr = (s: string) => new Address(s).toScVal();
 const scStr = (s: string) => nativeToScVal(s, { type: "string" });
@@ -57,69 +48,17 @@ function scProof(proof: RawProof): xdr.ScVal {
 const toBytes = (v: unknown): Uint8Array =>
   v instanceof Uint8Array ? v : new Uint8Array(v as ArrayBuffer);
 
-// --- wallet-agnostic signer -------------------------------------------------
-
-/// A wallet plugs in by providing its address and a way to sign a prepared XDR,
-/// returning the signed XDR. External wallets (via stellar-wallets-kit) and
-/// Privy both implement this.
 export type Signer = {
   address: string;
-  sign: (unsignedXdr: string) => Promise<string>;
+  // Sign Soroban authorization entries and return them as base64 XDR. Returns
+  // base64 (not live xdr objects) because passkey-kit uses a separately-bundled
+  // js-xdr — objects can't cross that boundary, only bytes can.
+  signAuthEntries: (
+    entries: xdr.SorobanAuthorizationEntry[],
+  ) => Promise<string[]>;
+  // Relay a Soroban func+auth invocation gaslessly through the Channels service.
+  relaySoroban: (func: string, auth: string[]) => Promise<{ hash: string }>;
 };
-
-// --- external wallet (Freighter / LOBSTR via stellar-wallets-kit) ----------
-
-// The kit registers browser-only side effects (theme CSS vars on <html>) at
-// import time, so it's loaded lazily on first use — never during SSR/build —
-// to avoid hydration mismatches and keep it out of the initial bundle.
-let kitPromise: Promise<typeof StellarWalletsKit> | null = null;
-function getKit(): Promise<typeof StellarWalletsKit> {
-  if (!kitPromise) {
-    kitPromise = (async () => {
-      const { StellarWalletsKit, Networks } = await import(
-        "@creit.tech/stellar-wallets-kit"
-      );
-      const { FreighterModule } = await import(
-        "@creit.tech/stellar-wallets-kit/modules/freighter"
-      );
-      const { LobstrModule } = await import(
-        "@creit.tech/stellar-wallets-kit/modules/lobstr"
-      );
-      const network =
-        Object.values(Networks).find((n) => n === networkPassphrase) ??
-        Networks.TESTNET;
-      StellarWalletsKit.init({
-        network,
-        modules: [new FreighterModule(), new LobstrModule()],
-      });
-      return StellarWalletsKit;
-    })();
-  }
-  return kitPromise;
-}
-
-/// Opens the wallet-kit picker, scoped to Freighter and LOBSTR only.
-export async function connectExternalWallet(): Promise<string> {
-  const kit = await getKit();
-  const { address } = await kit.authModal();
-  return address;
-}
-
-export function externalWalletSigner(address: string): Signer {
-  return {
-    address,
-    sign: async (unsignedXdr: string) => {
-      const kit = await getKit();
-      const { signedTxXdr } = await kit.signTransaction(unsignedXdr, {
-        networkPassphrase,
-        address,
-      });
-      return signedTxXdr;
-    },
-  };
-}
-
-// --- read + write helpers ---------------------------------------------------
 
 export async function simulateRead(
   contractId: string,
@@ -141,48 +80,57 @@ export async function simulateRead(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Invoke a contract method gaslessly. Every wallet is a passkey smart wallet, so
+// this is the only path: simulate for the required auth entries, sign them, and
+// relay a func+auth invocation through the Channels service — the relayer's
+// channel account is the tx source and pays the fee, so the user needs no XLM.
 export async function invoke(
   signer: Signer,
   contractId: string,
   method: string,
   args: xdr.ScVal[] = [],
 ): Promise<unknown> {
-  const account = await server.getAccount(signer.address);
-  const built = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(new Contract(contractId).call(method, ...args))
+  const op = new Contract(contractId).call(method, ...args);
+  const hostFunction = op.body().invokeHostFunctionOp().hostFunction();
+
+  // Simulate to discover required auth entries. Use a throwaway source (NOT the
+  // user) so the user's require_auth resolves to a detached address credential we
+  // sign — a source-account credential would be rejected by the relayer, whose
+  // channel account is the real tx source.
+  const built = new TransactionBuilder(
+    new Account(Keypair.random().publicKey(), "0"),
+    { fee: BASE_FEE, networkPassphrase },
+  )
+    .addOperation(op)
     .setTimeout(120)
     .build();
-  const prepared = await server.prepareTransaction(built);
-  return sendPoll(await signer.sign(prepared.toXDR()));
+  const sim = await server.simulateTransaction(built);
+  if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error);
+  const entries = sim.result?.auth ?? [];
+
+  const auth = await signer.signAuthEntries(entries);
+  const { hash: txHash } = await signer.relaySoroban(
+    hostFunction.toXDR("base64"),
+    auth,
+  );
+  return pollTransaction(txHash);
 }
 
-async function sendPoll(signedXdr: string): Promise<unknown> {
-  const tx = TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
-  const sent = await server.sendTransaction(tx);
-  if (sent.status === "ERROR") {
-    throw new Error(
-      "Submission failed: " + JSON.stringify(sent.errorResult ?? sent),
-    );
-  }
-  let got = await server.getTransaction(sent.hash);
+async function pollTransaction(txHash: string): Promise<unknown> {
+  let got = await server.getTransaction(txHash);
   for (
     let i = 0;
     got.status === rpc.Api.GetTransactionStatus.NOT_FOUND && i < 40;
     i += 1
   ) {
     await sleep(1000);
-    got = await server.getTransaction(sent.hash);
+    got = await server.getTransaction(txHash);
   }
   if (got.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
     throw new Error("Transaction failed: " + got.status);
   }
   return got.returnValue ? scValToNative(got.returnValue) : null;
 }
-
-// --- USDC -------------------------------------------------------------------
 
 export async function usdcBalance(publicKey: string): Promise<bigint> {
   try {
@@ -198,77 +146,15 @@ export async function usdcBalanceLabel(publicKey: string): Promise<string> {
   return fromBaseUnits(await usdcBalance(publicKey));
 }
 
-export async function accountExists(address: string): Promise<boolean> {
-  try {
-    await server.getAccount(address);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/// Testnet only: create+fund an account via friendbot if it doesn't exist yet.
-export async function ensureFunded(address: string): Promise<void> {
-  if (await accountExists(address)) return;
-  await fetch(
-    `https://friendbot.stellar.org/?addr=${encodeURIComponent(address)}`,
-  );
-}
-
 export type AccountStatus = {
-  exists: boolean;
-  xlm: string;
   usdc: string;
-  hasUsdcTrustline: boolean;
 };
 
-/// XLM + USDC balances and trustline state, read from Horizon in one call.
+// Every wallet is a passkey smart-wallet contract, which holds USDC directly as
+// a SAC balance — no classic account, XLM, or trustline involved.
 export async function accountStatus(address: string): Promise<AccountStatus> {
-  const res = await fetch(`${horizonUrl}/accounts/${address}`);
-  if (res.status === 404) {
-    return { exists: false, xlm: "0", usdc: "0", hasUsdcTrustline: false };
-  }
-  if (!res.ok) throw new Error(`Horizon ${res.status}`);
-  const account = (await res.json()) as {
-    balances: Array<{
-      asset_type: string;
-      asset_code?: string;
-      asset_issuer?: string;
-      balance: string;
-    }>;
-  };
-  const status: AccountStatus = {
-    exists: true,
-    xlm: "0",
-    usdc: "0",
-    hasUsdcTrustline: false,
-  };
-  for (const b of account.balances) {
-    if (b.asset_type === "native") {
-      status.xlm = b.balance;
-    } else if (b.asset_code === "USDC" && b.asset_issuer === usdcIssuer) {
-      status.usdc = b.balance;
-      status.hasUsdcTrustline = true;
-    }
-  }
-  return status;
+  return { usdc: fromBaseUnits(await usdcBalance(address)) };
 }
-
-export async function addUsdcTrustline(signer: Signer): Promise<void> {
-  const account = await server.getAccount(signer.address);
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase,
-  })
-    .addOperation(
-      Operation.changeTrust({ asset: new Asset("USDC", usdcIssuer) }),
-    )
-    .setTimeout(60)
-    .build();
-  await sendPoll(await signer.sign(tx.toXDR()));
-}
-
-// --- registry ---------------------------------------------------------------
 
 export type OlioAccount = {
   owner: string;
@@ -291,9 +177,6 @@ export async function registerUsername(
   ]);
 }
 
-/// Direct on-chain registry read — no cache, always current. Used as the
-/// fallback when the Mongo-backed `usernames` API is unavailable, and as the
-/// cache-miss source of truth for that API's server-side router.
 export async function resolveUsernameOnChain(
   username: string,
 ): Promise<OlioAccount | null> {
@@ -317,7 +200,6 @@ export async function resolveUsernameOnChain(
   }
 }
 
-/// Direct on-chain registry read — see `resolveUsernameOnChain`.
 export async function usernameOfOnChain(
   publicKey: string,
 ): Promise<string | null> {
@@ -328,9 +210,6 @@ export async function usernameOfOnChain(
   );
 }
 
-/// Resolve `@username` -> account. Tries the Mongo-backed cache via tRPC
-/// first (fast, persistent); falls back to a direct chain read if the API
-/// is unreachable (e.g. local dev without Mongo running).
 export async function resolveUsername(
   username: string,
 ): Promise<OlioAccount | null> {
@@ -348,7 +227,6 @@ export async function resolveUsername(
   }
 }
 
-/// Owner address -> `@username`. See `resolveUsername` for the cache/fallback pattern.
 export async function usernameOf(publicKey: string): Promise<string | null> {
   try {
     return await api.usernames.byOwner.query({ owner: publicKey });
@@ -357,7 +235,9 @@ export async function usernameOf(publicKey: string): Promise<string | null> {
   }
 }
 
-// --- pool -------------------------------------------------------------------
+export async function registerUsernameCache(username: string): Promise<void> {
+  await api.usernames.register.mutate({ username });
+}
 
 export async function poolDeposit(
   signer: Signer,
@@ -393,13 +273,42 @@ export async function poolWithdraw(
   ]);
 }
 
+export type TransferNote = {
+  commitment: Uint8Array;
+  ephemeralPk: Uint8Array;
+  ciphertext: Uint8Array;
+};
+
+/// Shielded transfer: spend a note (root + nullifier + proof) and mint two new
+/// notes — one for the recipient, one for the sender's change — in one gasless
+/// call. Returns the two new leaf indices. No value leaves the pool.
+export async function poolTransfer(
+  signer: Signer,
+  root: Uint8Array,
+  nullifier: Uint8Array,
+  proof: RawProof,
+  recipient: TransferNote,
+  change: TransferNote,
+): Promise<{ recipientIndex: number; changeIndex: number }> {
+  const res = (await invoke(signer, poolId, "transfer", [
+    scBytes(root),
+    scBytes(nullifier),
+    scProof(proof),
+    scBytes(recipient.commitment),
+    scBytes(recipient.ephemeralPk),
+    scBytes(recipient.ciphertext),
+    scBytes(change.commitment),
+    scBytes(change.ephemeralPk),
+    scBytes(change.ciphertext),
+  ])) as [unknown, unknown];
+  return { recipientIndex: Number(res[0]), changeIndex: Number(res[1]) };
+}
+
 export async function isSpent(nullifierBytes: Uint8Array): Promise<boolean> {
   return Boolean(
     await simulateRead(poolId, "is_spent", [scBytes(nullifierBytes)]),
   );
 }
-
-// --- deposit event scanning -------------------------------------------------
 
 export type DepositEvent = {
   leafIndex: number;
@@ -408,8 +317,6 @@ export type DepositEvent = {
   ciphertext: Uint8Array;
 };
 
-/// Parse one contract event into a deposit, or `null` if it's not
-/// deposit-shaped (e.g. a `withdraw` event, which has a different arity).
 export function parseDepositEvent(
   e: rpc.Api.EventResponse,
 ): DepositEvent | null {
@@ -427,10 +334,6 @@ export function parseDepositEvent(
   };
 }
 
-/// Fetch pool contract events starting from `sinceLedger + 1`, falling back
-/// through progressively wider windows if that ledger has fallen outside the
-/// RPC's event-retention horizon. Returns which ledger it actually scanned
-/// from, so callers doing incremental sync can detect a retention gap.
 export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
   events: rpc.Api.EventResponse[];
   scannedFromLedger: number;
@@ -472,9 +375,6 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
   };
 }
 
-/// Direct on-chain event scan — no cache, subject to RPC retention. Used as
-/// the fallback when the Mongo-backed `deposits` API is unavailable, and as
-/// the sync source of truth for that API's server-side router.
 export async function scanDepositsOnChain(): Promise<DepositEvent[]> {
   const { events } = await fetchPoolEventsSince(0);
   const out: DepositEvent[] = [];
@@ -486,9 +386,6 @@ export async function scanDepositsOnChain(): Promise<DepositEvent[]> {
   return out;
 }
 
-/// All pool deposits. Tries the Mongo-backed cache via tRPC first (persists
-/// past RPC's short event-retention window); falls back to a direct on-chain
-/// scan if the API is unreachable.
 export async function scanDeposits(): Promise<DepositEvent[]> {
   try {
     const rows = await api.deposits.list.query({ since: -1 });
@@ -517,8 +414,7 @@ export async function pageEvents(
       : { startLedger, filters, limit: 200 };
     const res = await server.getEvents(req as rpc.Server.GetEventsRequest);
     collected.push(...res.events);
-    const next =
-      (res as { cursor?: string }).cursor ?? res.events.at(-1)?.pagingToken;
+    const next = (res as { cursor?: string }).cursor ?? res.events.at(-1)?.id;
     if (res.events.length < 200 || !next) break;
     cursor = next;
   }

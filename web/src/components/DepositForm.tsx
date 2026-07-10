@@ -14,15 +14,10 @@ import {
 } from "../lib/crypto";
 import { accountPubkeys, getAccount } from "../lib/notes";
 import { poolDeposit, usdcBalance } from "../lib/stellar";
-import {
-  btn,
-  field,
-  hint,
-  inline,
-  input,
-  panel,
-  status as statusClass,
-} from "../lib/ui";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
 import { useWallet } from "./WalletProvider";
 
 const depositInput = z.object({
@@ -99,36 +94,40 @@ export function DepositForm() {
   });
 
   return (
-    <div className={panel}>
+    <Card className="gap-3 p-6">
       <h2 className="text-lg font-semibold text-ink">
         Deposit to your stealth address
       </h2>
-      <form className={field} onSubmit={onSubmit}>
+      <form className="grid gap-2" onSubmit={onSubmit}>
         <label htmlFor="deposit-amount">USDC</label>
-        <div className={inline}>
-          <input
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
             id="deposit-amount"
-            className={input}
+            className="min-h-11 flex-1"
             inputMode="decimal"
             placeholder="5.00"
             {...register("amount")}
           />
-          <button className={btn} type="submit" disabled={isSubmitting}>
+          <Button className="min-h-11" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Depositing…" : "Deposit"}
-          </button>
+          </Button>
         </div>
-        <span className={hint}>
+        <span className="text-xs text-muted-foreground">
           {address
             ? "Shields your own USDC into the pool as a private note only you can spend."
             : "Connect a wallet (top right) to deposit."}
         </span>
         {errors.amount ? (
-          <div className={statusClass("err")}>{errors.amount.message}</div>
+          <Alert variant="destructive">
+            <AlertDescription>{errors.amount.message}</AlertDescription>
+          </Alert>
         ) : null}
         {status ? (
-          <div className={statusClass(status.kind)}>{status.msg}</div>
+          <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
+            <AlertDescription>{status.msg}</AlertDescription>
+          </Alert>
         ) : null}
       </form>
-    </div>
+    </Card>
   );
 }

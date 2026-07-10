@@ -4,10 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { accountPubkeys, ensureAccount, setStoredUsername } from "../lib/notes";
-import { registerUsername } from "../lib/stellar";
-import { btn, field, hint, inline, input, panel, status, sub } from "../lib/ui";
+import { registerUsername, registerUsernameCache } from "../lib/stellar";
 import { usernameSchema } from "../server/modules/usernames/usernames.schema";
-import { api } from "../trpc/client";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { useWallet } from "./WalletProvider";
 
 const claimInput = z.object({ username: usernameSchema });
@@ -37,11 +38,8 @@ export function CreateAccountForm({
       const acct = ensureAccount();
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
       await registerUsername(signer, username, notePubkey, viewPubkey);
-      // Mirror the fresh registration into Mongo now. Soft-fail: the on-chain
-      // register already succeeded, and the resolve cache self-heals on the
-      // next lookup, so a mirror hiccup shouldn't block the claim.
       try {
-        await api.usernames.register.mutate({ username });
+        await registerUsernameCache(username);
       } catch (err) {
         console.warn("username saved on-chain but Mongo mirror failed", err);
       }
@@ -55,18 +53,21 @@ export function CreateAccountForm({
   });
 
   return (
-    <div className={panel}>
-      <h2 className="text-lg font-semibold text-ink">Create your account</h2>
-      <p className={sub}>
-        Pick a username — it becomes your payment link, like olio/@dinar.
+    <div className="grid gap-3">
+      <h2 className="text-lg font-semibold text-ink text-center">
+        Create your account
+      </h2>
+      <p className="text-sm text-muted-foreground text-center">
+        Pick a username. It will become your payment link, like
+        olio.xyz/@jimmymcgill.
       </p>
-      <form className={field} onSubmit={onSubmit}>
+      <form className="grid gap-2" onSubmit={onSubmit}>
         <label htmlFor="username">Username</label>
-        <div className={inline}>
-          <input
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
             id="username"
-            className={input}
-            placeholder="dinar"
+            className="min-h-11 flex-1"
+            placeholder="jimmymcgill"
             maxLength={32}
             {...usernameField}
             onChange={(e) => {
@@ -74,15 +75,17 @@ export function CreateAccountForm({
               usernameField.onChange(e);
             }}
           />
-          <button className={btn} type="submit" disabled={isSubmitting}>
+          <Button className="min-h-11" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Working…" : "Claim"}
-          </button>
+          </Button>
         </div>
-        <span className={hint}>
+        <span className="text-xs text-muted-foreground">
           3–32 characters. Letters, numbers, underscore.
         </span>
         {errors.username ? (
-          <div className={status("err")}>{errors.username.message}</div>
+          <Alert variant="destructive">
+            <AlertDescription>{errors.username.message}</AlertDescription>
+          </Alert>
         ) : null}
       </form>
     </div>

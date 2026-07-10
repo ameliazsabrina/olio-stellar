@@ -14,9 +14,8 @@ export const resolveInput = z.object({ username: usernameSchema });
 export const registerInput = z.object({ username: usernameSchema });
 
 export const byOwnerInput = z.object({
-  owner: z
-    .string()
-    .refine(StrKey.isValidEd25519PublicKey, "invalid Stellar address"),
+  // A passkey smart-wallet contract address (C-address) — the only wallet type.
+  owner: z.string().refine(StrKey.isValidContract, "invalid Stellar address"),
 });
 
 export const resolveOutput = z
@@ -28,7 +27,10 @@ export const resolveOutput = z
   })
   .nullable();
 
+export const byOwnerOutput = z.string().nullable();
+
 export type ResolveInput = z.infer<typeof resolveInput>;
 export type RegisterInput = z.infer<typeof registerInput>;
 export type ByOwnerInput = z.infer<typeof byOwnerInput>;
 export type ResolveOutput = z.infer<typeof resolveOutput>;
+export type ByOwnerOutput = z.infer<typeof byOwnerOutput>;

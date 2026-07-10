@@ -27,7 +27,7 @@ const CIRCLES: { cx: number; cy: number; r: number; g: string; rot: number }[] =
     { cx: -95.8, cy: 21.3, r: 917, g: "4", rot: -45 },
   ];
 
-export function EditionsChrome({ children }: { children: ReactNode }) {
+export function Chrome({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useGSAP(

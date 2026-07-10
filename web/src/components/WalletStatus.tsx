@@ -1,22 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  type AccountStatus,
-  accountStatus,
-  ensureFunded,
-} from "../lib/stellar";
-import {
-  balcell,
-  balgrid,
-  ballabel,
-  balval,
-  btnSecondary,
-  inline,
-  linkrow,
-  panel,
-  tag,
-} from "../lib/ui";
+import { type AccountStatus, accountStatus } from "../lib/stellar";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { useWallet } from "./WalletProvider";
 
 const fmt = (v: string) => {
@@ -48,13 +36,6 @@ export function WalletStatus() {
     refresh();
   }, [refresh]);
 
-  const fund = useCallback(async () => {
-    if (!address) return;
-    setBusy(true);
-    await ensureFunded(address);
-    await refresh();
-  }, [address, refresh]);
-
   if (!address) return null;
 
   const copy = () => {
@@ -64,44 +45,34 @@ export function WalletStatus() {
   };
 
   return (
-    <div className={panel}>
+    <Card className="gap-3 p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-ink">Wallet</h2>
-        <span className={tag}>{walletType}</span>
+        <Badge variant="secondary">{walletType}</Badge>
       </div>
       <button
-        className={`${linkrow} cursor-pointer text-left hover:text-olive-deep`}
+        type="button"
+        className="break-all font-mono text-sm text-muted-foreground cursor-pointer text-left hover:text-olive-deep"
         onClick={copy}
         title="Copy address"
       >
         {copied ? "Copied ✓" : address}
       </button>
-      <div className={balgrid}>
-        <div className={balcell}>
-          <span className={ballabel}>XLM</span>
-          <span className={balval}>{status ? fmt(status.xlm) : "…"}</span>
-        </div>
-        <div className={balcell}>
-          <span className={ballabel}>USDC</span>
-          <span className={balval}>{status ? fmt(status.usdc) : "…"}</span>
-        </div>
-        <div className={balcell}>
-          <span className={ballabel}>USDC trustline</span>
-          <span className={balval}>
-            {status ? (status.hasUsdcTrustline ? "yes" : "no") : "…"}
+      <div className="my-2 grid grid-cols-1 gap-3">
+        <div className="flex flex-col gap-1 rounded-lg border border-line bg-sage/40 px-3 py-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            USDC
+          </span>
+          <span className="font-mono text-lg font-semibold text-ink">
+            {status ? fmt(status.usdc) : "…"}
           </span>
         </div>
       </div>
-      <div className={inline}>
-        <button className={btnSecondary} onClick={refresh} disabled={busy}>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={refresh} disabled={busy}>
           {busy ? "Checking…" : "Refresh"}
-        </button>
-        {status && (!status.exists || Number(status.xlm) === 0) ? (
-          <button className={btnSecondary} onClick={fund} disabled={busy}>
-            Fund (friendbot)
-          </button>
-        ) : null}
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

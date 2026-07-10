@@ -1,6 +1,5 @@
 "use client";
 
-import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import {
   createContext,
   type ReactNode,
@@ -11,52 +10,38 @@ import {
   useRef,
   useState,
 } from "react";
-import { fetchPrivyWallet, type PrivyWallet, privySigner } from "../lib/privy";
 import {
-  connectExternalWallet,
-  ensureFunded,
-  externalWalletSigner,
-  type Signer,
-  usernameOf,
-} from "../lib/stellar";
+  connectPasskeyWallet,
+  createPasskeyWallet,
+  passkeyConfigured,
+  type PasskeyWallet,
+  passkeySigner,
+} from "../lib/passkey";
+import { type Signer, usernameOf } from "../lib/stellar";
 
-export type WalletType = "external" | "privy" | null;
-
-type PrivyBits = {
-  ready: boolean;
-  authenticated: boolean;
-  login: () => void;
-  logout: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
-} | null;
+export type WalletType = "passkey" | null;
 
 type WalletState = {
   address: string;
   walletType: WalletType;
   connecting: boolean;
   error: string;
-  privyEnabled: boolean;
+  passkeyEnabled: boolean;
   username: string | null;
   usernameResolved: boolean;
   setUsername: (u: string | null) => void;
   usernameModalOpen: boolean;
   openUsernameModal: () => void;
   closeUsernameModal: () => void;
-  connectExternal: () => Promise<void>;
-  connectPrivy: () => Promise<void>;
+  createPasskey: () => Promise<void>;
+  connectPasskey: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigner: () => Signer;
 };
 
 const WalletContext = createContext<WalletState | null>(null);
-const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
-function WalletCore({
-  privy,
-  children,
-}: {
-  privy: PrivyBits;
-  children: ReactNode;
-}) {
+
+export function WalletProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState("");
   const [walletType, setWalletType] = useState<WalletType>(null);
   const [connecting, setConnecting] = useState(false);
@@ -64,8 +49,7 @@ function WalletCore({
   const [username, setUsername] = useState<string | null>(null);
   const [usernameResolved, setUsernameResolved] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
-  const privyWalletRef = useRef<PrivyWallet | null>(null);
-  const privyLoginPendingRef = useRef(false);
+  const passkeyWalletRef = useRef<PasskeyWallet | null>(null);
 
   useEffect(() => {
     if (!address) {
@@ -100,76 +84,49 @@ function WalletCore({
   const openUsernameModal = useCallback(() => setUsernameModalOpen(true), []);
   const closeUsernameModal = useCallback(() => setUsernameModalOpen(false), []);
 
-  useEffect(() => {
-    if (!privy?.ready) return;
-    // User dismissed the login modal without authenticating: release the button.
-    if (!privy.authenticated) {
-      if (privyLoginPendingRef.current) {
-        privyLoginPendingRef.current = false;
-        setConnecting(false);
-      }
-      return;
-    }
-    if (privyWalletRef.current) return;
-    (async () => {
-      const token = await privy.getAccessToken();
-      if (!token) return;
-      const w = await fetchPrivyWallet(token);
-      privyWalletRef.current = w;
-      await ensureFunded(w.address);
-      setAddress(w.address);
-      setWalletType("privy");
-    })()
-      .catch((e) =>
-        setError(e instanceof Error ? e.message : "Privy wallet error"),
-      )
-      .finally(() => {
-        privyLoginPendingRef.current = false;
-        setConnecting(false);
-      });
-  }, [privy]);
-
-  const connectExternal = useCallback(async () => {
+  const createPasskey = useCallback(async () => {
     setConnecting(true);
     setError("");
     try {
-      const a = await connectExternalWallet();
-      setAddress(a);
-      setWalletType("external");
+      const w = await createPasskeyWallet("Olio");
+      passkeyWalletRef.current = w;
+      setAddress(w.contractId);
+      setWalletType("passkey");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Wallet connect failed");
+      setError(e instanceof Error ? e.message : "Passkey creation failed");
     } finally {
       setConnecting(false);
     }
   }, []);
 
-  const connectPrivy = useCallback(async () => {
-    if (!privy) {
-      setError("Privy is not configured.");
-      return;
-    }
-    setError("");
-    if (privy.authenticated) return;
-    privyLoginPendingRef.current = true;
+  const connectPasskey = useCallback(async () => {
     setConnecting(true);
-    privy.login();
-  }, [privy]);
+    setError("");
+    try {
+      const w = await connectPasskeyWallet();
+      passkeyWalletRef.current = w;
+      setAddress(w.contractId);
+      setWalletType("passkey");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Passkey connect failed");
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
 
   const disconnect = useCallback(async () => {
-    if (walletType === "privy" && privy) await privy.logout();
-    privyWalletRef.current = null;
+    passkeyWalletRef.current = null;
     setAddress("");
     setWalletType(null);
     setUsernameModalOpen(false);
-  }, [walletType, privy]);
+  }, []);
 
   const getSigner = useCallback((): Signer => {
-    if (walletType === "external") return externalWalletSigner(address);
-    if (walletType === "privy" && privy && privyWalletRef.current) {
-      return privySigner(privyWalletRef.current, privy.getAccessToken);
+    if (walletType === "passkey" && passkeyWalletRef.current) {
+      return passkeySigner(passkeyWalletRef.current);
     }
     throw new Error("Connect a wallet first.");
-  }, [walletType, address, privy]);
+  }, [walletType]);
 
   const value = useMemo<WalletState>(
     () => ({
@@ -177,15 +134,15 @@ function WalletCore({
       walletType,
       connecting,
       error,
-      privyEnabled: Boolean(privy),
+      passkeyEnabled: passkeyConfigured,
       username,
       usernameResolved,
       setUsername,
       usernameModalOpen,
       openUsernameModal,
       closeUsernameModal,
-      connectExternal,
-      connectPrivy,
+      createPasskey,
+      connectPasskey,
       disconnect,
       getSigner,
     }),
@@ -194,14 +151,13 @@ function WalletCore({
       walletType,
       connecting,
       error,
-      privy,
       username,
       usernameResolved,
       usernameModalOpen,
       openUsernameModal,
       closeUsernameModal,
-      connectExternal,
-      connectPrivy,
+      createPasskey,
+      connectPasskey,
       disconnect,
       getSigner,
     ],
@@ -209,29 +165,6 @@ function WalletCore({
 
   return (
     <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
-  );
-}
-
-function PrivyBridge({ children }: { children: ReactNode }) {
-  const p = usePrivy();
-  const bits: PrivyBits = {
-    ready: p.ready,
-    authenticated: p.authenticated,
-    login: p.login,
-    logout: p.logout,
-    getAccessToken: p.getAccessToken,
-  };
-  return <WalletCore privy={bits}>{children}</WalletCore>;
-}
-
-export function WalletProvider({ children }: { children: ReactNode }) {
-  if (!appId) {
-    return <WalletCore privy={null}>{children}</WalletCore>;
-  }
-  return (
-    <PrivyProvider appId={appId} config={{ loginMethods: ["email", "google"] }}>
-      <PrivyBridge>{children}</PrivyBridge>
-    </PrivyProvider>
   );
 }
 

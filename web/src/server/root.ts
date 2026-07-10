@@ -1,10 +1,10 @@
 import { depositsRouter } from "./modules/deposits/deposits.router";
-import { privyRouter } from "./modules/privy/privy.router";
+import { passkeyRouter } from "./modules/passkey/passkey.router";
 import { usernamesRouter } from "./modules/usernames/usernames.router";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
-  privy: privyRouter,
+  passkey: passkeyRouter,
   deposits: depositsRouter,
   usernames: usernamesRouter,
 });

@@ -16,6 +16,7 @@ export default defineConfig({
       "server-only": fileURLToPath(
         new URL("./test/stubs/server-only.ts", import.meta.url),
       ),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
 });

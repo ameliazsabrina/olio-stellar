@@ -4,6 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Alert, AlertDescription } from "../../../components/ui/alert";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
 import { useWallet } from "../../../components/WalletProvider";
 import {
   commitment,
@@ -18,15 +22,6 @@ import {
   poolDeposit,
   usdcBalance,
 } from "../../../lib/stellar";
-import {
-  btn,
-  field,
-  hint,
-  inline,
-  input,
-  panel,
-  status as statusClass,
-} from "../../../lib/ui";
 
 const payInput = z.object({
   amount: z
@@ -102,34 +97,38 @@ export function PayForm({
   });
 
   return (
-    <div className={panel}>
+    <Card className="gap-3 p-6">
       <h2 className="text-lg font-semibold text-ink">Amount</h2>
-      <form className={field} onSubmit={onSubmit}>
+      <form className="grid gap-2" onSubmit={onSubmit}>
         <label htmlFor="amount">USDC</label>
-        <div className={inline}>
-          <input
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
             id="amount"
-            className={input}
+            className="min-h-11 flex-1"
             inputMode="decimal"
             placeholder="5.00"
             {...register("amount")}
           />
-          <button className={btn} type="submit" disabled={isSubmitting}>
+          <Button className="min-h-11" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Paying…" : "Pay"}
-          </button>
+          </Button>
         </div>
-        <span className={hint}>
+        <span className="text-xs text-muted-foreground">
           {address
             ? "Paying from your connected wallet."
             : "Connect a wallet (top right) to pay."}
         </span>
         {errors.amount ? (
-          <div className={statusClass("err")}>{errors.amount.message}</div>
+          <Alert variant="destructive">
+            <AlertDescription>{errors.amount.message}</AlertDescription>
+          </Alert>
         ) : null}
         {status ? (
-          <div className={statusClass(status.kind)}>{status.msg}</div>
+          <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
+            <AlertDescription>{status.msg}</AlertDescription>
+          </Alert>
         ) : null}
       </form>
-    </div>
+    </Card>
   );
 }

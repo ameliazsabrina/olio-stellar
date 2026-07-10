@@ -50,6 +50,21 @@ fn fixture_proof(env: &Env) -> Proof {
     }
 }
 
+fn transfer_vk(env: &Env) -> VerificationKey {
+    use super::transfer_fixture::*;
+    let mut ic = Vec::new(env);
+    for s in TR_VK_IC {
+        ic.push_back(decode::<64>(env, s));
+    }
+    VerificationKey {
+        alpha: decode::<64>(env, TR_VK_ALPHA),
+        beta: decode::<128>(env, TR_VK_BETA),
+        gamma: decode::<128>(env, TR_VK_GAMMA),
+        delta: decode::<128>(env, TR_VK_DELTA),
+        ic,
+    }
+}
+
 fn fixture_signals(env: &Env) -> Vec<Bn254Fr> {
     let mut v = Vec::new(env);
     for s in PUB_SIGNALS {
@@ -180,6 +195,86 @@ fn withdraw_full_flow() {
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::DoubleSpend));
+}
+
+// Full shielded-transfer path with a real snarkjs proof: deposit an input note,
+// then spend it in ZK to mint a recipient note + a change note in one call, with
+// no value leaving the pool. Exercises transfer VK verification, nullifier, dual
+// insert, and replay protection.
+#[test]
+fn transfer_full_flow() {
+    use super::transfer_fixture::*;
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+    let token = token::Client::new(&f.env, &f.asset);
+
+    // Deposit the input note at leaf 0; contract tree lands on the proved root.
+    f.pool.deposit(&f.payer, &decode::<32>(&f.env, TR_IN_COMMITMENT), &TR_IN_AMOUNT, &eph, &ct);
+    assert_eq!(f.pool.current_root(), decode::<32>(&f.env, TR_ROOT));
+    assert_eq!(token.balance(&f.pool.address), TR_IN_AMOUNT);
+
+    f.pool.set_transfer_verifier_key(&f.admin, &transfer_vk(&f.env));
+    assert!(f.pool.has_transfer_verifier_key());
+
+    let root = decode::<32>(&f.env, TR_ROOT);
+    let nullifier = decode::<32>(&f.env, TR_NULLIFIER);
+    let proof = Proof {
+        a: decode::<64>(&f.env, TR_PROOF_A),
+        b: decode::<128>(&f.env, TR_PROOF_B),
+        c: decode::<64>(&f.env, TR_PROOF_C),
+    };
+    let recipient_com = decode::<32>(&f.env, TR_RECIPIENT_COMMITMENT);
+    let change_com = decode::<32>(&f.env, TR_CHANGE_COMMITMENT);
+
+    let (recipient_index, change_index) = f.pool.transfer(
+        &root, &nullifier, &proof, &recipient_com, &eph, &ct, &change_com, &eph, &ct,
+    );
+    assert_eq!(recipient_index, 1);
+    assert_eq!(change_index, 2);
+    assert_eq!(f.pool.leaf_count(), 3);
+    assert!(f.pool.is_spent(&nullifier));
+    // Value never left the pool.
+    assert_eq!(token.balance(&f.pool.address), TR_IN_AMOUNT);
+
+    // Replay is rejected by the nullifier.
+    let err = f
+        .pool
+        .try_transfer(&root, &nullifier, &proof, &recipient_com, &eph, &ct, &change_com, &eph, &ct)
+        .err()
+        .unwrap();
+    assert_eq!(err, Ok(Error::DoubleSpend));
+}
+
+#[test]
+fn transfer_requires_verifier_key() {
+    use super::transfer_fixture::*;
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+    f.pool.deposit(&f.payer, &decode::<32>(&f.env, TR_IN_COMMITMENT), &TR_IN_AMOUNT, &eph, &ct);
+    let root = f.pool.current_root();
+    let proof = Proof {
+        a: decode::<64>(&f.env, TR_PROOF_A),
+        b: decode::<128>(&f.env, TR_PROOF_B),
+        c: decode::<64>(&f.env, TR_PROOF_C),
+    };
+    let recipient_com = decode::<32>(&f.env, TR_RECIPIENT_COMMITMENT);
+    let change_com = decode::<32>(&f.env, TR_CHANGE_COMMITMENT);
+    let err = f
+        .pool
+        .try_transfer(
+            &root,
+            &decode::<32>(&f.env, TR_NULLIFIER),
+            &proof,
+            &recipient_com,
+            &eph,
+            &ct,
+            &change_com,
+            &eph,
+            &ct,
+        )
+        .err()
+        .unwrap();
+    assert_eq!(err, Ok(Error::VerifierKeyNotSet));
 }
 
 #[test]

@@ -4,7 +4,13 @@ import {
   RegistryLookupFailedError,
   UsernameNotOnChainError,
 } from "./usernames.errors";
-import { byOwnerInput, registerInput, resolveInput } from "./usernames.schema";
+import {
+  byOwnerInput,
+  byOwnerOutput,
+  registerInput,
+  resolveInput,
+  resolveOutput,
+} from "./usernames.schema";
 import {
   registerUsernameCache,
   resolveUsername,
@@ -24,15 +30,18 @@ function mapError(e: unknown): never {
 export const usernamesRouter = createTRPCRouter({
   resolve: publicProcedure
     .input(resolveInput)
+    .output(resolveOutput)
     .query(({ input }) => resolveUsername(input.username).catch(mapError)),
 
   register: publicProcedure
     .input(registerInput)
+    .output(resolveOutput)
     .mutation(({ input }) =>
       registerUsernameCache(input.username).catch(mapError),
     ),
 
   byOwner: publicProcedure
     .input(byOwnerInput)
-    .query(({ input }) => usernameByOwner(input.owner)),
+    .output(byOwnerOutput)
+    .query(({ input }) => usernameByOwner(input.owner).catch(mapError)),
 });

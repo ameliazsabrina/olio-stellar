@@ -1,7 +1,5 @@
-// Public (unauthenticated) tRPC client for read-only, off-chain-mirror
-// endpoints (deposits, usernames). No bearer token — this is public
-// chain-mirror data, not user secrets. See lib/privy.ts for the
-// authenticated-call pattern this mirrors.
+// tRPC client for the off-chain-mirror endpoints (deposits, usernames). Every
+// procedure is public — this is public chain-mirror data, not user secrets.
 
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "../server/root";

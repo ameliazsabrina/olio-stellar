@@ -1,0 +1,10 @@
+{
+  "inCommitment": "22f7c82788b172ce0fc90e436bd633c700d8e736a7e85752f8e993c3dad9930d",
+  "root": "0f858c902c0d5f577f7ac38a8fb185f3f14247ce1d6f15d75deae22f36aad360",
+  "nullifier": "198d0355395210f31d623467ba08a3455a8bca0cbfaea77523ee9e718f012992",
+  "recipientCommitment": "1c2d9ca7553458b36ce8d9dc0ab525b1d9bc02e293cab992e9f9a2bb9df7fcf8",
+  "changeCommitment": "22bb70a4b7ecc0ef3ab412b94251612ccf691ea5b56052f80b7e694d7af5176e",
+  "inAmount": "50000000",
+  "recipientAmount": "30000000",
+  "changeAmount": "20000000"
+}

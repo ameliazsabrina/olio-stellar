@@ -31,9 +31,15 @@ export type IndexerStateDoc = {
 };
 
 export type UserDoc = {
-  _id: string; // Privy user id
-  address: string;
-  walletId: string;
+  _id: string; // the smart-wallet contract id
+  address: string; // smart-wallet contract id (same as _id)
+  contractId: string; // deployed smart-wallet contract id
+  credentialId?: string; // base64url WebAuthn credential id
+  secp256r1PubKey?: Binary; // passkey public key registered on the smart wallet
+  // --- escrow fallback for the 6-digit-PIN master secret (no-PRF authenticators) ---
+  encryptedMaster?: Binary; // nonce(12) ‖ AES-256-GCM(masterSecret)
+  masterSalt?: Binary; // Argon2id salt
+  kdfParams?: { m: number; t: number; p: number };
   createdAt: Date;
   updatedAt: Date;
 };

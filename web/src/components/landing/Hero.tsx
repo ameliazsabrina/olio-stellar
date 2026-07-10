@@ -9,13 +9,13 @@ import { useRef } from "react";
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const MENU = [
-  { id: "links", numeral: "I", label: "Payment links" },
+  { id: "links", numeral: "I", label: "What's Olio?" },
   { id: "shield", numeral: "II", label: "Shielded pool" },
   { id: "withdraw", numeral: "III", label: "Withdrawals" },
   { id: "start", numeral: "IV", label: "Get started" },
 ];
 
-export function EditionsHero() {
+export function Hero() {
   const rootRef = useRef<HTMLElement | null>(null);
 
   useGSAP(
@@ -24,14 +24,12 @@ export function EditionsHero() {
       if (!root) return;
 
       const q = gsap.utils.selector(root);
-      const leftHand = q("[data-ed-hand-left]")[0] as HTMLElement | undefined;
-      const rightHand = q("[data-ed-hand-right]")[0] as HTMLElement | undefined;
       const bg = q("[data-ed-bg]")[0] as HTMLElement | undefined;
       const frameRect = q("[data-ed-frame] rect")[0] as unknown as
         | SVGRectElement
         | undefined;
       const box = q("[data-ed-hero-frame]")[0] as HTMLElement | undefined;
-      if (!leftHand || !rightHand || !box) return;
+      if (!box) return;
 
       const mm = gsap.matchMedia(root);
       mm.add(
@@ -47,38 +45,13 @@ export function EditionsHero() {
 
           if (reduceMotion) return;
 
-          // Entrance: hands reach in from the edges with a soft, staggered
-          // settle; frame draws; content rises.
+          // Entrance: frame draws and content rises. Hand artwork stays static.
           const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
-          tl.from(
-            leftHand,
-            {
-              xPercent: -40,
-              yPercent: 6,
-              rotation: -5,
-              scale: 1.05,
-              autoAlpha: 0,
-              duration: 1.5,
-            },
-            0,
-          ).from(
-            rightHand,
-            {
-              xPercent: 40,
-              yPercent: 8,
-              rotation: 5,
-              scale: 1.05,
-              autoAlpha: 0,
-              duration: 1.5,
-            },
-            0.18,
-          );
-
           if (frameRect) {
             tl.from(
               frameRect,
               { strokeDashoffset: 1, duration: 1.4, ease: "power2.out" },
-              0.5,
+              0,
             );
           }
           tl.from(
@@ -90,10 +63,10 @@ export function EditionsHero() {
               stagger: 0.12,
               ease: "power2.out",
             },
-            0.65,
+            0.18,
           );
 
-          // Scroll parallax: hands drift apart + down and fade, box eases out.
+          // Scroll parallax: hero box eases out while hand artwork stays static.
           const parallax = gsap.timeline({
             scrollTrigger: {
               trigger: root,
@@ -102,24 +75,10 @@ export function EditionsHero() {
               scrub: 0.6,
             },
           });
-          parallax
-            .to(
-              leftHand,
-              { xPercent: -18, yPercent: 12, autoAlpha: 0.2, ease: "none" },
-              0,
-            )
-            .to(
-              rightHand,
-              { xPercent: 18, yPercent: 16, autoAlpha: 0.2, ease: "none" },
-              0,
-            )
-            .to(box, { y: -40, autoAlpha: 0.35, ease: "none" }, 0);
+          parallax.to(box, { y: -40, autoAlpha: 0.35, ease: "none" }, 0);
 
           if (!isDesktop || !bg) return;
 
-          // Desktop pointer interaction: the background stays gently zoomed in
-          // and pans to follow the cursor's direction. The zoom leaves overflow
-          // room so the pan never reveals the image edges.
           gsap.set(bg, { scale: 1.1, transformOrigin: "center center" });
           const xTo = gsap.quickTo(bg, "x", {
             duration: 0.8,
@@ -231,14 +190,12 @@ export function EditionsHero() {
         </svg>
         <div data-ed-hero-inner className="relative flex w-full flex-col">
           <h1
-            className="m-0 mt-4 flex flex-col font-medium text-[clamp(40px,5vw,60px)] leading-[0.92] tracking-[-0.02em] text-ed-cream"
+            className="m-0 mt-4 flex flex-col font-medium text-[clamp(1.8rem,4vw,4.4rem)] leading-[0.92] tracking-[-0.02em] text-ed-cream"
             id="ed-hero-title"
           >
             <span>Private</span>
-            <span>
-              <em className="italic font-normal text-ed-gold">USDC</em>
-            </span>
-            <span>payments</span>
+            <span>USDC</span>
+            <span>Payments</span>
           </h1>
           <p className="mt-5 max-w-[28ch] text-[13px] uppercase leading-[1.5] tracking-[0.08em] text-ed-cream/70">
             Get paid in USDC without publishing your income.
@@ -248,7 +205,7 @@ export function EditionsHero() {
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ed-cream bg-ed-cream px-[18px] text-[13px] font-semibold tracking-[0.02em] text-[#1a1f12] transition-opacity hover:opacity-85"
               href="#start"
             >
-              Get Early Access
+              Try Now
             </a>
             <a
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ed-cream/50 bg-transparent px-[18px] text-[13px] font-semibold tracking-[0.02em] text-ed-cream transition-opacity hover:opacity-85"

@@ -1,12 +1,5 @@
-export type Context = {
-  token: string | null;
-};
+export type Context = Record<string, never>;
 
-function bearer(req: Request): string | null {
-  const h = req.headers.get("authorization") || "";
-  return h.startsWith("Bearer ") ? h.slice(7) : null;
-}
-
-export function createTRPCContext(req: Request): Context {
-  return { token: bearer(req) };
+export function createTRPCContext(): Context {
+  return {};
 }

@@ -2,8 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Card } from "../../../components/ui/card";
 import { type OlioAccount, resolveUsername } from "../../../lib/stellar";
-import { foot, heroSection, heroTitle, panel, sub } from "../../../lib/ui";
 import { PayForm } from "./PayForm";
 
 export default function PayPage() {
@@ -22,29 +22,29 @@ export default function PayPage() {
 
   if (account === "loading") {
     return (
-      <div className={panel}>
+      <Card className="gap-3 p-6">
         <h2 className="text-lg font-semibold text-ink">Loading @{username}…</h2>
-      </div>
+      </Card>
     );
   }
   if (!account) {
     return (
-      <div className={panel}>
+      <Card className="gap-3 p-6">
         <h2 className="text-lg font-semibold text-ink">
           @{username} not found
         </h2>
-        <p className={sub}>
+        <p className="text-sm text-muted-foreground">
           No Olio account is registered for this username on testnet.
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
     <>
-      <section className={heroSection}>
-        <h1 className={heroTitle}>Pay @{username}</h1>
-        <p className={sub}>
+      <section className="grid gap-2 pt-4">
+        <h1 className="text-3xl font-bold text-ink">Pay @{username}</h1>
+        <p className="text-sm text-muted-foreground">
           Your payment becomes a confidential note only the recipient can
           discover and spend.
         </p>
@@ -52,7 +52,7 @@ export default function PayPage() {
 
       <PayForm account={account} username={username} />
 
-      <p className={foot}>
+      <p className="pt-8 text-center text-xs text-muted-foreground">
         Unlinkable receipt · encrypted to the recipient · Built on Stellar
       </p>
     </>

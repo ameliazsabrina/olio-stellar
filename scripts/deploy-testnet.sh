@@ -73,7 +73,7 @@ if [ ! -f "${VK_FILE}" ]; then
   echo "Missing ${VK_FILE}. Run circuits/build.sh first." >&2
   exit 1
 fi
-log "Setting Groth16 verifier key"
+log "Setting Groth16 verifier key (withdraw)"
 stellar contract invoke \
   --id "${POOL_ID}" \
   --source "${SOURCE_ACCOUNT}" \
@@ -81,6 +81,33 @@ stellar contract invoke \
   -- set_verifier_key \
   --admin "${ADMIN_ADDR}" \
   --vk "$(cat "${VK_FILE}")"
+
+# 6a. Register the transfer (shielded send) Groth16 verification key.
+VK_TRANSFER_FILE="circuits/build/vk_transfer_soroban.json"
+if [ ! -f "${VK_TRANSFER_FILE}" ]; then
+  echo "Missing ${VK_TRANSFER_FILE}. Run circuits/build.sh first." >&2
+  exit 1
+fi
+log "Setting Groth16 verifier key (transfer)"
+stellar contract invoke \
+  --id "${POOL_ID}" \
+  --source "${SOURCE_ACCOUNT}" \
+  --network "${NETWORK}" \
+  -- set_transfer_verifier_key \
+  --admin "${ADMIN_ADDR}" \
+  --vk "$(cat "${VK_TRANSFER_FILE}")"
+
+# 6b. Build + upload the vendored passkey smart-wallet WASM. It lives in its own
+# workspace (soroban-sdk 23, excluded from the root) and is uploaded, not
+# instantiated — clients deploy a per-user smart-wallet instance from this hash
+# (no factory contract).
+log "Building + uploading passkey smart-wallet WASM"
+( cd vendor/passkey-contracts && stellar contract build --package smart-wallet >/dev/null )
+SMART_WALLET_WASM_HASH=$(stellar contract upload \
+  --wasm vendor/passkey-contracts/target/wasm32v1-none/release/smart_wallet.wasm \
+  --source "${SOURCE_ACCOUNT}" \
+  --network "${NETWORK}")
+log "Smart-wallet WASM hash: ${SMART_WALLET_WASM_HASH}"
 
 # 7. Write web env.
 NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
@@ -95,6 +122,7 @@ NEXT_PUBLIC_OLIO_POOL_ID=${POOL_ID}
 NEXT_PUBLIC_USDC_SAC_ID=${USDC_SAC}
 NEXT_PUBLIC_USDC_ISSUER=${USDC_ISSUER}
 NEXT_PUBLIC_POOL_DEPTH=${POOL_DEPTH}
+NEXT_PUBLIC_SMART_WALLET_WASM_HASH=${SMART_WALLET_WASM_HASH}
 EOF
 
 log "Done. Contract IDs written to ${ENV_FILE}:"

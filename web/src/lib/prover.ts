@@ -11,6 +11,26 @@ export type WithdrawInput = {
   pathIndices: (string | number)[];
 };
 
+export type TransferInput = {
+  // Public
+  root: string;
+  nullifier: string;
+  outCommitmentRecipient: string;
+  outCommitmentChange: string;
+  // Private — input note
+  inAmount: string;
+  ownerSecret: string;
+  inSalt: string;
+  pathElements: string[];
+  pathIndices: (string | number)[];
+  // Private — outputs
+  recipientPk: string;
+  recipientAmount: string;
+  recipientSalt: string;
+  changeAmount: string;
+  changeSalt: string;
+};
+
 export type RawProof = { a: Uint8Array; b: Uint8Array; c: Uint8Array };
 
 const g1 = (p: string[]) => concat(toBE32(BigInt(p[0])), toBE32(BigInt(p[1])));
@@ -51,6 +71,25 @@ export async function proveWithdraw(
     input,
     "/zk/withdraw.wasm",
     "/zk/withdraw.zkey",
+  );
+  return {
+    proof: encodeProof(proof as SnarkProof),
+    publicSignals,
+    ms: performance.now() - started,
+  };
+}
+
+/// Generate and serialize a shielded-transfer proof (1-input / 2-output).
+/// Returns timing so the UI can surface proving performance.
+export async function proveTransfer(
+  input: TransferInput,
+): Promise<{ proof: RawProof; publicSignals: string[]; ms: number }> {
+  const snarkjs = await import("snarkjs");
+  const started = performance.now();
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+    input,
+    "/zk/transfer.wasm",
+    "/zk/transfer.zkey",
   );
   return {
     proof: encodeProof(proof as SnarkProof),
