@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -10,12 +11,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { DASHBOARD_PATH } from "../lib/auth-routes";
+import {
+  forgetPasskeySession,
+  rememberPasskeySession,
+} from "../lib/auth-session";
 import {
   connectPasskeyWallet,
   createPasskeyWallet,
-  passkeyConfigured,
+  forgetPasskeyWallet,
   type PasskeyWallet,
+  passkeyConfigured,
   passkeySigner,
+  restorePasskeyWallet,
 } from "../lib/passkey";
 import { type Signer, usernameOf } from "../lib/stellar";
 
@@ -29,6 +37,7 @@ type WalletState = {
   passkeyEnabled: boolean;
   username: string | null;
   usernameResolved: boolean;
+  sessionReady: boolean;
   setUsername: (u: string | null) => void;
   usernameModalOpen: boolean;
   openUsernameModal: () => void;
@@ -42,14 +51,59 @@ type WalletState = {
 const WalletContext = createContext<WalletState | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [address, setAddress] = useState("");
   const [walletType, setWalletType] = useState<WalletType>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
   const [username, setUsername] = useState<string | null>(null);
   const [usernameResolved, setUsernameResolved] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
   const passkeyWalletRef = useRef<PasskeyWallet | null>(null);
+  const sessionRevisionRef = useRef(0);
+
+  const routeToDashboard = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== DASHBOARD_PATH) {
+      router.replace(DASHBOARD_PATH);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!passkeyConfigured) {
+      setSessionReady(true);
+      return;
+    }
+    let cancelled = false;
+    const restoreRevision = sessionRevisionRef.current;
+    restorePasskeyWallet()
+      .then((w) => {
+        if (cancelled) return;
+        if (!w) {
+          if (sessionRevisionRef.current === restoreRevision) {
+            forgetPasskeySession();
+          }
+          return;
+        }
+        if (sessionRevisionRef.current !== restoreRevision) return;
+        passkeyWalletRef.current = w;
+        rememberPasskeySession();
+        setAddress(w.contractId);
+        setWalletType("passkey");
+      })
+      .catch(() => {
+        if (!cancelled && sessionRevisionRef.current === restoreRevision) {
+          forgetPasskeySession();
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!address) {
@@ -87,35 +141,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const createPasskey = useCallback(async () => {
     setConnecting(true);
     setError("");
+    sessionRevisionRef.current += 1;
     try {
       const w = await createPasskeyWallet("Olio");
       passkeyWalletRef.current = w;
+      rememberPasskeySession();
       setAddress(w.contractId);
       setWalletType("passkey");
+      setSessionReady(true);
+      routeToDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Passkey creation failed");
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [routeToDashboard]);
 
   const connectPasskey = useCallback(async () => {
     setConnecting(true);
     setError("");
+    sessionRevisionRef.current += 1;
     try {
       const w = await connectPasskeyWallet();
       passkeyWalletRef.current = w;
+      rememberPasskeySession();
       setAddress(w.contractId);
       setWalletType("passkey");
+      setSessionReady(true);
+      routeToDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Passkey connect failed");
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [routeToDashboard]);
 
   const disconnect = useCallback(async () => {
+    sessionRevisionRef.current += 1;
     passkeyWalletRef.current = null;
+    forgetPasskeyWallet();
+    forgetPasskeySession();
     setAddress("");
     setWalletType(null);
     setUsernameModalOpen(false);
@@ -137,6 +202,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       passkeyEnabled: passkeyConfigured,
       username,
       usernameResolved,
+      sessionReady,
       setUsername,
       usernameModalOpen,
       openUsernameModal,
@@ -153,6 +219,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       error,
       username,
       usernameResolved,
+      sessionReady,
       usernameModalOpen,
       openUsernameModal,
       closeUsernameModal,

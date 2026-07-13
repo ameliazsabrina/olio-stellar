@@ -9,23 +9,29 @@ import { EditionsTopNav } from "./Nav";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const CIRCLES: { cx: number; cy: number; r: number; g: string; rot: number }[] =
-  [
-    { cx: 0, cy: 543.9, r: 550, g: "1,3", rot: 0 },
-    { cx: 1440, cy: 543.9, r: 550, g: "1,3", rot: 180 },
-    { cx: 2.5, cy: -365, r: 805, g: "2", rot: -45 },
-    { cx: 1437.5, cy: -365, r: 805, g: "2", rot: -45 },
-    { cx: 2.5, cy: 1245, r: 805, g: "2,4", rot: 45 },
-    { cx: 1437.5, cy: 1245, r: 805, g: "2,4", rot: 45 },
-    { cx: 720, cy: 15, r: 425, g: "3,4", rot: -45 },
-    { cx: 720, cy: 865, r: 425, g: "1,3,4", rot: 45 },
-    { cx: 720, cy: -365, r: 805, g: "3", rot: -45 },
-    { cx: 720, cy: 1245, r: 805, g: "3", rot: 45 },
-    { cx: 1535.8, cy: 858.7, r: 917, g: "1,4", rot: 45 },
-    { cx: -95.8, cy: 858.7, r: 917, g: "1,4", rot: 45 },
-    { cx: 1535.8, cy: 21.3, r: 917, g: "2,4", rot: -45 },
-    { cx: -95.8, cy: 21.3, r: 917, g: "4", rot: -45 },
-  ];
+const CIRCLES: {
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+  g: string;
+  rot: number;
+}[] = [
+  { id: "left-mid", cx: 0, cy: 543.9, r: 550, g: "1,3", rot: 0 },
+  { id: "right-mid", cx: 1440, cy: 543.9, r: 550, g: "1,3", rot: 180 },
+  { id: "left-top", cx: 2.5, cy: -365, r: 805, g: "2", rot: -45 },
+  { id: "right-top", cx: 1437.5, cy: -365, r: 805, g: "2", rot: -45 },
+  { id: "left-bottom", cx: 2.5, cy: 1245, r: 805, g: "2,4", rot: 45 },
+  { id: "right-bottom", cx: 1437.5, cy: 1245, r: 805, g: "2,4", rot: 45 },
+  { id: "center-top", cx: 720, cy: 15, r: 425, g: "3,4", rot: -45 },
+  { id: "center-bottom", cx: 720, cy: 865, r: 425, g: "1,3,4", rot: 45 },
+  { id: "center-high", cx: 720, cy: -365, r: 805, g: "3", rot: -45 },
+  { id: "center-low", cx: 720, cy: 1245, r: 805, g: "3", rot: 45 },
+  { id: "far-right-low", cx: 1535.8, cy: 858.7, r: 917, g: "1,4", rot: 45 },
+  { id: "far-left-low", cx: -95.8, cy: 858.7, r: 917, g: "1,4", rot: 45 },
+  { id: "far-right-high", cx: 1535.8, cy: 21.3, r: 917, g: "2,4", rot: -45 },
+  { id: "far-left-high", cx: -95.8, cy: 21.3, r: 917, g: "4", rot: -45 },
+];
 
 export function Chrome({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -63,7 +69,7 @@ export function Chrome({ children }: { children: ReactNode }) {
           if (!reduceMotion) {
             lenis = new Lenis();
             lenis.on("scroll", ScrollTrigger.update);
-            raf = (t: number) => lenis!.raf(t * 1000);
+            raf = (t: number) => lenis?.raf(t * 1000);
             gsap.ticker.add(raf);
             gsap.ticker.lagSmoothing(0);
           }
@@ -105,12 +111,11 @@ export function Chrome({ children }: { children: ReactNode }) {
               onToggle: (self) => {
                 if (!self.isActive) return;
                 activate(i + 1);
-                navLinks.forEach(
-                  (link) =>
-                    (link.dataset.active = String(
-                      link.dataset.edNavlink === section.id,
-                    )),
-                );
+                navLinks.forEach((link) => {
+                  link.dataset.active = String(
+                    link.dataset.edNavlink === section.id,
+                  );
+                });
               },
             });
 
@@ -184,9 +189,10 @@ export function Chrome({ children }: { children: ReactNode }) {
           preserveAspectRatio="xMidYMid slice"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {CIRCLES.map((c, i) => (
+          <title>Decorative section rings</title>
+          {CIRCLES.map((c) => (
             <circle
-              key={i}
+              key={c.id}
               cx={c.cx}
               cy={c.cy}
               r={c.r}

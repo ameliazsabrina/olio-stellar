@@ -95,9 +95,7 @@ export function DepositForm() {
 
   return (
     <Card className="gap-3 p-6">
-      <h2 className="text-lg font-semibold text-ink">
-        Deposit to your stealth address
-      </h2>
+      <h2 className="text-lg font-semibold text-ink">Add your own USDC</h2>
       <form className="grid gap-2" onSubmit={onSubmit}>
         <label htmlFor="deposit-amount">USDC</label>
         <div className="flex flex-wrap items-center gap-3">

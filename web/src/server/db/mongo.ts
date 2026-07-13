@@ -1,7 +1,7 @@
 import { type Binary, type Collection, type Db, MongoClient } from "mongodb";
 
 export type DepositDoc = {
-  _id: number; // leafIndex — positional Merkle leaf index, must stay contiguous
+  _id: number;
   commitment: Binary;
   ephemeralPk: Binary;
   ciphertext: Binary;
@@ -30,15 +30,23 @@ export type IndexerStateDoc = {
   updatedAt: Date;
 };
 
+export type PaymentLinkDoc = {
+  _id: string;
+  owner: string;
+  amount: string | null;
+  label: string | null;
+  status: "pending" | "paid";
+  createdAt: Date;
+};
+
 export type UserDoc = {
-  _id: string; // the smart-wallet contract id
-  address: string; // smart-wallet contract id (same as _id)
-  contractId: string; // deployed smart-wallet contract id
-  credentialId?: string; // base64url WebAuthn credential id
-  secp256r1PubKey?: Binary; // passkey public key registered on the smart wallet
-  // --- escrow fallback for the 6-digit-PIN master secret (no-PRF authenticators) ---
-  encryptedMaster?: Binary; // nonce(12) ‖ AES-256-GCM(masterSecret)
-  masterSalt?: Binary; // Argon2id salt
+  _id: string;
+  address: string;
+  contractId: string;
+  credentialId?: string;
+  secp256r1PubKey?: Binary;
+  encryptedMaster?: Binary;
+  masterSalt?: Binary;
   kdfParams?: { m: number; t: number; p: number };
   createdAt: Date;
   updatedAt: Date;
@@ -82,4 +90,8 @@ export async function getIndexerState(): Promise<Collection<IndexerStateDoc>> {
 
 export async function getUsers(): Promise<Collection<UserDoc>> {
   return (await getDb()).collection<UserDoc>("users");
+}
+
+export async function getPaymentLinks(): Promise<Collection<PaymentLinkDoc>> {
+  return (await getDb()).collection<PaymentLinkDoc>("payment_links");
 }

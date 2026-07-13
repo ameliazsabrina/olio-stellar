@@ -12,7 +12,7 @@ export function Footer() {
   return (
     <div className="bg-paper">
       <footer
-        className="relative isolate z-20 overflow-hidden rounded-t-[32px] bg-ed-dark text-ed-cream sm:rounded-t-[48px]"
+        className="relative isolate z-20 transform-gpu overflow-hidden rounded-t-[48px] bg-ed-dark text-ed-cream [will-change:transform] sm:rounded-t-[48px]"
         id="footer"
       >
         <div className="absolute inset-0 z-0" aria-hidden="true">

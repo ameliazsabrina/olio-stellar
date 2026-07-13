@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     connecting,
     username,
     usernameResolved,
+    sessionReady,
     openUsernameModal,
     usernameModalOpen,
     closeUsernameModal,
@@ -27,6 +28,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   } = useWallet();
   const pathname = usePathname();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
+  // On /pay/* the visitor is an external PAYER using their own wallet (handled by
+  // PayForm), not an Olio account holder — never nudge them into passkey sign-in.
+  const isPay = pathname.startsWith("/pay");
 
   const usernameModal = (
     <UsernameModal open={usernameModalOpen} onClose={closeUsernameModal} />
@@ -38,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     />
   );
 
-  if (pathname === "/") {
+  if (pathname === "/" || pathname.startsWith("/dashboard")) {
     return (
       <>
         <main className="block w-full m-0 p-0">{children}</main>
@@ -66,15 +70,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Home
             </Link>
-            {address && usernameResolved && !username && (
+            {!isPay && address && usernameResolved && !username && (
               <button
+                type="button"
                 className="text-[15px] font-semibold text-olive-deep transition-colors hover:text-olive"
                 onClick={openUsernameModal}
               >
                 Claim username
               </button>
             )}
-            {address ? (
+            {isPay ? null : !sessionReady ? (
+              <Button className="min-h-11" disabled>
+                Signing in…
+              </Button>
+            ) : address ? (
               <Badge
                 variant="secondary"
                 className="h-auto cursor-pointer rounded-full px-3 py-1.5 font-sans text-xs hover:border-olive"
@@ -98,8 +107,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto grid w-full gap-[18px] pb-20 [&>*]:mx-auto [&>*]:w-[min(720px,calc(100%-32px))]">
         {children}
       </main>
-      {usernameModal}
-      {walletModal}
+      {isPay ? null : usernameModal}
+      {isPay ? null : walletModal}
     </>
   );
 }

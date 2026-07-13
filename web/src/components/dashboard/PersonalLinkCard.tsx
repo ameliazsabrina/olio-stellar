@@ -26,57 +26,71 @@ export function PersonalLinkCard({
   }
 
   return (
-    <Card className="gap-3 p-6">
-      <div>
-        <h2 className="font-heading text-base font-semibold text-ink">
-          Your Personal Link
-        </h2>
-        <p className="text-sm text-muted-text">Share to get paid</p>
+    <Card className="gap-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-base font-semibold text-ink">
+            Personal pay link
+          </h2>
+          <p className="mt-1 text-sm text-muted-text">
+            Default route for open payments.
+          </p>
+        </div>
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sage text-olive-deep">
+          <QrCode className="size-4" aria-hidden="true" />
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 rounded-lg border border-line bg-sage/40 px-3 py-2.5">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-olive-deep text-sm font-semibold text-paper">
-          {username.slice(0, 1).toUpperCase()}
+      <div className="grid gap-3 rounded-lg border border-line bg-sage/30 p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-olive-deep text-sm font-semibold text-paper">
+            {username.slice(0, 1).toUpperCase() || "O"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-muted-text">Payee</div>
+            <div className="truncate text-sm font-medium text-ink">
+              {username ? `@${username}` : "Username pending"}
+            </div>
+          </div>
         </div>
-        <div className="min-w-0 flex-1 truncate font-mono text-sm text-ink">
-          {displayLink || "…"}
+
+        <div className="min-w-0 truncate rounded-md bg-panel/80 px-3 py-2 font-mono text-sm text-ink">
+          {displayLink || "..."}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+
+        <div className="grid grid-cols-3 gap-2">
           <Button
-            size="icon-sm"
-            variant="ghost"
+            size="sm"
+            variant="secondary"
             onClick={handleCopy}
             disabled={!payLink}
-            aria-label="Copy link"
-            title="Copy link"
           >
             {copied ? (
-              <Check className="size-4 text-ok" aria-hidden="true" />
+              <Check className="size-3.5 text-ok" aria-hidden="true" />
             ) : (
-              <Copy className="size-4" aria-hidden="true" />
+              <Copy className="size-3.5" aria-hidden="true" />
             )}
+            Copy
           </Button>
           <Button
-            size="icon-sm"
-            variant="ghost"
+            size="sm"
+            variant="outline"
             onClick={() => setQrOpen((v) => !v)}
             disabled={!payLink}
             aria-expanded={qrOpen}
-            aria-label="Show QR code"
-            title="Show QR code"
           >
-            <QrCode className="size-4" aria-hidden="true" />
+            <QrCode className="size-3.5" aria-hidden="true" />
+            QR
           </Button>
           <Button
-            size="icon-sm"
-            variant="ghost"
+            size="sm"
+            variant="outline"
             nativeButton={false}
             disabled={!payLink}
-            aria-label="Open link"
-            title="Open link"
             render={<a href={payLink} target="_blank" rel="noreferrer" />}
           >
-            <ExternalLink className="size-4" aria-hidden="true" />
+            <ExternalLink className="size-3.5" aria-hidden="true" />
+            Open
           </Button>
         </div>
       </div>
@@ -85,12 +99,17 @@ export function PersonalLinkCard({
         <div className="flex justify-center rounded-lg border border-line bg-white p-4">
           <QRCodeSVG
             value={payLink}
-            size={160}
+            size={156}
             fgColor="#20261a"
             bgColor="#ffffff"
           />
         </div>
       )}
+
+      <div className="rounded-lg border border-gold/20 bg-paper/70 px-3 py-2 text-xs leading-5 text-muted-text">
+        Payment-specific links can lock an amount. This personal link stays open
+        for any payer.
+      </div>
     </Card>
   );
 }

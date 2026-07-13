@@ -1,13 +1,3 @@
-// Mongo-backed cache of the username registry. Cache misses always
-// re-verify against the registry contract before ever serving/caching a
-// result, so Mongo can never redirect a payment to keys that weren't
-// actually registered on-chain.
-//
-// `resolve` uses a TTL, not a plain cache-aside, because the registry's
-// `set_pubkey` lets an owner rotate their note key at any time and the
-// registry contract emits zero events — there is no invalidation signal to
-// hook, so staleness has to be bounded by time instead.
-
 import "server-only";
 import { Binary } from "mongodb";
 import { bytesToHex } from "../../../lib/crypto";
@@ -86,30 +76,21 @@ export async function resolveUsername(
     return toResolveOutput(cached);
   }
 
-  let onChain;
+  let onChain: OlioAccount | null;
   try {
     onChain = await resolveUsernameOnChain(username);
   } catch {
-    // Transient RPC failure, not "not found" — fail open to a stale cache
-    // entry if we have one rather than falsely reporting "not registered."
     if (cached) return toResolveOutput(cached);
     throw new RegistryLookupFailedError();
   }
 
   if (!onChain) {
-    // Genuinely not registered. Don't cache the miss — there's no
-    // invalidation mechanism, so a negative cache entry would permanently
-    // shadow someone who registers moments later.
     return null;
   }
 
   return upsertFromChain(username, onChain);
 }
 
-// Explicit write triggered right after an on-chain `register` tx. Re-reads the
-// registry to confirm the username really is registered (and to the keys the
-// contract stored), then mirrors it into Mongo. Throws if the record isn't
-// on-chain yet so the caller knows the register tx hasn't confirmed.
 export async function registerUsernameCache(
   username: string,
 ): Promise<ResolveOutput> {
@@ -121,14 +102,6 @@ export async function registerUsernameCache(
 export async function usernameByOwner(owner: string): Promise<string | null> {
   const usernames = await getUsernames();
   const cached = await usernames.findOne({ owner });
-  // No TTL here: returns only a display string (no key material), and
-  // owner->username is immutable on-chain (registry has no
-  // unregister/reassign method).
   if (cached) return cached._id;
-
-  // A bare username_of call doesn't return note_pubkey/view_pubkey/created,
-  // so there isn't enough data to satisfy the collection's required-field
-  // validator — don't attempt a partial upsert. The full doc gets
-  // populated naturally the next time anyone calls `resolve` on it.
   return usernameOfOnChain(owner);
 }

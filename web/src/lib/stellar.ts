@@ -11,9 +11,8 @@ import {
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
-import { Buffer } from "buffer";
 import { api } from "../trpc/client";
-import { bytesToHex, fromBaseUnits, hexToBytes } from "./crypto";
+import { fromBaseUnits, hexToBytes } from "./crypto";
 import type { RawProof } from "./prover";
 
 export const networkPassphrase =
@@ -32,7 +31,8 @@ export const server = new rpc.Server(rpcUrl, {
 const scAddr = (s: string) => new Address(s).toScVal();
 const scStr = (s: string) => nativeToScVal(s, { type: "string" });
 const scSym = (s: string) => nativeToScVal(s, { type: "symbol" });
-const scBytes = (b: Uint8Array) => xdr.ScVal.scvBytes(Buffer.from(b));
+const scBytes = (b: Uint8Array) =>
+  xdr.ScVal.scvBytes(b as unknown as Buffer);
 const scI128 = (v: bigint) => nativeToScVal(v, { type: "i128" });
 
 function scProof(proof: RawProof): xdr.ScVal {
@@ -127,7 +127,7 @@ async function pollTransaction(txHash: string): Promise<unknown> {
     got = await server.getTransaction(txHash);
   }
   if (got.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
-    throw new Error("Transaction failed: " + got.status);
+    throw new Error(`Transaction failed: ${got.status}`);
   }
   return got.returnValue ? scValToNative(got.returnValue) : null;
 }

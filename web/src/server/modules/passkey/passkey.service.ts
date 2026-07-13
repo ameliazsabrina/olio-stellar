@@ -2,9 +2,9 @@ import "server-only";
 import { Binary } from "mongodb";
 import { getUsers } from "../../db/mongo";
 import {
-  type RelayResult,
   relaySoroban as channelsRelaySoroban,
   relayXdr as channelsRelayXdr,
+  type RelayResult,
 } from "../channels/channels.service";
 import type { WalletOutput } from "./passkey.schema";
 
@@ -15,14 +15,10 @@ const hexToBytes = (hex: string): Uint8Array => {
   return out;
 };
 
-// Sponsor the smart-wallet deploy (a signed CreateContract envelope).
 export async function deployWallet(xdr: string): Promise<RelayResult> {
   return channelsRelayXdr(xdr);
 }
 
-// Sponsor a passkey-authorized invocation (func + passkey-signed auth entries).
-// Public: the smart wallet's on-chain __check_auth is what actually guards funds;
-// only relayer fee budget is at stake. TODO(WS4): gate behind a passkey session.
 export async function relaySoroban(
   func: string,
   auth: string[],
@@ -30,8 +26,6 @@ export async function relaySoroban(
   return channelsRelaySoroban(func, auth);
 }
 
-// Mirror a freshly-deployed smart wallet. Keyed by the contract id (the passkey
-// account's on-chain address), so it slots into the same `users` collection.
 export async function saveWallet(input: {
   contractId: string;
   credentialId: string;

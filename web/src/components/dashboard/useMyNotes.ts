@@ -11,8 +11,6 @@ type NotesState = {
   refresh: () => void;
 };
 
-/// Scans the shielded pool for notes owned by the locally-stored account.
-/// Re-runs whenever `address` changes (sign-in/out) or `refresh` is called.
 export function useMyNotes(address: string | null | undefined): NotesState {
   const [notes, setNotes] = useState<MyNote[]>([]);
   const [claimable, setClaimable] = useState<bigint>(0n);
@@ -21,6 +19,7 @@ export function useMyNotes(address: string | null | undefined): NotesState {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    void tick;
     const account = address ? getAccount() : null;
     if (!account) {
       setNotes([]);

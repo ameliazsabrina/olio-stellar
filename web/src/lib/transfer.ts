@@ -1,11 +1,3 @@
-// Shielded transfer orchestration (client-side). Spends one of the sender's own
-// notes and mints two new notes — one for the recipient, one for the sender's
-// change — via a single gasless `transfer` call. All amounts stay private; only
-// the input nullifier and the two output commitments are ever published.
-//
-// v1 spends a *single* input note that covers the amount (no note combining);
-// combining multiple inputs needs a 2-in circuit (tracked follow-up).
-
 import {
   commitment,
   encryptNote,
@@ -14,8 +6,8 @@ import {
   nullifier as nullifierHash,
   ownerPk,
   randomFieldElement,
-  toBE32,
   TREE_DEPTH,
+  toBE32,
   viewPubkey,
 } from "./crypto";
 import type { LocalAccount, MyNote, ScanResult } from "./notes";
@@ -30,7 +22,10 @@ export type TransferResult = {
 
 /// Pick the smallest single unspent note that covers `amount`. Returns null if
 /// no single note is large enough (v1 can't combine notes).
-export function selectInputNote(notes: MyNote[], amount: bigint): MyNote | null {
+export function selectInputNote(
+  notes: MyNote[],
+  amount: bigint,
+): MyNote | null {
   const candidates = notes.filter((n) => !n.spent && n.amount >= amount);
   if (candidates.length === 0) return null;
   return candidates.reduce((best, n) => (n.amount < best.amount ? n : best));

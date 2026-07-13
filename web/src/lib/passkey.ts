@@ -1,11 +1,4 @@
-// Client-side passkey (WebAuthn secp256r1) smart-wallet helpers. Wraps
-// passkey-kit: create/connect a per-user smart-wallet contract, and build a
-// Signer that signs Soroban auth entries with the passkey. Submission is
-// sponsored server-side through the Channels relayer (tRPC `passkey.*`), so the
-// user needs no XLM. Browser-only — call from client components.
-
-import { hash, Keypair, Transaction, xdr } from "@stellar/stellar-sdk";
-import { Buffer } from "buffer";
+import { Keypair, Transaction, xdr } from "@stellar/stellar-sdk";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { PasskeyKit } from "passkey-kit";
 import type { AppRouter } from "../server/root";
@@ -14,17 +7,14 @@ import { networkPassphrase, rpcUrl, type Signer } from "./stellar";
 const WASM_HASH = process.env.NEXT_PUBLIC_SMART_WALLET_WASM_HASH || "";
 const KEY_ID_STORAGE = "olio.passkey.keyId";
 const APP_NAME = "Olio";
+const LAUNCHER_SEED = new Uint8Array([
+  40, 96, 128, 206, 247, 45, 158, 82, 65, 38, 70, 171, 1, 143, 40, 67, 231, 33,
+  60, 177, 174, 164, 110, 127, 219, 80, 162, 72, 83, 207, 75, 53,
+]);
 
-// passkey-kit's launcher account (deployer + tx source of every smart wallet).
-// The seed is a fixed public constant, so we can reconstruct it to re-sign after
-// adjusting the fee.
-const launcher = () => Keypair.fromRawEd25519Seed(hash(Buffer.from("kalepail")));
+const launcher = () =>
+  Keypair.fromRawEd25519Seed(LAUNCHER_SEED as unknown as Buffer);
 
-// passkey-kit builds the deploy tx with a large safety-buffer inclusion fee, but
-// the Channels relayer rejects any tx whose fee exceeds resourceFee + 201
-// ("Transaction fee must be equal to the resource fee"). Rewrite the fee field to
-// resourceFee + 100 (min inclusion; fee 0 → TxMalformed), preserving the Soroban
-// footprint, and re-sign with the launcher.
 function capDeployFee(signedTxXdr: string): string {
   const env = xdr.TransactionEnvelope.fromXDR(signedTxXdr, "base64");
   const inner = env.v1().tx();
@@ -38,10 +28,6 @@ function capDeployFee(signedTxXdr: string): string {
 
 export const passkeyConfigured = Boolean(WASM_HASH);
 
-// Lazily import passkey-kit in the browser only. It pulls in
-// @stellar/stellar-sdk/minimal, whose contract-bindings codegen does a runtime
-// require('../../package.json') that breaks under SSR bundling — same reason
-// stellar.ts dynamically imports the wallets-kit.
 let _kit: Promise<PasskeyKit> | null = null;
 function kit(): Promise<PasskeyKit> {
   if (!_kit) {
@@ -51,8 +37,7 @@ function kit(): Promise<PasskeyKit> {
         rpcUrl,
         networkPassphrase,
         walletWasmHash: WASM_HASH,
-        // The Channels relayer rejects a submitted envelope whose maxTime is
-        // >60s out; keep the deploy tx's timebound well under that.
+
         timeoutInSeconds: 30,
       });
     })();
@@ -68,10 +53,20 @@ function trpc() {
 
 export type PasskeyWallet = { contractId: string; keyId: string };
 
-// Register a new passkey and deploy its smart-wallet contract (sponsored). The
-// deploy is signed by passkey-kit's launcher account with source-account
-// credentials, so it must be relayed as a full envelope (fee-bumped) rather than
-// via func+auth — the channel-account func+auth mode rejects source-account creds.
+function storedKeyId(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.localStorage.getItem(KEY_ID_STORAGE) ?? undefined;
+}
+
+function rememberKeyId(keyId: string): void {
+  window.localStorage.setItem(KEY_ID_STORAGE, keyId);
+}
+
+export function forgetPasskeyWallet(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY_ID_STORAGE);
+}
+
 export async function createPasskeyWallet(
   username: string,
 ): Promise<PasskeyWallet> {
@@ -83,21 +78,34 @@ export async function createPasskeyWallet(
     contractId,
     credentialId: keyIdBase64,
   });
-  window.localStorage.setItem(KEY_ID_STORAGE, keyIdBase64);
+  rememberKeyId(keyIdBase64);
   return { contractId, keyId: keyIdBase64 };
 }
 
-// Authenticate an existing passkey and resolve its smart-wallet contract id via
-// the off-chain mirror (credentialId -> contractId).
+export async function restorePasskeyWallet(): Promise<PasskeyWallet | null> {
+  const keyId = storedKeyId();
+  if (!keyId) return null;
+  const wallet = await trpc().passkey.walletByCredential.query({
+    credentialId: keyId,
+  });
+  if (!wallet?.contractId) {
+    forgetPasskeyWallet();
+    return null;
+  }
+  return { contractId: wallet.contractId, keyId: wallet.credentialId };
+}
+
 export async function connectPasskeyWallet(): Promise<PasskeyWallet> {
-  const stored = window.localStorage.getItem(KEY_ID_STORAGE) ?? undefined;
-  const { contractId, keyIdBase64 } = await (await kit()).connectWallet({
+  const stored = storedKeyId();
+  const { contractId, keyIdBase64 } = await (
+    await kit()
+  ).connectWallet({
     keyId: stored,
     getContractId: async (keyId) =>
       (await trpc().passkey.walletByCredential.query({ credentialId: keyId }))
         ?.contractId,
   });
-  window.localStorage.setItem(KEY_ID_STORAGE, keyIdBase64);
+  rememberKeyId(keyIdBase64);
   return { contractId, keyId: keyIdBase64 };
 }
 
@@ -106,10 +114,6 @@ export function passkeySigner(wallet: PasskeyWallet): Signer {
     address: wallet.contractId,
     signAuthEntries: async (entries) => {
       const k = await kit();
-      // passkey-kit uses @stellar/stellar-sdk/minimal, a SEPARATELY-bundled
-      // js-xdr. Live xdr objects can't cross that boundary (its writer rejects
-      // our Hyper nonce), so hand entries over as bytes: re-parse each with the
-      // minimal xdr, sign, and return base64 the relayer can submit as-is.
       const { xdr: mxdr } = await import("@stellar/stellar-sdk/minimal");
       const out: string[] = [];
       for (const entry of entries) {

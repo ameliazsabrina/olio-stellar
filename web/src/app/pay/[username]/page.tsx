@@ -1,14 +1,18 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "../../../components/ui/card";
+import { usePaymentLink } from "../../../features/paymentLinks/hooks/usePaymentLink";
 import { type OlioAccount, resolveUsername } from "../../../lib/stellar";
 import { PayForm } from "./PayForm";
 
 export default function PayPage() {
   const params = useParams<{ username: string }>();
+  const searchParams = useSearchParams();
   const username = decodeURIComponent(params.username || "").toLowerCase();
+  const linkId = searchParams.get("l");
+  const link = usePaymentLink(linkId);
 
   const [account, setAccount] = useState<OlioAccount | null | "loading">(
     "loading",
@@ -50,7 +54,7 @@ export default function PayPage() {
         </p>
       </section>
 
-      <PayForm account={account} username={username} />
+      <PayForm account={account} username={username} link={link} />
 
       <p className="pt-8 text-center text-xs text-muted-foreground">
         Unlinkable receipt · encrypted to the recipient · Built on Stellar
