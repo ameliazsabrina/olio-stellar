@@ -1,10 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Check, Loader2, ShieldCheck, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  Check,
+  Loader2,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { offRampEnabled } from "../../lib/anchor";
 import { fromBaseUnits } from "../../lib/crypto";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
@@ -18,8 +26,10 @@ import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { useWallet } from "../WalletProvider";
+import { OffRampContent } from "./OffRampContent";
 
 type Step = "form" | "review" | "proving" | "done";
+type Exit = "wallet" | "bank";
 
 const withdrawFormSchema = z.object({
   destination: z.string().trim(),
@@ -46,6 +56,8 @@ export function WithdrawDialog({
 }) {
   const { getSigner } = useWallet();
   const [step, setStep] = useState<Step>("form");
+  const [exit, setExit] = useState<Exit>("wallet");
+  const [bankBusy, setBankBusy] = useState(false);
   const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WithdrawResult | null>(null);
@@ -76,6 +88,8 @@ export function WithdrawDialog({
 
   function reset() {
     setStep("form");
+    setExit("wallet");
+    setBankBusy(false);
     setSelectedLeaf(null);
     setError(null);
     setResult(null);
@@ -129,7 +143,10 @@ export function WithdrawDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => !next && !bankBusy && handleClose()}
+    >
       <DialogContent className="max-w-[440px]">
         <DialogTitle className="flex items-center gap-2">
           {step === "review" && (
@@ -147,7 +164,46 @@ export function WithdrawDialog({
 
         {step === "form" && (
           <div className="grid gap-4">
-            {options.length === 0 ? (
+            {offRampEnabled && !bankBusy && (
+              <div
+                role="tablist"
+                aria-label="Cash-out destination"
+                className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-white/60 p-1"
+              >
+                {(
+                  [
+                    { key: "wallet", label: "To a wallet", icon: Wallet },
+                    { key: "bank", label: "To your bank", icon: Banknote },
+                  ] as const
+                ).map(({ key, label, icon: Icon }) => {
+                  const active = exit === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => {
+                        setError(null);
+                        setExit(key);
+                      }}
+                      className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-olive text-paper"
+                          : "text-muted-text hover:text-ink"
+                      }`}
+                    >
+                      <Icon className="size-4" />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {exit === "bank" ? (
+              <OffRampContent notes={notes} onBusyChange={setBankBusy} />
+            ) : options.length === 0 ? (
               <Alert>
                 <AlertDescription>
                   No payments to cash out yet. Share your pay link to receive
