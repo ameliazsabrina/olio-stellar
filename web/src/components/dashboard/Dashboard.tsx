@@ -187,7 +187,7 @@ function PrivacyStatus({ username }: { username: string }) {
 }
 
 export function Dashboard() {
-  const { address, username } = useWallet();
+  const { address, username, accountUnlocked, promptUnlock } = useWallet();
   const [origin, setOrigin] = useState("");
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -199,6 +199,7 @@ export function Dashboard() {
 
   const payLink = username && origin ? `${origin}/pay/${username}` : "";
   const hasNotes = claimable > 0n;
+  const locked = Boolean(address) && !accountUnlocked;
 
   return (
     <DashboardShell>
@@ -228,10 +229,12 @@ export function Dashboard() {
           <BalanceCard
             claimable={claimable}
             loading={loading}
+            locked={locked}
+            onUnlock={promptUnlock}
             onWithdraw={() => setWithdrawOpen(true)}
             onReceive={() => setReceiveOpen(true)}
           />
-
+          {/* 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {WORKFLOW_STEPS.map((step, index) => (
               <FlowCard
@@ -243,14 +246,14 @@ export function Dashboard() {
                 withdrawDisabled={!hasNotes || loading}
               />
             ))}
-          </div>
+          </div> */}
 
           <ActivityFeed notes={notes} loading={loading} />
         </div>
 
         <aside className="grid content-start gap-5">
           <PersonalLinkCard username={username ?? ""} payLink={payLink} />
-          <PrivacyStatus username={username ?? ""} />
+          {/* <PrivacyStatus username={username ?? ""} /> */}
         </aside>
       </section>
 

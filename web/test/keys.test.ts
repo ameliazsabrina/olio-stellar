@@ -7,8 +7,10 @@ import {
   decryptMaster,
   deriveMasterFromPrf,
   deriveNoteSecrets,
+  deserializeEscrow,
   encryptMaster,
   randomMaster,
+  serializeEscrow,
 } from "../src/lib/keys";
 
 const PRF = new Uint8Array(32).fill(0x11);
@@ -74,5 +76,22 @@ describe("escrow round-trip", () => {
 
     expect(decryptMaster(blob, "246810")).toEqual(master);
     expect(() => decryptMaster(blob, "999999")).toThrow();
+  }, 20_000);
+
+  it("survives hex transport across the tRPC boundary", () => {
+    const master = randomMaster();
+    const blob = encryptMaster(master, "135790", DEFAULT_KDF);
+    const wire = serializeEscrow(blob);
+
+    // Wire shape is JSON-safe (hex strings + structured params).
+    expect(wire.encryptedMasterHex).toMatch(/^[0-9a-f]+$/);
+    expect(wire.masterSaltHex).toMatch(/^[0-9a-f]+$/);
+    expect(JSON.parse(JSON.stringify(wire))).toEqual(wire);
+
+    const restored = deserializeEscrow(wire);
+    expect(restored.ciphertext).toEqual(blob.ciphertext);
+    expect(restored.salt).toEqual(blob.salt);
+    expect(restored.params).toEqual(blob.params);
+    expect(decryptMaster(restored, "135790")).toEqual(master);
   }, 20_000);
 });

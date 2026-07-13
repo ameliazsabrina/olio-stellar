@@ -21,6 +21,7 @@ import {
   toBE32,
 } from "../../../lib/crypto";
 import {
+  explorerTxUrl,
   type OlioAccount,
   poolDeposit,
   usdcBalance,
@@ -47,6 +48,7 @@ export function PayForm({
   const [status, setStatus] = useState<{
     kind: "ok" | "err";
     msg: string;
+    url?: string;
   } | null>(null);
 
   const lockedAmount =
@@ -94,7 +96,7 @@ export function PayForm({
         salt,
       );
 
-      const leafIndex = await poolDeposit(
+      const { leafIndex, txHash } = await poolDeposit(
         signer,
         note,
         units,
@@ -104,6 +106,7 @@ export function PayForm({
       setStatus({
         kind: "ok",
         msg: `Paid ${amount} USDC to @${username}. Private note #${leafIndex} delivered.`,
+        url: explorerTxUrl(txHash),
       });
       reset({ amount: lockedAmount ?? "" });
     } catch (e) {
@@ -170,7 +173,22 @@ export function PayForm({
         ) : null}
         {status ? (
           <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
-            <AlertDescription>{status.msg}</AlertDescription>
+            <AlertDescription>
+              {status.msg}
+              {status.url ? (
+                <>
+                  {" "}
+                  <a
+                    className="font-medium underline underline-offset-2"
+                    href={status.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View on explorer
+                  </a>
+                </>
+              ) : null}
+            </AlertDescription>
           </Alert>
         ) : null}
       </form>

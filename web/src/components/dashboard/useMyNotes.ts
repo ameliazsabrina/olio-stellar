@@ -51,5 +51,20 @@ export function useMyNotes(address: string | null | undefined): NotesState {
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
+  useEffect(() => {
+    if (!address) return;
+    const onFocus = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    const id = window.setInterval(onFocus, 20_000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.clearInterval(id);
+    };
+  }, [address, refresh]);
+
   return { notes, claimable, loading, error, refresh };
 }

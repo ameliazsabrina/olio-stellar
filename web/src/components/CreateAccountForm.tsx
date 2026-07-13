@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { accountPubkeys, ensureAccount, setStoredUsername } from "../lib/notes";
+import { accountPubkeys, getAccount, setStoredUsername } from "../lib/notes";
 import { registerUsername, registerUsernameCache } from "../lib/stellar";
 import { usernameSchema } from "../server/modules/usernames/usernames.schema";
 import { Alert, AlertDescription } from "./ui/alert";
@@ -35,7 +35,11 @@ export function CreateAccountForm({
   const onSubmit = handleSubmit(async ({ username }) => {
     try {
       const signer = getSigner();
-      const acct = ensureAccount();
+      // The recoverable master must already be unlocked (WalletProvider derives
+      // it on create / after unlock). Registering pubkeys derived from anything
+      // else would desync this account from its escrow — the balance-drift bug.
+      const acct = getAccount();
+      if (!acct) throw new Error("Account is locked. Unlock with your PIN.");
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
       await registerUsername(signer, username, notePubkey, viewPubkey);
       try {

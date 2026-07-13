@@ -3,7 +3,7 @@ import { argon2id } from "@noble/hashes/argon2.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { concatBytes, randomBytes } from "@noble/hashes/utils.js";
-import { fromBE, R } from "./crypto";
+import { bytesToHex, fromBE, hexToBytes, R } from "./crypto";
 
 const utf8 = (s: string) => new TextEncoder().encode(s);
 const MASTER_INFO = utf8("olio.master.v1");
@@ -11,9 +11,6 @@ const OWNER_INFO = utf8("olio.owner.v1");
 const VIEW_INFO = utf8("olio.view.v1");
 const MASTER_LEN = 32;
 
-// Argon2id cost for the escrow fallback. Stored alongside the ciphertext so
-// params can be tuned later without breaking existing blobs. OWASP-baseline
-// memory-hard settings; runs once per unlock, client-side.
 export type KdfParams = { m: number; t: number; p: number };
 export const DEFAULT_KDF: KdfParams = { m: 19456, t: 2, p: 1 };
 
@@ -85,4 +82,26 @@ export function decryptMaster(blob: EscrowBlob, pin: string): Uint8Array {
   const nonce = blob.ciphertext.slice(0, 12);
   const ct = blob.ciphertext.slice(12);
   return gcm(escrowKey(pin, blob.salt, blob.params), nonce).decrypt(ct);
+}
+
+export type EscrowTransport = {
+  encryptedMasterHex: string;
+  masterSaltHex: string;
+  kdfParams: KdfParams;
+};
+
+export function serializeEscrow(blob: EscrowBlob): EscrowTransport {
+  return {
+    encryptedMasterHex: bytesToHex(blob.ciphertext),
+    masterSaltHex: bytesToHex(blob.salt),
+    kdfParams: blob.params,
+  };
+}
+
+export function deserializeEscrow(t: EscrowTransport): EscrowBlob {
+  return {
+    ciphertext: hexToBytes(t.encryptedMasterHex),
+    salt: hexToBytes(t.masterSaltHex),
+    params: t.kdfParams,
+  };
 }

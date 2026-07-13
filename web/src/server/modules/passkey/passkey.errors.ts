@@ -4,3 +4,10 @@ export class PasskeyWalletNotFoundError extends Error {
     this.name = "PasskeyWalletNotFoundError";
   }
 }
+
+export class EscrowClobberError extends Error {
+  constructor() {
+    super("an escrow already exists for a different passkey credential");
+    this.name = "EscrowClobberError";
+  }
+}

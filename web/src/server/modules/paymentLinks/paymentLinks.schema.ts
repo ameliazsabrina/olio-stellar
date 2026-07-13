@@ -33,6 +33,26 @@ const amountInput = z
     return units.toString();
   });
 
+const amountFormField = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value, ctx) => {
+    if (value === null || value === undefined || value.trim() === "")
+      return null;
+    const trimmed = value.trim();
+    if (!/^\d+(\.\d{0,7})?$/.test(trimmed)) {
+      ctx.addIssue({ code: "custom", message: "Enter a valid USDC amount." });
+      return z.NEVER;
+    }
+    if (decimalToBaseUnits(trimmed) <= 0n) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enter an amount greater than zero.",
+      });
+      return z.NEVER;
+    }
+    return trimmed;
+  });
+
 const labelInput = z
   .union([z.string().trim().max(120), z.null(), z.undefined()])
   .transform((value) => {
@@ -44,6 +64,16 @@ export const createLinkInput = z
   .object({
     username: usernameSchema,
     amount: amountInput,
+    label: labelInput,
+  })
+  .strict();
+
+// Validation-only counterpart of `createLinkInput` for client forms. Keeps the
+// raw decimal amount so the server transform (`createLinkInput`) runs only once.
+export const createLinkFormInput = z
+  .object({
+    username: usernameSchema,
+    amount: amountFormField,
     label: labelInput,
   })
   .strict();

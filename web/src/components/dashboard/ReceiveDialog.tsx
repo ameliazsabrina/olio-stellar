@@ -17,15 +17,15 @@ import type { z } from "zod";
 import { useCreatePaymentLink } from "../../features/paymentLinks/hooks/useCreatePaymentLink";
 import type { PaymentLink } from "../../features/paymentLinks/types";
 import { payUrl } from "../../lib/paymentLinks";
-import { createLinkInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
+import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 
 type Step = "method" | "configure" | "creating" | "done";
-type CreateLinkFormInput = z.input<typeof createLinkInput>;
-type CreateLinkFormOutput = z.output<typeof createLinkInput>;
+type CreateLinkFormInput = z.input<typeof createLinkFormInput>;
+type CreateLinkFormOutput = z.output<typeof createLinkFormInput>;
 
 export function ReceiveDialog({
   open,
@@ -49,7 +49,7 @@ export function ReceiveDialog({
     reset: resetForm,
     formState: { errors, isSubmitting },
   } = useForm<CreateLinkFormInput, unknown, CreateLinkFormOutput>({
-    resolver: zodResolver(createLinkInput),
+    resolver: zodResolver(createLinkFormInput),
     defaultValues: { username, amount: "", label: "" },
   });
 

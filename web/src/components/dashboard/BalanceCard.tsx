@@ -2,6 +2,7 @@
 
 import {
   ArrowDownToLine,
+  LockKeyhole,
   QrCode,
   ShieldCheck,
   WalletCards,
@@ -22,14 +23,20 @@ function formatUsd(units: bigint): string {
 export function BalanceCard({
   claimable,
   loading,
+  locked = false,
+  onUnlock,
   onWithdraw,
   onReceive,
 }: {
   claimable: bigint;
   loading: boolean;
+  locked?: boolean;
+  onUnlock?: () => void;
   onWithdraw?: () => void;
   onReceive?: () => void;
 }) {
+  if (locked) return <LockedBalanceCard onUnlock={onUnlock} />;
+
   const hasNotes = claimable > 0n;
   const noteState = loading
     ? "Scanning local notes"
@@ -132,6 +139,45 @@ export function BalanceCard({
       <div className="border-t border-olive/15 bg-sage/45 px-5 py-2.5 text-xs font-medium text-olive-deep sm:px-6">
         Private by default. Proofs are generated locally before funds leave the
         pool.
+      </div>
+    </Card>
+  );
+}
+
+// Shown when a session is restored on a device that doesn't hold the note
+// secrets yet. The balance is unknowable until the master is unlocked, so we
+// prompt for the PIN instead of rendering a misleading $0.
+function LockedBalanceCard({ onUnlock }: { onUnlock?: () => void }) {
+  return (
+    <Card className="gap-0 overflow-hidden border-olive/25 bg-panel p-0 ring-1 ring-olive/20">
+      <div className="grid gap-6 p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-olive/20 bg-sage/60 px-2.5 py-1 text-xs font-medium text-olive-deep">
+            <LockKeyhole className="size-3.5 text-olive" aria-hidden="true" />
+            Locked on this device
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <div className="text-sm text-muted-text">Private balance</div>
+          <div className="font-heading text-4xl font-semibold leading-none text-ink sm:text-5xl">
+            Unlock to view
+          </div>
+          <div className="max-w-md text-sm text-muted-text">
+            Your account key isn't cached here. Enter your 6-digit PIN to restore
+            it and reveal your balance — it never leaves this browser.
+          </div>
+        </div>
+
+        <Button
+          size="lg"
+          className="min-h-11 w-fit"
+          onClick={onUnlock}
+          disabled={!onUnlock}
+        >
+          <LockKeyhole className="size-4" aria-hidden="true" />
+          Unlock with PIN
+        </Button>
       </div>
     </Card>
   );

@@ -2,6 +2,13 @@ import { Keypair, Transaction, xdr } from "@stellar/stellar-sdk";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { PasskeyKit } from "passkey-kit";
 import type { AppRouter } from "../server/root";
+import {
+  decryptMaster,
+  deserializeEscrow,
+  encryptMaster,
+  randomMaster,
+  serializeEscrow,
+} from "./keys";
 import { networkPassphrase, rpcUrl, type Signer } from "./stellar";
 
 const WASM_HASH = process.env.NEXT_PUBLIC_SMART_WALLET_WASM_HASH || "";
@@ -107,6 +114,46 @@ export async function connectPasskeyWallet(): Promise<PasskeyWallet> {
   });
   rememberKeyId(keyIdBase64);
   return { contractId, keyId: keyIdBase64 };
+}
+
+export class BadPinError extends Error {
+  constructor() {
+    super("incorrect PIN");
+    this.name = "BadPinError";
+  }
+}
+
+export async function saveMasterEscrow(
+  contractId: string,
+  credentialId: string,
+  master: Uint8Array,
+  pin: string,
+): Promise<void> {
+  const blob = serializeEscrow(encryptMaster(master, pin));
+  await trpc().passkey.saveEscrow.mutate({ contractId, credentialId, ...blob });
+}
+
+export async function createMasterEscrow(
+  contractId: string,
+  credentialId: string,
+  pin: string,
+): Promise<Uint8Array> {
+  const master = randomMaster();
+  await saveMasterEscrow(contractId, credentialId, master, pin);
+  return master;
+}
+
+export async function unlockMasterEscrow(
+  credentialId: string,
+  pin: string,
+): Promise<Uint8Array | null> {
+  const wire = await trpc().passkey.getEscrow.query({ credentialId });
+  if (!wire) return null;
+  try {
+    return decryptMaster(deserializeEscrow(wire), pin);
+  } catch {
+    throw new BadPinError();
+  }
 }
 
 export function passkeySigner(wallet: PasskeyWallet): Signer {

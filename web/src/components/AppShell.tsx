@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import { StellarWalletModal } from "./landing/StellarWalletModal";
+import { PinDialog } from "./PinDialog";
 import { UsernameModal } from "./UsernameModal";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -24,12 +25,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     openUsernameModal,
     usernameModalOpen,
     closeUsernameModal,
+    pinModalOpen,
+    pinMode,
+    pinSubmitting,
+    pinError,
+    submitPin,
+    closePinModal,
     disconnect,
   } = useWallet();
   const pathname = usePathname();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  // On /pay/* the visitor is an external PAYER using their own wallet (handled by
-  // PayForm), not an Olio account holder — never nudge them into passkey sign-in.
   const isPay = pathname.startsWith("/pay");
 
   const usernameModal = (
@@ -41,6 +46,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       onClose={() => setWalletModalOpen(false)}
     />
   );
+  const pinModal = (
+    <PinDialog
+      open={pinModalOpen}
+      mode={pinMode}
+      submitting={pinSubmitting}
+      error={pinError}
+      onSubmit={submitPin}
+      onClose={closePinModal}
+    />
+  );
 
   if (pathname === "/" || pathname.startsWith("/dashboard")) {
     return (
@@ -48,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="block w-full m-0 p-0">{children}</main>
         {usernameModal}
         {walletModal}
+        {pinModal}
       </>
     );
   }
@@ -109,6 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       {isPay ? null : usernameModal}
       {isPay ? null : walletModal}
+      {isPay ? null : pinModal}
     </>
   );
 }

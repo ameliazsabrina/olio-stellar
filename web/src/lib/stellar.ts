@@ -28,11 +28,15 @@ export const server = new rpc.Server(rpcUrl, {
   allowHttp: rpcUrl.startsWith("http://"),
 });
 
+export function explorerTxUrl(txHash: string): string {
+  const net = networkPassphrase === Networks.PUBLIC ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${net}/tx/${txHash}`;
+}
+
 const scAddr = (s: string) => new Address(s).toScVal();
 const scStr = (s: string) => nativeToScVal(s, { type: "string" });
 const scSym = (s: string) => nativeToScVal(s, { type: "symbol" });
-const scBytes = (b: Uint8Array) =>
-  xdr.ScVal.scvBytes(b as unknown as Buffer);
+const scBytes = (b: Uint8Array) => xdr.ScVal.scvBytes(b as unknown as Buffer);
 const scI128 = (v: bigint) => nativeToScVal(v, { type: "i128" });
 
 function scProof(proof: RawProof): xdr.ScVal {
@@ -89,7 +93,7 @@ export async function invoke(
   contractId: string,
   method: string,
   args: xdr.ScVal[] = [],
-): Promise<unknown> {
+): Promise<{ value: unknown; txHash: string }> {
   const op = new Contract(contractId).call(method, ...args);
   const hostFunction = op.body().invokeHostFunctionOp().hostFunction();
 
@@ -113,7 +117,8 @@ export async function invoke(
     hostFunction.toXDR("base64"),
     auth,
   );
-  return pollTransaction(txHash);
+  const value = await pollTransaction(txHash);
+  return { value, txHash };
 }
 
 async function pollTransaction(txHash: string): Promise<unknown> {
@@ -245,15 +250,15 @@ export async function poolDeposit(
   amount: bigint,
   ephemeralPk: Uint8Array,
   ciphertext: Uint8Array,
-): Promise<number> {
-  const idx = await invoke(signer, poolId, "deposit", [
+): Promise<{ leafIndex: number; txHash: string }> {
+  const { value, txHash } = await invoke(signer, poolId, "deposit", [
     scAddr(signer.address),
     scBytes(commitment),
     scI128(amount),
     scBytes(ephemeralPk),
     scBytes(ciphertext),
   ]);
-  return Number(idx);
+  return { leafIndex: Number(value), txHash };
 }
 
 export async function poolWithdraw(
@@ -290,7 +295,7 @@ export async function poolTransfer(
   recipient: TransferNote,
   change: TransferNote,
 ): Promise<{ recipientIndex: number; changeIndex: number }> {
-  const res = (await invoke(signer, poolId, "transfer", [
+  const { value } = await invoke(signer, poolId, "transfer", [
     scBytes(root),
     scBytes(nullifier),
     scProof(proof),
@@ -300,7 +305,8 @@ export async function poolTransfer(
     scBytes(change.commitment),
     scBytes(change.ephemeralPk),
     scBytes(change.ciphertext),
-  ])) as [unknown, unknown];
+  ]);
+  const res = value as [unknown, unknown];
   return { recipientIndex: Number(res[0]), changeIndex: Number(res[1]) };
 }
 
@@ -408,14 +414,20 @@ export async function pageEvents(
 ): Promise<rpc.Api.EventResponse[]> {
   const collected: rpc.Api.EventResponse[] = [];
   let cursor: string | undefined;
-  for (let i = 0; i < 50; i += 1) {
+  // Soroban `getEvents` scans only a bounded ledger window per call and returns
+  // a continuation cursor even when the page is empty or short — a matching
+  // event can sit several pages past an empty leading page. So we must NOT stop
+  // on a short page (the old `events.length < 200` break dropped events that
+  // were one cursor-hop away, silently returning []). Keep following the cursor
+  // until the RPC stops advancing it, i.e. we've caught up to the tip.
+  for (let i = 0; i < 200; i += 1) {
     const req = cursor
       ? { cursor, filters, limit: 200 }
       : { startLedger, filters, limit: 200 };
     const res = await server.getEvents(req as rpc.Server.GetEventsRequest);
     collected.push(...res.events);
     const next = (res as { cursor?: string }).cursor ?? res.events.at(-1)?.id;
-    if (res.events.length < 200 || !next) break;
+    if (!next || next === cursor) break;
     cursor = next;
   }
   return collected;

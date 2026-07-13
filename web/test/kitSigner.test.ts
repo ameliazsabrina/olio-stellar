@@ -29,21 +29,15 @@ vi.mock("../src/trpc/client", () => ({
   api: { passkey: { relaySoroban: { mutate: mocks.relayMutate } } },
 }));
 
-// Mock wallet: parse the entry it's handed, record the pinned expiration, and
-// return the raw ed25519 signature over the exact preimage authorizeEntry builds.
+// Mock wallet: it's handed a base64 HashIdPreimage (exactly what Freighter's
+// signAuthEntry receives), records the pinned expiration, and returns the raw
+// ed25519 signature over sha256(preimage) — what Freighter returns.
 vi.mock("../src/features/payerWallet/kit", () => ({
-  signPayerAuthEntry: vi.fn(async (entryXdr: string) => {
-    const entry = xdr.SorobanAuthorizationEntry.fromXDR(entryXdr, "base64");
-    const addr = entry.credentials().address();
-    mocks.capturedExpiration = addr.signatureExpirationLedger();
-    const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-      new xdr.HashIdPreimageSorobanAuthorization({
-        networkId: hash(Buffer.from(Networks.TESTNET)),
-        nonce: addr.nonce(),
-        invocation: entry.rootInvocation(),
-        signatureExpirationLedger: addr.signatureExpirationLedger(),
-      }),
-    );
+  signPayerAuthEntry: vi.fn(async (preimageXdr: string) => {
+    const preimage = xdr.HashIdPreimage.fromXDR(preimageXdr, "base64");
+    mocks.capturedExpiration = preimage
+      .sorobanAuthorization()
+      .signatureExpirationLedger();
     return kp.sign(hash(preimage.toXDR())).toString("base64");
   }),
 }));

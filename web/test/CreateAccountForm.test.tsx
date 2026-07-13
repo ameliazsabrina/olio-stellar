@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
   useWallet: vi.fn(),
-  ensureAccount: vi.fn(),
+  getAccount: vi.fn(),
   accountPubkeys: vi.fn(),
   setStoredUsername: vi.fn(),
   registerUsername: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock("../src/components/WalletProvider", () => ({
   useWallet: mocks.useWallet,
 }));
 vi.mock("../src/lib/notes", () => ({
-  ensureAccount: mocks.ensureAccount,
+  getAccount: mocks.getAccount,
   accountPubkeys: mocks.accountPubkeys,
   setStoredUsername: mocks.setStoredUsername,
 }));
@@ -43,7 +43,7 @@ function setup() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.useWallet.mockReturnValue({ getSigner: () => SIGNER });
-  mocks.ensureAccount.mockReturnValue({
+  mocks.getAccount.mockReturnValue({
     ownerSecret: 1n,
     viewSk: new Uint8Array(32),
   });
@@ -104,6 +104,19 @@ describe("CreateAccountForm", () => {
     expect(await screen.findByText(/user rejected/i)).toBeInTheDocument();
     expect(mocks.registerUsernameCache).not.toHaveBeenCalled();
     expect(mocks.setStoredUsername).not.toHaveBeenCalled();
+    expect(onClaimed).not.toHaveBeenCalled();
+  });
+
+  it("refuses to register when the account is locked (no master)", async () => {
+    mocks.getAccount.mockReturnValue(null);
+    const { onClaimed } = setup();
+
+    await userEvent.type(screen.getByLabelText(/username/i), "alice");
+    await userEvent.click(screen.getByRole("button", { name: /claim/i }));
+
+    expect(await screen.findByText(/locked/i)).toBeInTheDocument();
+    // Registering random/absent pubkeys is exactly the desync we prevent.
+    expect(mocks.registerUsername).not.toHaveBeenCalled();
     expect(onClaimed).not.toHaveBeenCalled();
   });
 });
