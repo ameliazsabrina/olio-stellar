@@ -11,6 +11,7 @@ import { Input } from "../../../components/ui/input";
 import { usePayerWallet } from "../../../features/payerWallet/hooks/usePayerWallet";
 import { kitSigner } from "../../../features/payerWallet/kitSigner";
 import type { PaymentLink } from "../../../features/paymentLinks/types";
+import { cctpIntakeAddress } from "../../../lib/cctp";
 import {
   commitment,
   encryptNote,
@@ -26,6 +27,9 @@ import {
   poolDeposit,
   usdcBalance,
 } from "../../../lib/stellar";
+import { CctpPayForm } from "./CctpPayForm";
+
+type Method = "stellar" | "cctp";
 
 const payInput = z.object({
   amount: z
@@ -45,11 +49,13 @@ export function PayForm({
   link?: PaymentLink | null;
 }) {
   const { address, connecting, error: walletError, connect } = usePayerWallet();
+  const [method, setMethod] = useState<Method>("stellar");
   const [status, setStatus] = useState<{
     kind: "ok" | "err";
     msg: string;
     url?: string;
   } | null>(null);
+  const cctpEnabled = Boolean(cctpIntakeAddress);
 
   const lockedAmount =
     link && link.owner === username && link.amount
@@ -129,69 +135,108 @@ export function PayForm({
           </span>
         ) : null}
       </div>
-      <form className="grid gap-2" onSubmit={onSubmit}>
-        <label htmlFor="amount">USDC</label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            id="amount"
-            className="min-h-11 flex-1"
-            inputMode="decimal"
-            placeholder="5.00"
-            readOnly={Boolean(lockedAmount)}
-            aria-readonly={Boolean(lockedAmount)}
-            {...register("amount")}
-          />
-          {address ? (
-            <Button className="min-h-11" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Paying…" : "Pay"}
-            </Button>
-          ) : (
-            <Button
-              className="min-h-11"
-              type="button"
-              onClick={connect}
-              disabled={connecting}
-            >
-              {connecting ? "Connecting…" : "Connect wallet"}
-            </Button>
-          )}
+
+      {cctpEnabled && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-white/60 p-1">
+          {(
+            [
+              { key: "stellar", label: "Stellar wallet" },
+              { key: "cctp", label: "Another chain" },
+            ] as const
+          ).map(({ key, label }) => {
+            const active = method === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setStatus(null);
+                  setMethod(key);
+                }}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-olive text-paper"
+                    : "text-muted-foreground hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
-        <span className="text-xs text-muted-foreground">
-          {address
-            ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)} — gasless, you only need USDC.`
-            : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}
-        </span>
-        {walletError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{walletError}</AlertDescription>
-          </Alert>
-        ) : null}
-        {errors.amount ? (
-          <Alert variant="destructive">
-            <AlertDescription>{errors.amount.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        {status ? (
-          <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
-            <AlertDescription>
-              {status.msg}
-              {status.url ? (
-                <>
-                  {" "}
-                  <a
-                    className="font-medium underline underline-offset-2"
-                    href={status.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View on explorer
-                  </a>
-                </>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </form>
+      )}
+
+      {method === "cctp" ? (
+        <CctpPayForm username={username} />
+      ) : (
+        <form className="grid gap-2" onSubmit={onSubmit}>
+          <label htmlFor="amount">USDC</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              id="amount"
+              className="min-h-11 flex-1"
+              inputMode="decimal"
+              placeholder="5.00"
+              readOnly={Boolean(lockedAmount)}
+              aria-readonly={Boolean(lockedAmount)}
+              {...register("amount")}
+            />
+            {address ? (
+              <Button
+                className="min-h-11"
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Paying…" : "Pay"}
+              </Button>
+            ) : (
+              <Button
+                className="min-h-11"
+                type="button"
+                onClick={connect}
+                disabled={connecting}
+              >
+                {connecting ? "Connecting…" : "Connect wallet"}
+              </Button>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {address
+              ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)} — gasless, you only need USDC.`
+              : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}
+          </span>
+          {walletError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{walletError}</AlertDescription>
+            </Alert>
+          ) : null}
+          {errors.amount ? (
+            <Alert variant="destructive">
+              <AlertDescription>{errors.amount.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {status ? (
+            <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
+              <AlertDescription>
+                {status.msg}
+                {status.url ? (
+                  <>
+                    {" "}
+                    <a
+                      className="font-medium underline underline-offset-2"
+                      href={status.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View on explorer
+                    </a>
+                  </>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </form>
+      )}
     </Card>
   );
 }
