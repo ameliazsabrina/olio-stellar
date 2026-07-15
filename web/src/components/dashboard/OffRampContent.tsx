@@ -28,6 +28,7 @@ import {
   releaseNoteToBridge,
 } from "../../lib/offramp";
 import { claimableNotes } from "../../lib/withdraw";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
@@ -184,16 +185,18 @@ export function OffRampContent({
   if (step === "select") {
     return (
       <div className="grid gap-4">
-        <div className="flex items-start gap-2 rounded-lg bg-sage/50 px-3 py-2.5 text-xs text-white">
-          <Landmark className="mt-0.5 size-4 shrink-0 text-white/80" />
+        <div className="flex items-start gap-2 rounded-lg bg-white/8 px-3 py-2.5 text-xs text-white/70 ring-1 ring-white/12">
+          <Landmark className="mt-0.5 size-4 shrink-0 text-white/70" />
           <span>
-            Cash out to your bank through <b>{anchorLabel()}</b>. Identity and
-            bank details are handled by the anchor — they never touch Olio.
+            Cash out to your bank through{" "}
+            <b className="font-semibold text-white">{anchorLabel()}</b>.
+            Identity and bank details are handled by the anchor — they never
+            touch Olio.
           </span>
         </div>
 
         <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm text-white">
+          <legend className="mb-1 text-sm font-medium text-white">
             Payment to cash out
           </legend>
           <div className="grid gap-2">
@@ -205,44 +208,44 @@ export function OffRampContent({
                   type="button"
                   onClick={() => setSelectedLeaf(note.leafIndex)}
                   aria-pressed={active}
-                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
                     active
-                      ? "border-olive/50 bg-sage/50"
-                      : "border-white/15 bg-white/8 hover:border-white/25 hover:bg-white/12"
+                      ? "border-white/40 bg-white/16"
+                      : "border-white/15 bg-white/7 hover:border-white/25 hover:bg-white/10"
                   }`}
                 >
                   <span className="flex items-center gap-2 text-sm text-white">
                     <span
-                      className={`grid size-4 place-items-center rounded-lg border ${
+                      className={`grid size-5 place-items-center rounded-full border ${
                         active
-                          ? "border-olive bg-olive text-paper"
-                          : "border-line"
+                          ? "border-white bg-white text-ink"
+                          : "border-white/35"
                       }`}
+                      aria-hidden="true"
                     >
-                      {active && (
-                        <Check className="size-3" aria-hidden="true" />
-                      )}
+                      {active && <Check className="size-3" />}
                     </span>
                     Payment
                   </span>
-                  <span className="font-mono text-sm font-semibold text-ink">
+                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
                     {fromBaseUnits(note.amount)} USDC
                   </span>
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-muted-text">
+          <p className="text-xs text-white/60">
             Each payment is cashed out in full. To move a smaller amount,
             receive it as a separate payment.
           </p>
         </fieldset>
 
-        <ToastFeedback
-          message={error}
-          variant="error"
-          toastId="off-ramp-error"
-        />
+        {error ? (
+          <Alert appearance="glass" variant="destructive">
+            <AlertTitle>Withdrawal not completed</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
 
         <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
           <Banknote className="size-4" aria-hidden="true" />
@@ -256,13 +259,13 @@ export function OffRampContent({
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
         <Loader2
-          className="size-8 motion-safe:animate-spin text-olive"
+          className="size-8 motion-safe:animate-spin"
           aria-hidden="true"
         />
-        <div className="text-sm font-medium text-ink">
+        <div className="text-sm font-semibold text-white">
           {PREP_LABEL[prepPhase] ?? "Preparing…"}
         </div>
-        <div className="text-xs text-muted-text">
+        <div className="max-w-sm text-sm text-white/65">
           A zero-knowledge proof is generated in your browser before any funds
           move. This can take a few seconds.
         </div>
@@ -274,14 +277,14 @@ export function OffRampContent({
     return (
       <div className="grid gap-4">
         <div className="rounded-lg bg-white/8 p-4 text-sm ring-1 ring-white/15">
-          <div className="flex items-baseline justify-between">
-            <span className="text-muted-text">Cashing out</span>
-            <span className="font-heading text-2xl font-semibold text-ink">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-white/60">Cashing out</span>
+            <span className="font-heading text-2xl font-semibold text-white">
               {selected ? fromBaseUnits(selected.amount) : ""} USDC
             </span>
           </div>
         </div>
-        <p className="text-sm text-muted-text">
+        <p className="text-sm text-white/65">
           Finish in the secure {anchorLabel()} window: verify your identity and
           enter where the cash should land. This screen updates automatically
           once you're done.
@@ -302,7 +305,7 @@ export function OffRampContent({
           <ExternalLink className="size-4" aria-hidden="true" />
           Open secure {anchorLabel()} window
         </Button>
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-text">
+        <div className="flex items-center justify-center gap-2 text-xs text-white/60">
           <Loader2
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
@@ -317,13 +320,13 @@ export function OffRampContent({
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
         <Loader2
-          className="size-8 motion-safe:animate-spin text-olive"
+          className="size-8 motion-safe:animate-spin"
           aria-hidden="true"
         />
-        <div className="text-sm font-medium text-ink">
+        <div className="text-sm font-semibold text-white">
           Sending your payout to the anchor…
         </div>
-        <div className="text-xs text-muted-text">
+        <div className="max-w-sm text-sm text-white/65">
           Completing the on-chain transfer. Hang tight.
         </div>
       </div>
@@ -332,18 +335,20 @@ export function OffRampContent({
 
   if (step === "done") {
     return (
-      <div className="grid place-items-center gap-3 py-6 text-center">
-        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/15 text-ok">
+      <div className="grid place-items-center gap-4 py-8 text-center">
+        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/20 text-emerald-100 ring-1 ring-ok/40">
           <ShieldCheck className="size-6" aria-hidden="true" />
         </div>
-        <div className="font-heading text-lg font-semibold text-ink">
-          Cash-out submitted
-        </div>
-        <div className="max-w-xs text-xs text-muted-text">
-          {settled?.amount_out
-            ? `${settled.amount_out} on its way to your bank via ${anchorLabel()}.`
-            : `Your withdrawal is being processed by ${anchorLabel()}.`}{" "}
-          Track it in the anchor window.
+        <div className="space-y-1">
+          <h2 className="font-heading text-xl font-semibold text-white">
+            Cash-out submitted
+          </h2>
+          <p className="max-w-md text-sm text-white/65">
+            {settled?.amount_out
+              ? `${settled.amount_out} on its way to your bank via ${anchorLabel()}.`
+              : `Your withdrawal is being processed by ${anchorLabel()}.`}{" "}
+            Track it in the anchor window.
+          </p>
         </div>
       </div>
     );
