@@ -81,7 +81,7 @@ function DashboardNavigation({
   return (
     <header
       className={cn(
-        "mb-7 grid items-start gap-4 sm:mb-9 lg:gap-5",
+        "mb-7 grid items-start pt-4 gap-4 sm:mb-9 lg:gap-5",
         showBack
           ? "grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto]"
           : "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto]",
