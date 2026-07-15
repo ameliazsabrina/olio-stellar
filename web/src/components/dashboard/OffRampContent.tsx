@@ -50,6 +50,23 @@ function anchorLabel(): string {
   }
 }
 
+function paintAnchorWindow(
+  win: Window | null,
+  title: string,
+  body: string,
+): void {
+  if (!win || win.closed) return;
+  try {
+    win.document.title = title;
+    win.document.body.style.cssText =
+      "margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,sans-serif;background:#0e0f0d;color:#fff;";
+    win.document.body.innerHTML = `<div style="max-width:22rem;padding:2rem;text-align:center;line-height:1.5">
+      <p style="font-size:0.95rem;font-weight:600;margin:0 0 0.5rem">${title}</p>
+      <p style="font-size:0.85rem;color:rgba(255,255,255,0.65);margin:0">${body}</p>
+    </div>`;
+  } catch {}
+}
+
 export function OffRampContent({
   notes,
   onBusyChange,
@@ -100,6 +117,11 @@ export function OffRampContent({
     // pop-up blocker nulls this out, the "interactive" step's button is fallback.
     const anchorWindow =
       typeof window !== "undefined" ? window.open("", "_blank") : null;
+    paintAnchorWindow(
+      anchorWindow,
+      "Preparing your secure withdrawal…",
+      "This tab will redirect to the anchor automatically once your zero-knowledge proof is ready. Keep it open.",
+    );
     try {
       const acct = getAccount();
       if (!acct) throw new Error("No local account found on this device.");
@@ -166,9 +188,11 @@ export function OffRampContent({
       setSettled(final);
       setStep("done");
     } catch (e) {
-      // Nothing to show if we bailed before the URL was ready; close the blank tab.
-      if (anchorWindow && !anchorWindow.closed) anchorWindow.close();
-      setError(e instanceof Error ? e.message : "Off-ramp failed.");
+      const msg = e instanceof Error ? e.message : "Off-ramp failed.";
+      // Surface the failure IN the pre-opened tab instead of leaving a blank
+      // window (or silently closing it), so the cause is visible.
+      paintAnchorWindow(anchorWindow, "Withdrawal couldn't be prepared", msg);
+      setError(msg);
       setStep("select");
     }
   }
