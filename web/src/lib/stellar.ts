@@ -182,6 +182,23 @@ export async function registerUsername(
   ]);
 }
 
+/// Rotate both pubkeys for a username already owned by `signer`. Used by the
+/// re-key path — `register` rejects an existing username (`UsernameTaken`), so
+/// key rotation must go through `set_pubkey`.
+export async function setUsernamePubkeys(
+  signer: Signer,
+  username: string,
+  notePubkey: Uint8Array,
+  viewPubkey: Uint8Array,
+): Promise<void> {
+  await invoke(signer, registryId, "set_pubkey", [
+    scAddr(signer.address),
+    scStr(username),
+    scBytes(notePubkey),
+    scBytes(viewPubkey),
+  ]);
+}
+
 export async function resolveUsernameOnChain(
   username: string,
 ): Promise<OlioAccount | null> {

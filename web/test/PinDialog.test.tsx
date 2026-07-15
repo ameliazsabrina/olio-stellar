@@ -2,20 +2,24 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PinDialog } from "../src/components/PinDialog";
+import { Toaster } from "../src/components/ui/sonner";
 
 function setup(props: Partial<React.ComponentProps<typeof PinDialog>> = {}) {
   const onSubmit = vi.fn();
   const onClose = vi.fn();
   render(
-    <PinDialog
-      open
-      mode="unlock"
-      submitting={false}
-      error=""
-      onSubmit={onSubmit}
-      onClose={onClose}
-      {...props}
-    />,
+    <>
+      <PinDialog
+        open
+        mode="unlock"
+        submitting={false}
+        error=""
+        onSubmit={onSubmit}
+        onClose={onClose}
+        {...props}
+      />
+      <Toaster />
+    </>,
   );
   return { onSubmit, onClose };
 }
@@ -43,9 +47,11 @@ describe("PinDialog — unlock mode", () => {
     expect(onSubmit).toHaveBeenCalledWith("123456");
   });
 
-  it("surfaces a server-provided error (e.g. wrong PIN)", () => {
+  it("surfaces a server-provided error (e.g. wrong PIN)", async () => {
     setup({ mode: "unlock", error: "Incorrect PIN. Try again." });
-    expect(screen.getByText("Incorrect PIN. Try again.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Incorrect PIN. Try again."),
+    ).toBeInTheDocument();
   });
 });
 
@@ -74,7 +80,9 @@ describe("PinDialog — secure (re-key) mode", () => {
     expect(screen.getByRole("note")).toHaveTextContent(/invisible here/i);
     await userEvent.type(screen.getByLabelText("New PIN"), "112233");
     await userEvent.type(screen.getByLabelText("Confirm PIN"), "112233");
-    await userEvent.click(screen.getByRole("button", { name: /secure account/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /secure account/i }),
+    );
     expect(onSubmit).toHaveBeenCalledWith("112233");
   });
 });

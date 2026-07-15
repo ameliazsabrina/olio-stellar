@@ -14,7 +14,10 @@ POOL_DEPTH="${POOL_DEPTH:-20}"
 
 REGISTRY_WASM="target/wasm32v1-none/release/olio_registry.wasm"
 POOL_WASM="target/wasm32v1-none/release/olio_pool.wasm"
+INTAKE_WASM="target/wasm32v1-none/release/olio_intake.wasm"
 ENV_FILE="web/.env.local"
+# Dedicated CCTP relay operator (tx source / fee payer / intake-contract admin).
+CCTP_OPERATOR="${CCTP_OPERATOR:-cctp-operator}"
 
 log() { printf '\033[0;36m==>\033[0m %s\n' "$*"; }
 
@@ -109,9 +112,40 @@ SMART_WALLET_WASM_HASH=$(stellar contract upload \
   --network "${NETWORK}")
 log "Smart-wallet WASM hash: ${SMART_WALLET_WASM_HASH}"
 
+# 6c. CCTP intake/forwarder contract + relay operator.
+#
+# Circle's Stellar CCTP minter always mints to a *contract* address, so the
+# intake is a Soroban contract (not a G-account). The dedicated operator account
+# is the intake's admin: it signs receive_message and the admin-gated
+# deposit_to_pool. It only needs XLM for fees — no USDC trustline (the contract
+# holds the bridged USDC as a SAC balance).
+if ! stellar keys address "${CCTP_OPERATOR}" >/dev/null 2>&1; then
+  log "Creating and funding CCTP operator '${CCTP_OPERATOR}'"
+  stellar keys generate "${CCTP_OPERATOR}" --network "${NETWORK}" --fund
+fi
+OPERATOR_ADDR=$(stellar keys address "${CCTP_OPERATOR}")
+OPERATOR_SECRET=$(stellar keys secret "${CCTP_OPERATOR}")
+log "CCTP operator: ${OPERATOR_ADDR}"
+
+log "Deploying olio-intake (admin=operator, pool, asset=USDC)"
+INTAKE_ID=$(stellar contract deploy \
+  --wasm "${INTAKE_WASM}" \
+  --source "${SOURCE_ACCOUNT}" \
+  --network "${NETWORK}" \
+  -- \
+  --admin "${OPERATOR_ADDR}" \
+  --pool "${POOL_ID}" \
+  --asset "${USDC_SAC}")
+log "Intake contract: ${INTAKE_ID}"
+
 # 7. Write web env.
 NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 RPC_URL="${STELLAR_RPC_URL:-https://soroban-testnet.stellar.org}"
+# Preserve an existing Circle API key across redeploys (the file is regenerated).
+EXISTING_CIRCLE_API_KEY=""
+if [ -f "${ENV_FILE}" ]; then
+  EXISTING_CIRCLE_API_KEY=$(grep -E '^CIRCLE_API_KEY=' "${ENV_FILE}" | head -1 | cut -d= -f2- || true)
+fi
 log "Writing ${ENV_FILE}"
 cat > "${ENV_FILE}" <<EOF
 NEXT_PUBLIC_STELLAR_NETWORK=${NETWORK}
@@ -123,9 +157,17 @@ NEXT_PUBLIC_USDC_SAC_ID=${USDC_SAC}
 NEXT_PUBLIC_USDC_ISSUER=${USDC_ISSUER}
 NEXT_PUBLIC_POOL_DEPTH=${POOL_DEPTH}
 NEXT_PUBLIC_SMART_WALLET_WASM_HASH=${SMART_WALLET_WASM_HASH}
+
+# CCTP V2 cross-chain deposits. Intake is a contract (Circle mints to contracts);
+# the operator is its admin / tx source / fee payer.
+NEXT_PUBLIC_CCTP_INTAKE_CONTRACT=${INTAKE_ID}
+CCTP_OPERATOR_SECRET=${OPERATOR_SECRET}
+CIRCLE_API_KEY=${EXISTING_CIRCLE_API_KEY}
 EOF
 
 log "Done. Contract IDs written to ${ENV_FILE}:"
 echo "  registry: ${REGISTRY_ID}"
 echo "  pool:     ${POOL_ID}"
 echo "  usdc SAC: ${USDC_SAC}"
+echo "  intake:   ${INTAKE_ID}"
+echo "  operator: ${OPERATOR_ADDR}"

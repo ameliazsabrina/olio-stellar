@@ -4,7 +4,25 @@
 // mints USDC on Stellar, which the relayer then deposits into the shielded pool
 // as a note encrypted to the payee. Addresses are Circle's testnet deployments.
 
+import { keccak_256 } from "@noble/hashes/sha3.js";
+
 export const CCTP_STELLAR_DOMAIN = 27;
+
+// Salted commitment carried in the burn's hookData, binding the burn to a payee
+// without revealing the payee on the public source chain. The payer generates a
+// random 32-byte `nonce`; the relay recomputes this from the resolved payee's
+// note key and rejects the deposit unless it matches the message's hookData.
+// Second-preimage resistance means an attacker cannot redirect a victim's burn
+// to a different username.
+export function cctpBinding(
+  notePubkey: Uint8Array,
+  nonce: Uint8Array,
+): Uint8Array {
+  const buf = new Uint8Array(notePubkey.length + nonce.length);
+  buf.set(notePubkey, 0);
+  buf.set(nonce, notePubkey.length);
+  return keccak_256(buf);
+}
 
 // Circle's Stellar (Soroban) CCTP V2 testnet contracts.
 export const cctpStellar = {
@@ -19,10 +37,13 @@ export const cctpStellar = {
     "CA66Q2WFBND6V4UEB7RD4SAXSVIWMD6RA4X3U32ELVFGXV5PJK4T4VSZ",
 };
 
-// The Stellar account CCTP mints into before the pool deposit. Public address is
-// exposed so the payer's burn can target it; the secret is server-only.
-export const cctpIntakeAddress =
-  process.env.NEXT_PUBLIC_CCTP_INTAKE_ADDRESS || "";
+// The Stellar CCTP intake **contract** (C…) the minter credits before the pool
+// deposit. Circle's Stellar minter always interprets the 32-byte mintRecipient
+// as a contract id, so this must be a contract — not a G-account. Its C-address
+// is public so the payer's burn can target it; the operator that forwards its
+// balance into the pool is server-only (CCTP_OPERATOR_SECRET).
+export const cctpIntakeContract =
+  process.env.NEXT_PUBLIC_CCTP_INTAKE_CONTRACT || "";
 
 export type EvmSource = {
   domain: number;
@@ -75,6 +96,37 @@ export const EVM_SOURCES: Record<number, EvmSource> = {
 
 export const evmSourceByChainId = (chainId: number): EvmSource | undefined =>
   Object.values(EVM_SOURCES).find((s) => s.chainId === chainId);
+
+// Circle CCTP V2 Solana source (devnet). Solana is source domain 5. The V2
+// program IDs are the same `CCTPV2…` addresses on every cluster; only the USDC
+// mint and RPC endpoint differ, so those are env-overridable for a later mainnet
+// swap. A Solana burn produces the same normalized CCTP message as an EVM burn,
+// so the server relay is chain-agnostic and needs no Solana awareness.
+export const SOLANA_SRC_DOMAIN = 5;
+
+export type SolanaSource = {
+  domain: typeof SOLANA_SRC_DOMAIN;
+  name: string;
+  usdcMint: string;
+  tokenMessengerMinter: string;
+  messageTransmitter: string;
+  rpcUrl: string;
+  explorerTx: string;
+};
+
+export const solanaSource: SolanaSource = {
+  domain: SOLANA_SRC_DOMAIN,
+  name: "Solana Devnet",
+  // Circle's CCTP-burnable devnet USDC faucet mint (faucet.circle.com).
+  usdcMint:
+    process.env.NEXT_PUBLIC_SOLANA_USDC_MINT ||
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+  tokenMessengerMinter: "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
+  messageTransmitter: "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
+  rpcUrl:
+    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+  explorerTx: "https://explorer.solana.com/tx/",
+};
 
 // Circle Iris attestation service (sandbox for testnet).
 export const irisBaseUrl = (

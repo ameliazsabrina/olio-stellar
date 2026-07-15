@@ -1,15 +1,38 @@
 "use client";
 
 import {
-  ArrowDownToLine,
+  Check,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Info,
   LockKeyhole,
   QrCode,
-  ShieldCheck,
-  WalletCards,
+  ReceiptText,
 } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
 import { fromBaseUnits } from "../../lib/crypto";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+
+const UPCOMING_STABLECOINS = ["EURC", "GYEN", "ZUSD", "AUDD"] as const;
+const STABLECOIN_ASSETS = {
+  USDC: "/stablecoins/usdc.svg",
+  EURC: "/stablecoins/eurc.png",
+  GYEN: "/stablecoins/gyen.png",
+  ZUSD: "/stablecoins/zusd.png",
+  AUDD: "/stablecoins/audd.png",
+} as const;
 
 function formatUsd(units: bigint): string {
   const amount = Number(fromBaseUnits(units));
@@ -20,165 +43,199 @@ function formatUsd(units: bigint): string {
   });
 }
 
+function LedgerMark() {
+  return (
+    <div className="relative flex size-11 shrink-0 rotate-[-3deg] items-center justify-center rounded-lg border border-white/20 bg-white/8 text-white shadow-sm">
+      <ReceiptText className="size-5" aria-hidden="true" />
+      <span className="absolute -right-1 -bottom-1 size-2.5 rounded-full border-2 border-ink/80 bg-white" />
+    </div>
+  );
+}
+
 export function BalanceCard({
   claimable,
   loading,
   locked = false,
   onUnlock,
-  onWithdraw,
   onReceive,
 }: {
   claimable: bigint;
   loading: boolean;
   locked?: boolean;
   onUnlock?: () => void;
-  onWithdraw?: () => void;
   onReceive?: () => void;
 }) {
+  const [balanceVisible, setBalanceVisible] = useState(true);
+
   if (locked) return <LockedBalanceCard onUnlock={onUnlock} />;
 
-  const hasNotes = claimable > 0n;
-  const noteState = loading
-    ? "Scanning local notes"
-    : hasNotes
-      ? "Ready to cash out"
-      : "Waiting for first payment";
-
   return (
-    <Card className="gap-0 overflow-hidden border-olive/25 bg-panel p-0 ring-1 ring-olive/20">
-      <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_16rem]">
-        <div className="flex min-w-0 flex-col justify-between gap-7">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-olive/20 bg-sage/60 px-2.5 py-1 text-xs font-medium text-olive-deep">
-              <ShieldCheck className="size-3.5 text-olive" aria-hidden="true" />
-              Shielded pool
+    <Card appearance="glass" className="gap-0 p-0">
+      <div className="grid gap-7 p-5 sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <div className="grid gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/75">
+              Your private balance
+              <Info className="size-4 text-white/45" aria-hidden="true" />
             </div>
-            <div className="rounded-full border border-line bg-paper/70 px-2.5 py-1 text-xs text-muted-text">
-              {noteState}
-            </div>
+            {loading ? (
+              <div className="h-11 w-36 rounded-lg bg-white/10 motion-safe:animate-pulse" />
+            ) : (
+              <div className="font-mono text-4xl font-semibold tracking-tight text-white tabular-nums sm:text-5xl">
+                {balanceVisible ? formatUsd(claimable) : "••••••"}
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-2">
-            <div className="text-sm text-muted-text">Private balance</div>
-            <div className="font-heading text-5xl font-semibold leading-none text-ink sm:text-6xl">
-              {loading ? (
-                <span className="inline-block h-12 w-40 animate-pulse rounded-lg bg-line/60 align-middle" />
-              ) : (
-                formatUsd(claimable)
-              )}
-            </div>
-            <div className="text-sm text-muted-text">
-              {loading
-                ? "Decrypting notes stored for this passkey."
-                : hasNotes
-                  ? `${fromBaseUnits(claimable)} USDC available from discovered private notes.`
-                  : "Create a request link or QR to receive your first private note."}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex gap-2">
             <Button
-              size="lg"
-              className="min-h-11 flex-1"
+              size="icon"
+              variant="glass"
+              className="size-11 shrink-0"
+              onClick={() => setBalanceVisible((visible) => !visible)}
+              aria-label={balanceVisible ? "Hide balance" : "Show balance"}
+              aria-pressed={!balanceVisible}
+              title={balanceVisible ? "Hide balance" : "Show balance"}
+            >
+              {balanceVisible ? (
+                <Eye className="size-5" aria-hidden="true" />
+              ) : (
+                <EyeOff className="size-5" aria-hidden="true" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="glass"
+              className="size-11 shrink-0"
               onClick={onReceive}
               disabled={!onReceive || loading}
+              aria-label="Receive payment"
+              title="Receive payment"
             >
-              <QrCode className="size-4" aria-hidden="true" />
-              Receive
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="min-h-11 flex-1"
-              onClick={onWithdraw}
-              disabled={!onWithdraw || !hasNotes || loading}
-              title={
-                hasNotes
-                  ? "Cash out to a wallet"
-                  : "Receive a payment before cashing out"
-              }
-            >
-              <ArrowDownToLine className="size-4" aria-hidden="true" />
-              Cash out
+              <QrCode className="size-5" aria-hidden="true" />
             </Button>
           </div>
         </div>
 
-        <div className="grid content-between gap-3 rounded-lg border border-line bg-sage/35 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-medium uppercase text-muted-text">
-                Note set
+        <div className="grid gap-3">
+          <div className="text-sm font-medium text-white/55">Tokens</div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="group flex min-h-16 w-full items-center gap-3 rounded-lg bg-white/7 p-3 text-left ring-1 ring-white/12 backdrop-blur-md transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70"
+              aria-label="Select token"
+            >
+              <LedgerMark />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-base font-semibold text-white tabular-nums">
+                    {loading
+                      ? "—"
+                      : balanceVisible
+                        ? fromBaseUnits(claimable)
+                        : "••••"}
+                  </span>
+                  <span className="text-sm font-medium text-white/55">
+                    USDC
+                  </span>
+                </div>
+                <div className="text-sm text-white/45">Private USDC</div>
               </div>
-              <div className="mt-1 text-sm font-medium text-ink">
-                {hasNotes ? "Encrypted notes found" : "No spendable notes yet"}
+              <div className="font-mono text-sm text-white/60 tabular-nums">
+                {loading
+                  ? "—"
+                  : balanceVisible
+                    ? formatUsd(claimable)
+                    : "••••••"}
               </div>
-            </div>
-            <WalletCards className="size-5 text-olive" aria-hidden="true" />
-          </div>
-
-          <div className="grid gap-2 text-sm">
-            <div className="flex items-center justify-between gap-3 rounded-md bg-panel/80 px-3 py-2">
-              <span className="text-muted-text">Asset</span>
-              <span className="font-medium text-ink">USDC</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-md bg-panel/80 px-3 py-2">
-              <span className="text-muted-text">Status</span>
-              <span className="font-medium text-olive-deep">Private</span>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-md bg-panel/80 px-3 py-2">
-              <span className="text-muted-text">Cash out</span>
-              <span className="inline-flex items-center gap-1 font-medium text-ink">
-                <ArrowDownToLine className="size-3.5" aria-hidden="true" />
-                To wallet
-              </span>
-            </div>
-          </div>
+              <ChevronDown
+                className="size-4 shrink-0 text-white/55 transition-transform group-data-[popup-open]:rotate-180"
+                aria-hidden="true"
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              appearance="glass"
+              align="end"
+              sideOffset={8}
+              className="min-w-72 p-2"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-semibold text-white/55">
+                  Stellar Stablecoins
+                </DropdownMenuLabel>
+                <DropdownMenuItem className="min-h-12 gap-3 rounded-lg border border-white/12 bg-white/10 px-3 py-2 text-white outline-none focus:bg-white/14 focus:text-white focus:[&_svg]:text-white">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-white/20">
+                    <Image
+                      src={STABLECOIN_ASSETS.USDC}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="size-6"
+                    />
+                  </span>
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="font-semibold leading-none">USDC</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs font-semibold text-white/75 ring-1 ring-white/10">
+                    <Check className="size-3" aria-hidden="true" />
+                    Active
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2 bg-white/12" />
+                {UPCOMING_STABLECOINS.map((token) => (
+                  <DropdownMenuItem
+                    key={token}
+                    disabled
+                    className="min-h-12 gap-3 rounded-lg border border-white/8 bg-white/[0.05] px-3 py-2 text-white/70 opacity-100 outline-none data-disabled:pointer-events-none data-disabled:opacity-55"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/90 ring-1 ring-white/15">
+                      <Image
+                        src={STABLECOIN_ASSETS[token]}
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="size-6"
+                      />
+                    </span>
+                    <span className="grid min-w-0 flex-1 gap-0.5">
+                      <span className="font-semibold leading-none">
+                        {token}
+                      </span>
+                    </span>
+                    <span className="rounded-md bg-white/[0.07] px-2 py-1 text-xs font-semibold text-white/45 ring-1 ring-white/8">
+                      Coming soon
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-      <div className="border-t border-olive/15 bg-sage/45 px-5 py-2.5 text-xs font-medium text-olive-deep sm:px-6">
-        Private by default. Proofs are generated locally before funds leave the
-        pool.
       </div>
     </Card>
   );
 }
 
-// Shown when a session is restored on a device that doesn't hold the note
-// secrets yet. The balance is unknowable until the master is unlocked, so we
-// prompt for the PIN instead of rendering a misleading $0.
 function LockedBalanceCard({ onUnlock }: { onUnlock?: () => void }) {
   return (
-    <Card className="gap-0 overflow-hidden border-olive/25 bg-panel p-0 ring-1 ring-olive/20">
-      <div className="grid gap-6 p-5 sm:p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-olive/20 bg-sage/60 px-2.5 py-1 text-xs font-medium text-olive-deep">
-            <LockKeyhole className="size-3.5 text-olive" aria-hidden="true" />
-            Locked on this device
-          </div>
-        </div>
-
-        <div className="grid gap-2">
-          <div className="text-sm text-muted-text">Private balance</div>
-          <div className="font-heading text-4xl font-semibold leading-none text-ink sm:text-5xl">
-            Unlock to view
-          </div>
-          <div className="max-w-md text-sm text-muted-text">
-            Your account key isn't cached here. Enter your 6-digit PIN to restore
-            it and reveal your balance — it never leaves this browser.
-          </div>
-        </div>
-
-        <Button
-          size="lg"
-          className="min-h-11 w-fit"
-          onClick={onUnlock}
-          disabled={!onUnlock}
-        >
-          <LockKeyhole className="size-4" aria-hidden="true" />
-          Unlock with PIN
-        </Button>
+    <Card appearance="glass" className="gap-5 p-5 sm:p-7">
+      <div className="flex size-11 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white">
+        <LockKeyhole className="size-5" aria-hidden="true" />
       </div>
+      <div className="grid gap-1">
+        <div className="text-sm font-medium text-white/55">Private balance</div>
+        <h2 className="font-heading text-xl font-semibold text-white">
+          Balance locked
+        </h2>
+        <p className="text-sm text-white/55">Unlock to view your notes.</p>
+      </div>
+      <Button
+        variant="glass"
+        className="min-h-10 w-fit"
+        onClick={onUnlock}
+        disabled={!onUnlock}
+      >
+        Unlock with PIN
+      </Button>
     </Card>
   );
 }

@@ -1,17 +1,26 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ChevronDown } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Alert, AlertDescription } from "../../../components/ui/alert";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
 import { Input } from "../../../components/ui/input";
+import { ToastFeedback } from "../../../components/ui/toast-feedback";
+import type { CctpChain } from "../../../features/cctpPayer/hooks/useCctpDeposit";
 import { usePayerWallet } from "../../../features/payerWallet/hooks/usePayerWallet";
 import { kitSigner } from "../../../features/payerWallet/kitSigner";
 import type { PaymentLink } from "../../../features/paymentLinks/types";
-import { cctpIntakeAddress } from "../../../lib/cctp";
+import { cctpIntakeContract } from "../../../lib/cctp";
 import {
   commitment,
   encryptNote,
@@ -50,12 +59,13 @@ export function PayForm({
 }) {
   const { address, connecting, error: walletError, connect } = usePayerWallet();
   const [method, setMethod] = useState<Method>("stellar");
+  const [cctpChain, setCctpChain] = useState<CctpChain>("evm");
   const [status, setStatus] = useState<{
     kind: "ok" | "err";
     msg: string;
     url?: string;
   } | null>(null);
-  const cctpEnabled = Boolean(cctpIntakeAddress);
+  const cctpEnabled = Boolean(cctpIntakeContract);
 
   const lockedAmount =
     link && link.owner === username && link.amount
@@ -111,7 +121,7 @@ export function PayForm({
       );
       setStatus({
         kind: "ok",
-        msg: `Paid ${amount} USDC to @${username}. Private note #${leafIndex} delivered.`,
+        msg: `Sent ${amount} USDC to @${username}. See the proof here.`,
         url: explorerTxUrl(txHash),
       });
       reset({ amount: lockedAmount ?? "" });
@@ -124,55 +134,116 @@ export function PayForm({
   });
 
   return (
-    <Card className="gap-3 p-6">
+    <Card appearance="glass" className="gap-4 p-6">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold text-ink">
+        <h2 className="text-lg font-semibold text-white">
           {lockedAmount ? "Requested amount" : "Amount"}
         </h2>
         {link?.label ? (
-          <span className="truncate text-sm text-muted-foreground">
-            {link.label}
-          </span>
+          <span className="truncate text-sm text-white/60">{link.label}</span>
         ) : null}
       </div>
 
       {cctpEnabled && (
-        <div className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-white/60 p-1">
-          {(
-            [
-              { key: "stellar", label: "Stellar wallet" },
-              { key: "cctp", label: "Another chain" },
-            ] as const
-          ).map(({ key, label }) => {
-            const active = method === key;
-            return (
-              <button
-                key={key}
-                type="button"
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => {
+              setStatus(null);
+              setMethod("stellar");
+            }}
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
+              method === "stellar"
+                ? "bg-white/15 text-white ring-1 ring-white/20"
+                : "text-white/55 hover:bg-white/8 hover:text-white"
+            }`}
+          >
+            <Image
+              src="/assets/stellar-black.webp"
+              alt=""
+              width={20}
+              height={20}
+              className="size-5 rounded-full object-cover"
+            />
+            <span>Stellar wallet</span>
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={`group flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
+                method === "cctp"
+                  ? "bg-white/15 text-white ring-1 ring-white/20"
+                  : "text-white/55 hover:bg-white/8 hover:text-white"
+              }`}
+              aria-label="Select another chain"
+            >
+              <span>Another chain</span>
+              <ChevronDown
+                className="size-4 transition-transform group-data-[popup-open]:rotate-180"
+                aria-hidden="true"
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              appearance="glass"
+              align="end"
+              sideOffset={8}
+              className="p-2"
+            >
+              <DropdownMenuItem
+                className="min-h-12 cursor-pointer gap-3 px-3 text-white focus:bg-white/14 focus:text-white"
                 onClick={() => {
                   setStatus(null);
-                  setMethod(key);
+                  setCctpChain("solana");
+                  setMethod("cctp");
                 }}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-olive text-paper"
-                    : "text-muted-foreground hover:text-ink"
-                }`}
               >
-                {label}
-              </button>
-            );
-          })}
+                <Image
+                  src="/assets/sol.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7 rounded-full"
+                />
+                Solana
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled
+                className="min-h-12 gap-3 px-3 text-white/60 opacity-100 data-disabled:opacity-100"
+              >
+                <Image
+                  src="/assets/eth.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="size-7 rounded-full"
+                />
+                <span className="grid gap-0.5">
+                  <span>EVM Chains</span>
+                  <span className="text-xs font-normal text-white/45">
+                    (under development)
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
 
       {method === "cctp" ? (
-        <CctpPayForm username={username} />
+        <CctpPayForm
+          username={username}
+          notePubkey={account.note_pubkey}
+          lockedAmount={lockedAmount}
+          chain={cctpChain}
+        />
       ) : (
         <form className="grid gap-2" onSubmit={onSubmit}>
-          <label htmlFor="amount">USDC</label>
+          <label className="text-sm font-semibold text-white" htmlFor="amount">
+            USDC
+          </label>
           <div className="flex flex-wrap items-center gap-3">
             <Input
+              appearance="glass"
               id="amount"
               className="min-h-11 flex-1"
               inputMode="decimal"
@@ -183,6 +254,7 @@ export function PayForm({
             />
             {address ? (
               <Button
+                variant="glass"
                 className="min-h-11"
                 type="submit"
                 disabled={isSubmitting}
@@ -191,6 +263,7 @@ export function PayForm({
               </Button>
             ) : (
               <Button
+                variant="glass"
                 className="min-h-11"
                 type="button"
                 onClick={connect}
@@ -200,41 +273,47 @@ export function PayForm({
               </Button>
             )}
           </div>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-white/55">
             {address
               ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)} — gasless, you only need USDC.`
               : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}
           </span>
-          {walletError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{walletError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {errors.amount ? (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.amount.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          {status ? (
-            <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
-              <AlertDescription>
-                {status.msg}
-                {status.url ? (
-                  <>
-                    {" "}
-                    <a
-                      className="font-medium underline underline-offset-2"
-                      href={status.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View on explorer
-                    </a>
-                  </>
-                ) : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
+          <ToastFeedback
+            message={walletError}
+            variant="error"
+            toastId="payer-wallet-error"
+          />
+          <ToastFeedback
+            message={errors.amount?.message}
+            variant="error"
+            toastId="payment-amount-error"
+          />
+          <ToastFeedback
+            message={status?.msg}
+            content={
+              status?.kind === "ok" && status.url
+                ? (() => {
+                    const [before, after] = status.msg.split("here");
+                    return (
+                      <span>
+                        {before}
+                        <a
+                          href={status.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline underline-offset-2"
+                        >
+                          here
+                        </a>
+                        {after}
+                      </span>
+                    );
+                  })()
+                : undefined
+            }
+            variant={status?.kind === "ok" ? "success" : "error"}
+            toastId="payment-status"
+          />
         </form>
       )}
     </Card>

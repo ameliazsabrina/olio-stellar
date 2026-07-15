@@ -34,6 +34,7 @@ export function Users() {
     <section
       className="relative z-20 bg-paper px-[clamp(20px,5vw,72px)] py-8 text-ink sm:py-20"
       id="users"
+      data-ed-section
       aria-labelledby="users-title"
     >
       <div className="mx-auto w-full max-w-7xl">

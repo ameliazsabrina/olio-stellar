@@ -23,18 +23,19 @@ export function StellarWalletModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-[420px] gap-0 rounded-2xl border border-ed-line bg-ed-dark-2 p-6 text-ed-cream shadow-2xl sm:p-8 [&_[data-slot=dialog-close]]:text-ed-cream/50 [&_[data-slot=dialog-close]]:hover:bg-ed-cream/10 [&_[data-slot=dialog-close]]:hover:text-ed-cream">
+      <DialogContent appearance="glass" className="max-w-[420px] gap-0">
         <DialogTitle className="text-lg font-semibold text-center">
-          Create your account
+          Create Your Account
         </DialogTitle>
-        <p className="mx-auto mt-4 max-w-[32ch] text-center text-sm leading-6 text-ed-cream/70">
+        <p className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4">
           A passkey secures your wallet with your device. No seed phrase, no
           gas.
         </p>
 
-        <div className="mt-8 grid gap-3">
+        <div className="mt-6 grid gap-3">
           <Button
-            className="min-h-11 w-full gap-2.5 rounded-full border-ed-cream bg-ed-cream text-ed-dark hover:bg-white disabled:opacity-55"
+            variant="glass"
+            className="min-h-11 w-full gap-2.5"
             onClick={createPasskey}
             disabled={connecting}
             aria-busy={connecting}
@@ -44,8 +45,8 @@ export function StellarWalletModal({
             {connecting ? "Working…" : "Create a passkey"}
           </Button>
           <Button
-            variant="ghost"
-            className="min-h-11 w-full gap-2.5 rounded-full text-ed-cream/80 hover:bg-ed-cream/[0.06] hover:text-ed-cream disabled:opacity-55"
+            variant="glass"
+            className="min-h-11 w-full gap-2.5 disabled:opacity-55"
             onClick={connectPasskey}
             disabled={connecting}
             aria-busy={connecting}

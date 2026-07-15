@@ -33,10 +33,16 @@ export type IndexerStateDoc = {
 export type PaymentLinkDoc = {
   _id: string;
   owner: string;
+  slug?: string;
   amount: string | null;
+  description?: string | null;
   label: string | null;
+  state?: "active" | "archived";
   status: "pending" | "paid";
+  manageTokenHash?: string; // sha-256 of the per-link manage capability token
   createdAt: Date;
+  updatedAt?: Date;
+  archivedAt?: Date | null;
 };
 
 export type UserDoc = {

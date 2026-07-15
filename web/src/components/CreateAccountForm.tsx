@@ -6,18 +6,25 @@ import { z } from "zod";
 import { accountPubkeys, getAccount, setStoredUsername } from "../lib/notes";
 import { registerUsername, registerUsernameCache } from "../lib/stellar";
 import { usernameSchema } from "../server/modules/usernames/usernames.schema";
-import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { ToastFeedback } from "./ui/toast-feedback";
 import { useWallet } from "./WalletProvider";
 
 const claimInput = z.object({ username: usernameSchema });
 type ClaimInput = z.infer<typeof claimInput>;
 
 export function CreateAccountForm({
+  open,
+  onClose,
   onClaimed,
+  error,
 }: {
+  open: boolean;
+  onClose: () => void;
   onClaimed: (username: string) => void;
+  error?: string | null;
 }) {
   const { getSigner } = useWallet();
   const {
@@ -35,9 +42,8 @@ export function CreateAccountForm({
   const onSubmit = handleSubmit(async ({ username }) => {
     try {
       const signer = getSigner();
-      // The recoverable master must already be unlocked (WalletProvider derives
-      // it on create / after unlock). Registering pubkeys derived from anything
-      // else would desync this account from its escrow — the balance-drift bug.
+      // Registration must use pubkeys from the unlocked recoverable account so
+      // the username stays attached to the same escrow state.
       const acct = getAccount();
       if (!acct) throw new Error("Account is locked. Unlock with your PIN.");
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
@@ -57,41 +63,61 @@ export function CreateAccountForm({
   });
 
   return (
-    <div className="grid gap-3">
-      <h2 className="text-lg font-semibold text-ink text-center">
-        Create your account
-      </h2>
-      <p className="text-sm text-muted-foreground text-center">
-        Pick a username. It will become your payment link, like
-        olio.xyz/@jimmymcgill.
-      </p>
-      <form className="grid gap-2" onSubmit={onSubmit}>
-        <label htmlFor="username">Username</label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            id="username"
-            className="min-h-11 flex-1"
-            placeholder="jimmymcgill"
-            maxLength={32}
-            {...usernameField}
-            onChange={(e) => {
-              e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
-              usernameField.onChange(e);
-            }}
-          />
-          <Button className="min-h-11" type="submit" disabled={isSubmitting}>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent appearance="glass" className="max-w-[420px] gap-0">
+        <DialogTitle className="text-lg font-semibold text-center">
+          Create Your Account
+        </DialogTitle>
+        <p className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4 text-muted-foreground">
+          Pick a username. It will become your payment link, like
+          olio.xyz/@jimmymcgill.
+        </p>
+
+        <form className="mt-6 grid gap-3" onSubmit={onSubmit}>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium" htmlFor="username">
+              Username
+            </label>
+            <Input
+              appearance="glass"
+              id="username"
+              className="min-h-11"
+              placeholder="jimmymcgill"
+              maxLength={32}
+              {...usernameField}
+              onChange={(e) => {
+                e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+                usernameField.onChange(e);
+              }}
+            />
+            <span className="text-xs text-muted-foreground">
+              3-32 characters. Letters, numbers, underscore.
+            </span>
+          </div>
+
+          <Button
+            variant="glass"
+            className="min-h-11 w-full"
+            type="submit"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+          >
             {isSubmitting ? "Working…" : "Claim"}
           </Button>
-        </div>
-        <span className="text-xs text-muted-foreground">
-          3–32 characters. Letters, numbers, underscore.
-        </span>
-        {errors.username ? (
-          <Alert variant="destructive">
-            <AlertDescription>{errors.username.message}</AlertDescription>
-          </Alert>
+
+          <ToastFeedback
+            message={errors.username?.message}
+            variant="error"
+            toastId="create-account-error"
+          />
+        </form>
+
+        {error ? (
+          <p className="mt-4 text-center text-sm text-red-500" role="alert">
+            {error}
+          </p>
         ) : null}
-      </form>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -83,6 +83,15 @@
     margin: 0;
   }
 
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    overflow-x: clip;
+  }
+
   a {
     color: var(--color-olive);
     text-decoration: none;
@@ -131,6 +140,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
     .stellar-marquee,
     .stellar-sway {
       animation: none;

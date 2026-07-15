@@ -39,8 +39,18 @@ vi.mock("../src/lib/stellar", () => ({
 import { useWallet, WalletProvider } from "../src/components/WalletProvider";
 
 function Probe() {
-  const { address, walletType, usernameResolved, connectPasskey, disconnect } =
-    useWallet();
+  const {
+    address,
+    walletType,
+    usernameResolved,
+    usernameModalOpen,
+    pinModalOpen,
+    createPasskey,
+    connectPasskey,
+    closeUsernameModal,
+    disconnect,
+    setUsername,
+  } = useWallet();
   return (
     <div>
       <div data-testid="address">{address || "none"}</div>
@@ -48,11 +58,27 @@ function Probe() {
       <div data-testid="username-resolved">
         {usernameResolved ? "yes" : "no"}
       </div>
+      <div data-testid="username-modal">
+        {usernameModalOpen ? "open" : "closed"}
+      </div>
+      <div data-testid="pin-modal">{pinModalOpen ? "open" : "closed"}</div>
       <button type="button" onClick={disconnect}>
         Disconnect
       </button>
       <button type="button" onClick={connectPasskey}>
         Connect
+      </button>
+      <button type="button" onClick={createPasskey}>
+        Create
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setUsername("alice");
+          closeUsernameModal();
+        }}
+      >
+        Claim
       </button>
     </div>
   );
@@ -108,6 +134,35 @@ describe("WalletProvider passkey session restore", () => {
     expect(mocks.rememberPasskeySession).toHaveBeenCalledTimes(1);
     expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
     expect(mocks.forgetPasskeySession).not.toHaveBeenCalled();
+  });
+
+  it("shows username claim before mandatory PIN setup for a new passkey", async () => {
+    mocks.createPasskeyWallet.mockResolvedValue({
+      contractId: "CNEW",
+      keyId: "credential-new",
+    });
+    mocks.usernameOf.mockResolvedValue(null);
+
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    expect(await screen.findByTestId("address")).toHaveTextContent("CNEW");
+    await waitFor(() =>
+      expect(screen.getByTestId("username-modal")).toHaveTextContent("open"),
+    );
+    expect(screen.getByTestId("pin-modal")).toHaveTextContent("closed");
+
+    await userEvent.click(screen.getByRole("button", { name: /^claim$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pin-modal")).toHaveTextContent("open"),
+    );
+    expect(screen.getByTestId("username-modal")).toHaveTextContent("closed");
   });
 
   it("forgets the stored passkey session on explicit disconnect", async () => {

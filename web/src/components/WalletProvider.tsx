@@ -36,8 +36,8 @@ import {
   unlockMasterEscrow,
 } from "../lib/passkey";
 import {
-  registerUsername,
   registerUsernameCache,
+  setUsernamePubkeys,
   type Signer,
   usernameOf,
 } from "../lib/stellar";
@@ -90,6 +90,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [pinSubmitting, setPinSubmitting] = useState(false);
   const [pinError, setPinError] = useState("");
   const passkeyWalletRef = useRef<PasskeyWallet | null>(null);
+  const pendingMasterRef = useRef<Uint8Array | null>(null);
   const sessionRevisionRef = useRef(0);
 
   // localStorage note secrets are a cache of the recoverable master. If this
@@ -152,7 +153,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hydrateAccount]);
 
   useEffect(() => {
     if (!address) {
@@ -183,10 +184,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Wait for the master to be unlocked: CreateAccountForm registers pubkeys
     // derived from it, so prompting for a username before then would desync.
-    if (address && usernameResolved && !username && accountUnlocked) {
+    if (
+      address &&
+      usernameResolved &&
+      !username &&
+      accountUnlocked &&
+      !pinModalOpen
+    ) {
       setUsernameModalOpen(true);
     }
-  }, [address, usernameResolved, username, accountUnlocked]);
+  }, [address, usernameResolved, username, accountUnlocked, pinModalOpen]);
+
+  useEffect(() => {
+    if (username && pendingMasterRef.current && !usernameModalOpen) {
+      openPinModal("set");
+    }
+  }, [username, usernameModalOpen, openPinModal]);
 
   const openUsernameModal = useCallback(() => setUsernameModalOpen(true), []);
   const closeUsernameModal = useCallback(() => setUsernameModalOpen(false), []);
@@ -202,15 +215,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setAddress(w.contractId);
       setWalletType("passkey");
       setSessionReady(true);
-      // Brand-new wallet → mint + escrow a fresh master before anything else.
-      openPinModal("set");
+      // Brand-new wallet: derive spend/view keys before username claim, then
+      // escrow that same master with a mandatory PIN after the username is set.
+      const master = randomMaster();
+      pendingMasterRef.current = master;
+      deriveAndStoreAccount(master);
+      setAccountUnlocked(true);
       routeToDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Passkey creation failed");
     } finally {
       setConnecting(false);
     }
-  }, [routeToDashboard, openPinModal]);
+  }, [routeToDashboard]);
 
   const connectPasskey = useCallback(async () => {
     setConnecting(true);
@@ -241,14 +258,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       try {
         if (pinMode === "secure") {
           // Legacy random-key account: mint a new master, and if a username was
-          // already claimed with the old keys, overwrite its on-chain pubkeys
-          // (registry `register` overwrites) BEFORE persisting anything locally,
-          // so a rejected signature leaves the old cache untouched.
+          // already claimed with the old keys, rotate its on-chain pubkeys via
+          // `set_pubkey` (registry `register` rejects an existing username with
+          // `UsernameTaken`) BEFORE persisting anything locally, so a rejected
+          // signature leaves the old cache untouched.
           const master = randomMaster();
           if (username) {
             const acct = deriveNoteSecrets(master);
             const { notePubkey, viewPubkey } = await accountPubkeys(acct);
-            await registerUsername(
+            await setUsernamePubkeys(
               passkeySigner(w),
               username,
               notePubkey,
@@ -263,8 +281,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           await saveMasterEscrow(w.contractId, w.keyId, master, pin);
           deriveAndStoreAccount(master);
         } else if (pinMode === "set") {
-          const master = await createMasterEscrow(w.contractId, w.keyId, pin);
+          const pendingMaster = pendingMasterRef.current;
+          const master = pendingMaster
+            ? pendingMaster
+            : await createMasterEscrow(w.contractId, w.keyId, pin);
+          if (pendingMaster) {
+            await saveMasterEscrow(w.contractId, w.keyId, pendingMaster, pin);
+          }
           deriveAndStoreAccount(master);
+          pendingMasterRef.current = null;
         } else {
           const master = await unlockMasterEscrow(w.keyId, pin);
           if (!master) {
@@ -299,11 +324,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [pinMode]);
 
   // Re-open the unlock prompt after the user dismissed it (locked dashboard).
-  const promptUnlock = useCallback(() => openPinModal("unlock"), [openPinModal]);
+  const promptUnlock = useCallback(
+    () => openPinModal("unlock"),
+    [openPinModal],
+  );
 
   const disconnect = useCallback(async () => {
     sessionRevisionRef.current += 1;
     passkeyWalletRef.current = null;
+    pendingMasterRef.current = null;
     forgetPasskeyWallet();
     forgetPasskeySession();
     setAddress("");

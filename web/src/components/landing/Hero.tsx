@@ -4,19 +4,21 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { StellarWalletModal } from "./StellarWalletModal";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const MENU = [
-  { id: "links", numeral: "I", label: "What's Olio?" },
-  { id: "shield", numeral: "II", label: "Shielded pool" },
-  { id: "withdraw", numeral: "III", label: "Withdrawals" },
-  { id: "start", numeral: "IV", label: "Get started" },
+  { id: "problem", numeral: "I", label: "Why privacy matters?" },
+  { id: "solution", numeral: "II", label: "How Olio protects you?" },
+  { id: "users", numeral: "III", label: "Who it's for?" },
+  { id: "faq", numeral: "IV", label: "Frequently Asked Questions" },
 ];
 
 export function Hero() {
   const rootRef = useRef<HTMLElement | null>(null);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   useGSAP(
     () => {
@@ -45,7 +47,6 @@ export function Hero() {
 
           if (reduceMotion) return;
 
-          // Entrance: frame draws and content rises. Hand artwork stays static.
           const tl = gsap.timeline({ defaults: { ease: "power2.out" } });
           if (frameRect) {
             tl.from(
@@ -89,14 +90,16 @@ export function Hero() {
             ease: "power3.out",
           });
 
-          const mapX = gsap.utils.mapRange(0, root.clientWidth, -1, 1);
-          const mapY = gsap.utils.mapRange(0, root.clientHeight, -1, 1);
           const clamp = gsap.utils.clamp(-1, 1);
 
           const onMove = (e: PointerEvent) => {
             const rect = root.getBoundingClientRect();
-            const nx = clamp(mapX(e.clientX - rect.left));
-            const ny = clamp(mapY(e.clientY - rect.top));
+            const nx = clamp(
+              gsap.utils.mapRange(0, rect.width, -1, 1, e.clientX - rect.left),
+            );
+            const ny = clamp(
+              gsap.utils.mapRange(0, rect.height, -1, 1, e.clientY - rect.top),
+            );
             // Follow the cursor's direction, subtly.
             xTo(nx * 14);
             yTo(ny * 10);
@@ -122,7 +125,7 @@ export function Hero() {
   return (
     <section
       ref={rootRef}
-      className="relative isolate z-20 grid min-h-svh place-items-center overflow-hidden bg-[#1a1f12]"
+      className="relative isolate z-20 grid min-h-svh place-items-center overflow-hidden bg-[#1a1f12] px-5 pb-8 pt-24 sm:px-8 sm:pb-10 sm:pt-28"
       id="top"
       aria-labelledby="ed-hero-title"
     >
@@ -169,7 +172,7 @@ export function Hero() {
 
       <div
         data-ed-hero-frame
-        className="relative flex w-[min(440px,calc(100vw-40px))] px-9 py-10 text-ed-cream [text-shadow:0_1px_18px_rgba(0,0,0,0.45)] aspect-[340/452] bg-[radial-gradient(115%_90%_at_50%_45%,rgba(14,18,8,0.62),rgba(14,18,8,0.12)_100%)] max-[620px]:aspect-auto max-[620px]:min-h-[60svh] max-[620px]:px-6 max-[620px]:py-[30px]"
+        className="relative flex min-h-[clamp(500px,72svh,640px)] w-full max-w-[480px] bg-[radial-gradient(115%_90%_at_50%_45%,rgba(14,18,8,0.62),rgba(14,18,8,0.12)_100%)] px-6 py-7 text-ed-cream [text-shadow:0_1px_18px_rgba(0,0,0,0.45)] sm:px-9 sm:py-9 lg:px-10 lg:py-11"
       >
         <svg
           data-ed-frame
@@ -190,37 +193,38 @@ export function Hero() {
         </svg>
         <div data-ed-hero-inner className="relative flex w-full flex-col">
           <h1
-            className="m-0 mt-4 flex flex-col font-medium text-[clamp(1.8rem,4vw,4.4rem)] leading-[0.92] tracking-[-0.02em] text-ed-cream"
+            className="m-0 mt-2 flex flex-col text-[clamp(2.1rem,8vw,4.8rem)] font-medium leading-[0.92] tracking-[-0.02em] text-ed-cream sm:mt-4 sm:text-[clamp(2.1rem,4.4vw,4.8rem)]"
             id="ed-hero-title"
           >
             <span>Private</span>
             <span>USDC</span>
             <span>Payments</span>
           </h1>
-          <p className="mt-5 max-w-[28ch] text-[13px] uppercase leading-[1.5] tracking-[0.08em] text-ed-cream/70">
+          <p className="mt-6 max-w-[29ch] text-sm uppercase leading-[1.55] tracking-[0.08em] text-ed-cream/70">
             Get paid in USDC without publishing your income.
           </p>
-          <div className="mt-7 flex flex-wrap gap-2.5">
-            <a
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ed-cream bg-ed-cream px-[18px] text-[13px] font-semibold tracking-[0.02em] text-[#1a1f12] transition-opacity hover:opacity-85"
-              href="#start"
+          <div className="mt-6 grid grid-cols-2 gap-2.5 sm:mt-7">
+            <button
+              type="button"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ed-cream bg-ed-cream px-3 text-center text-sm font-semibold tracking-[0.02em] text-[#1a1f12] transition-opacity hover:opacity-85 sm:px-5"
+              onClick={() => setWalletModalOpen(true)}
             >
               Try Now
-            </a>
+            </button>
             <a
-              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ed-cream/50 bg-transparent px-[18px] text-[13px] font-semibold tracking-[0.02em] text-ed-cream transition-opacity hover:opacity-85"
-              href="#shield"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ed-cream/50 bg-transparent px-3 text-center text-sm font-semibold leading-tight tracking-[0.02em] text-ed-cream transition-opacity hover:opacity-85 sm:px-5"
+              href="#steps"
             >
-              See How It Works
+              How It Works
             </a>
           </div>
-          <ul className="mt-auto grid gap-0.5 pt-6 list-none">
+          <ul className="mt-auto grid list-none gap-0.5 pt-5 sm:pt-6">
             {MENU.map((item) => (
               <li key={item.id}>
                 <a
                   href={`#${item.id}`}
                   data-ed-navlink={item.id}
-                  className="flex items-baseline justify-between gap-2.5 border-b border-transparent py-2 text-base font-semibold text-ed-cream/[0.66] transition-colors hover:border-ed-line hover:text-ed-cream data-[active=true]:border-ed-line data-[active=true]:text-ed-cream"
+                  className="flex items-baseline justify-between gap-2.5 border-b border-transparent py-2 text-[15px] font-semibold text-ed-cream/[0.66] transition-colors hover:border-ed-line hover:text-ed-cream data-[active=true]:border-ed-line data-[active=true]:text-ed-cream sm:py-2.5 sm:text-[17px]"
                 >
                   <span>{item.label}</span>
                   <span className="text-[13px] font-medium tracking-[0.08em] text-ed-cream/55">
@@ -232,6 +236,10 @@ export function Hero() {
           </ul>
         </div>
       </div>
+      <StellarWalletModal
+        open={walletModalOpen}
+        onClose={() => setWalletModalOpen(false)}
+      />
     </section>
   );
 }

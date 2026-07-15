@@ -35,12 +35,22 @@ vi.mock("../src/lib/crypto", () => ({
 }));
 
 import { DepositForm } from "../src/components/DepositForm";
+import { Toaster } from "../src/components/ui/sonner";
 
 const SIGNER = {
   address: "CSIGNER",
   signAuthEntries: async () => [],
   relaySoroban: async () => ({ hash: "deadbeef" }),
 };
+
+function renderForm() {
+  return render(
+    <>
+      <DepositForm />
+      <Toaster />
+    </>,
+  );
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -60,7 +70,7 @@ beforeEach(() => {
 
 describe("DepositForm", () => {
   it("renders the heading and deposit control", () => {
-    render(<DepositForm />);
+    renderForm();
     expect(
       screen.getByRole("heading", { name: /add your own usdc/i }),
     ).toBeInTheDocument();
@@ -70,7 +80,7 @@ describe("DepositForm", () => {
   });
 
   it("rejects a zero amount without calling the chain", async () => {
-    render(<DepositForm />);
+    renderForm();
     await userEvent.type(screen.getByLabelText(/usdc/i), "0");
     await userEvent.click(screen.getByRole("button", { name: /deposit/i }));
 
@@ -80,7 +90,7 @@ describe("DepositForm", () => {
 
   it("errors when there is no local account", async () => {
     mocks.getAccount.mockReturnValue(null);
-    render(<DepositForm />);
+    renderForm();
     await userEvent.type(screen.getByLabelText(/usdc/i), "5");
     await userEvent.click(screen.getByRole("button", { name: /deposit/i }));
 
@@ -93,7 +103,7 @@ describe("DepositForm", () => {
 
   it("blocks the deposit when the wallet balance is insufficient", async () => {
     mocks.usdcBalance.mockResolvedValue(0n); // less than 5 USDC in base units
-    render(<DepositForm />);
+    renderForm();
     await userEvent.type(screen.getByLabelText(/usdc/i), "5");
     await userEvent.click(screen.getByRole("button", { name: /deposit/i }));
 
@@ -106,7 +116,7 @@ describe("DepositForm", () => {
   it("shields the deposit and reports the note index on success", async () => {
     mocks.usdcBalance.mockResolvedValue(1_000_000_000n); // plenty
     mocks.poolDeposit.mockResolvedValue(7);
-    render(<DepositForm />);
+    renderForm();
 
     const input = screen.getByLabelText(/usdc/i) as HTMLInputElement;
     await userEvent.type(input, "5");

@@ -59,13 +59,14 @@ export function Faq() {
     <section
       className="relative z-20 bg-paper px-[clamp(20px,5vw,72px)] py-20 text-ink sm:py-24"
       id="faq"
+      data-ed-section
       aria-labelledby="faq-title"
     >
       <div className="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[0.74fr_1.26fr] lg:gap-20">
-        <div className="flex min-h-[480px] flex-col justify-between lg:sticky lg:top-24 lg:self-start">
+        <div className="flex flex-col gap-10 lg:sticky lg:top-24 lg:min-h-[480px] lg:self-start lg:justify-between lg:gap-0">
           <div>
             <h2
-              className="max-w-[7ch] text-balance text-[clamp(4rem,7vw,5rem)] font-semibold leading-[0.82] tracking-[-0.075em] text-ink"
+              className="max-w-[7ch] text-balance text-[clamp(3.25rem,12vw,5rem)] font-semibold leading-[0.86] tracking-[-0.07em] text-ink sm:leading-[0.82] sm:tracking-[-0.075em]"
               id="faq-title"
             >
               Have questions?
@@ -77,7 +78,7 @@ export function Faq() {
               Have more questions? Join the Discord server.
             </p>
             <a
-              className="mt-8 inline-flex min-h-14 items-center justify-center gap-2.5 rounded-full bg-ink px-8 text-base font-semibold text-paper transition-[background,transform] duration-150 ease-out hover:bg-olive-deep motion-safe:hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sage"
+              className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2.5 rounded-lg bg-ink px-6 text-center text-base font-semibold text-paper transition-[background,transform] duration-150 ease-out hover:bg-olive-deep motion-safe:hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sage sm:mt-8 sm:w-auto sm:px-8"
               href="#top"
             >
               <DiscordLogo />
@@ -107,16 +108,16 @@ export function Faq() {
                 >
                   <button
                     type="button"
-                    className="flex min-h-[86px] w-full cursor-pointer items-center justify-between gap-6 py-6 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sage"
+                    className="flex min-h-[78px] w-full cursor-pointer items-center justify-between gap-3 py-5 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sage sm:min-h-[86px] sm:gap-6 sm:py-6"
                     aria-expanded={isOpen}
                     aria-controls={answerId}
                     onClick={() => toggleItem(item.question)}
                   >
-                    <span className="max-w-[760px] text-balance text-[clamp(1rem,2vw,2rem)] font-medium leading-[1.02] tracking-[-0.045em] text-ink">
+                    <span className="max-w-[760px] text-balance text-base font-medium leading-[1.45] tracking-[-0.025em] text-ink sm:text-[clamp(1rem,2vw,2rem)] sm:leading-[1.02] sm:tracking-[-0.045em]">
                       {item.question}
                     </span>
                     <span
-                      className="relative -mr-3 grid size-12 shrink-0 place-items-center rounded-full bg-paper text-ink shadow-[0_10px_28px_rgba(32,38,26,0.06)] transition-[background,color,transform] duration-150 ease-out group-data-[open=true]:bg-olive-deep group-data-[open=true]:text-paper motion-safe:group-hover:scale-105 sm:-mr-5"
+                      className="relative grid size-11 shrink-0 place-items-center rounded-lg bg-paper text-ink shadow-[0_10px_28px_rgba(32,38,26,0.06)] transition-[background,color,transform] duration-150 ease-out group-data-[open=true]:bg-olive-deep group-data-[open=true]:text-paper motion-safe:group-hover:scale-105 sm:-mr-5 sm:size-12"
                       aria-hidden="true"
                     >
                       <span className="absolute h-0.5 w-5 bg-current" />
@@ -129,8 +130,8 @@ export function Faq() {
                     id={answerId}
                   >
                     <div className="min-h-0 overflow-hidden">
-                      <div className="max-w-[720px] pb-7 pr-10">
-                        <p className="text-[1.05rem] font-medium leading-[1.62] text-ink/72">
+                      <div className="max-w-[720px] pb-7 pr-2 sm:pr-10">
+                        <p className="text-base font-medium leading-[1.62] text-ink/72 sm:text-[1.05rem]">
                           {item.answer}
                         </p>
                       </div>

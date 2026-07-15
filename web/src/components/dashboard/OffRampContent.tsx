@@ -28,8 +28,8 @@ import {
   releaseNoteToBridge,
 } from "../../lib/offramp";
 import { claimableNotes } from "../../lib/withdraw";
-import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
 type Step = "select" | "preparing" | "interactive" | "settling" | "done";
@@ -163,12 +163,10 @@ export function OffRampContent({
 
   if (options.length === 0) {
     return (
-      <Alert>
-        <AlertDescription>
-          No payments to cash out yet. Share your pay link to receive your first
-          private payment.
-        </AlertDescription>
-      </Alert>
+      <ToastFeedback
+        message="No payments to cash out yet. Share your pay link to receive your first private payment."
+        toastId="off-ramp-empty"
+      />
     );
   }
 
@@ -194,21 +192,23 @@ export function OffRampContent({
                   type="button"
                   onClick={() => setSelectedLeaf(note.leafIndex)}
                   aria-pressed={active}
-                  className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                     active
                       ? "border-olive/50 bg-sage/50"
-                      : "border-line bg-white/60 hover:border-olive/30 hover:bg-sage/30"
+                      : "border-white/15 bg-white/8 hover:border-white/25 hover:bg-white/12"
                   }`}
                 >
                   <span className="flex items-center gap-2 text-sm text-ink">
                     <span
-                      className={`grid size-4 place-items-center rounded-full border ${
+                      className={`grid size-4 place-items-center rounded-lg border ${
                         active
                           ? "border-olive bg-olive text-paper"
                           : "border-line"
                       }`}
                     >
-                      {active && <Check className="size-3" />}
+                      {active && (
+                        <Check className="size-3" aria-hidden="true" />
+                      )}
                     </span>
                     Payment #{note.leafIndex}
                   </span>
@@ -225,14 +225,14 @@ export function OffRampContent({
           </p>
         </fieldset>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        <ToastFeedback
+          message={error}
+          variant="error"
+          toastId="off-ramp-error"
+        />
 
-        <Button className="min-h-11" size="lg" onClick={start}>
-          <Banknote className="size-4" />
+        <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
+          <Banknote className="size-4" aria-hidden="true" />
           Continue to bank
         </Button>
       </div>
@@ -242,7 +242,10 @@ export function OffRampContent({
   if (step === "preparing") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2 className="size-8 animate-spin text-olive" />
+        <Loader2
+          className="size-8 motion-safe:animate-spin text-olive"
+          aria-hidden="true"
+        />
         <div className="text-sm font-medium text-ink">
           {PREP_LABEL[prepPhase] ?? "Preparing…"}
         </div>
@@ -257,7 +260,7 @@ export function OffRampContent({
   if (step === "interactive" && interactive) {
     return (
       <div className="grid gap-4">
-        <div className="rounded-lg border border-line bg-white/60 p-4 text-sm">
+        <div className="rounded-lg bg-white/8 p-4 text-sm ring-1 ring-white/15">
           <div className="flex items-baseline justify-between">
             <span className="text-muted-text">Cashing out</span>
             <span className="font-heading text-2xl font-semibold text-ink">
@@ -271,6 +274,7 @@ export function OffRampContent({
           once you're done.
         </p>
         <Button
+          variant="glass"
           className="min-h-11"
           size="lg"
           nativeButton={false}
@@ -282,11 +286,14 @@ export function OffRampContent({
             />
           }
         >
-          <ExternalLink className="size-4" />
+          <ExternalLink className="size-4" aria-hidden="true" />
           Open secure {anchorLabel()} window
         </Button>
         <div className="flex items-center justify-center gap-2 text-xs text-muted-text">
-          <Loader2 className="size-3.5 animate-spin" />
+          <Loader2
+            className="size-3.5 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
           Waiting for the anchor…
         </div>
       </div>
@@ -296,7 +303,10 @@ export function OffRampContent({
   if (step === "settling") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2 className="size-8 animate-spin text-olive" />
+        <Loader2
+          className="size-8 motion-safe:animate-spin text-olive"
+          aria-hidden="true"
+        />
         <div className="text-sm font-medium text-ink">
           Sending your payout to the anchor…
         </div>
@@ -310,8 +320,8 @@ export function OffRampContent({
   if (step === "done") {
     return (
       <div className="grid place-items-center gap-3 py-6 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-ok/15 text-ok">
-          <ShieldCheck className="size-6" />
+        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/15 text-ok">
+          <ShieldCheck className="size-6" aria-hidden="true" />
         </div>
         <div className="font-heading text-lg font-semibold text-ink">
           Cash-out submitted

@@ -5,6 +5,7 @@ export function ProblemStatement() {
     <section
       className="relative z-20 flex min-h-svh items-center bg-paper px-[clamp(20px,5vw,72px)] py-24 text-ink sm:py-28"
       id="problem"
+      data-ed-section
       aria-labelledby="problem-title"
     >
       <h2 className="sr-only" id="problem-title">

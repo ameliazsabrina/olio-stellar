@@ -1,23 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import type { CreateLinkInput } from "../../../server/modules/paymentLinks/paymentLinks.schema";
-import { api } from "../../../trpc/client";
+import type { z } from "zod";
+import type { createLinkInput } from "../../../server/modules/paymentLinks/paymentLinks.schema";
+import { trpc } from "../../../trpc/react";
 import type { PaymentLink } from "../types";
 
-export function useCreatePaymentLink() {
-  const [isCreating, setIsCreating] = useState(false);
+type CreatePaymentLinkInput = z.input<typeof createLinkInput>;
 
-  async function createPaymentLink(
-    input: CreateLinkInput,
+export function useCreatePaymentLink() {
+  const utils = trpc.useUtils();
+  const mutation = trpc.paymentLinks.create.useMutation({
+    onSuccess: (link) => {
+      utils.paymentLinks.listByOwner.invalidate({ owner: link.owner });
+    },
+  });
+
+  function createPaymentLink(
+    input: CreatePaymentLinkInput,
   ): Promise<PaymentLink> {
-    setIsCreating(true);
-    try {
-      return await api.paymentLinks.create.mutate(input);
-    } finally {
-      setIsCreating(false);
-    }
+    return mutation.mutateAsync(input);
   }
 
-  return { createPaymentLink, isCreating };
+  return { createPaymentLink, isCreating: mutation.isPending };
 }

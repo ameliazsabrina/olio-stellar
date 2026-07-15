@@ -1,32 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "../../../trpc/client";
+import { trpc } from "../../../trpc/react";
 import type { PaymentLink } from "../types";
 
-export function usePaymentLink(id: string | null) {
-  const [link, setLink] = useState<PaymentLink | null>(null);
+type LinkState = PaymentLink | null | "loading";
 
-  useEffect(() => {
-    let active = true;
-    if (!id) {
-      setLink(null);
-      return;
-    }
+export function usePaymentLink(id: string | null): LinkState {
+  const query = trpc.paymentLinks.get.useQuery(
+    { id: id ?? "" },
+    { enabled: !!id },
+  );
+  if (!id) return null;
+  if (query.isPending) return "loading";
+  return query.data ?? null;
+}
 
-    api.paymentLinks.get
-      .query({ id })
-      .then((nextLink) => {
-        if (active) setLink(nextLink);
-      })
-      .catch(() => {
-        if (active) setLink(null);
-      });
+export function usePaymentLinkBySlug(
+  owner: string,
+  slug: string | null,
+): LinkState {
+  const query = trpc.paymentLinks.resolve.useQuery(
+    { owner, slug: slug ?? "" },
+    { enabled: !!owner && !!slug },
+  );
+  if (!owner || !slug) return null;
+  if (query.isPending) return "loading";
+  return query.data ?? null;
+}
 
-    return () => {
-      active = false;
-    };
-  }, [id]);
+export function usePaymentLinksByOwner(owner: string | null) {
+  const utils = trpc.useUtils();
+  const query = trpc.paymentLinks.listByOwner.useQuery(
+    { owner: owner ?? "" },
+    { enabled: !!owner },
+  );
 
-  return link;
+  function refresh(): Promise<void> {
+    if (!owner) return Promise.resolve();
+    return utils.paymentLinks.listByOwner.invalidate({ owner });
+  }
+
+  function setLinks(updater: (current: PaymentLink[]) => PaymentLink[]): void {
+    if (!owner) return;
+    utils.paymentLinks.listByOwner.setData({ owner }, (current) =>
+      updater(current ?? []),
+    );
+  }
+
+  return {
+    links: query.data ?? [],
+    loading: !!owner && query.isPending,
+    refresh,
+    setLinks,
+  };
 }

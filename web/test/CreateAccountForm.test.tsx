@@ -25,6 +25,7 @@ vi.mock("../src/lib/stellar", () => ({
 }));
 
 import { CreateAccountForm } from "../src/components/CreateAccountForm";
+import { Toaster } from "../src/components/ui/sonner";
 
 const SIGNER = {
   address: "CSIGNER",
@@ -36,8 +37,14 @@ const VIEW_PK = new Uint8Array(32).fill(2);
 
 function setup() {
   const onClaimed = vi.fn();
-  render(<CreateAccountForm onClaimed={onClaimed} />);
-  return { onClaimed };
+  const onClose = vi.fn();
+  render(
+    <>
+      <CreateAccountForm open onClose={onClose} onClaimed={onClaimed} />
+      <Toaster />
+    </>,
+  );
+  return { onClaimed, onClose };
 }
 
 beforeEach(() => {

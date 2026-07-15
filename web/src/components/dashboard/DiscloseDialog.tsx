@@ -10,16 +10,12 @@ import {
 } from "../../lib/disclosure";
 import { downloadDisclosurePdf } from "../../lib/disclosurePdf";
 import { getAccount, scanMyNotes } from "../../lib/notes";
-import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
 type Step = "building" | "ready" | "error";
-
-function truncMiddle(s: string, keep = 8): string {
-  return s.length > keep * 2 + 1 ? `${s.slice(0, keep)}…${s.slice(-keep)}` : s;
-}
 
 export function DiscloseDialog({
   open,
@@ -71,31 +67,31 @@ export function DiscloseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-[440px]">
+      <DialogContent appearance="glass" className="max-w-[440px]">
         <DialogTitle className="flex items-center gap-2">
-          <FileCheck className="size-4 text-olive" />
-          Prove this payment
+          Create payment receipt
         </DialogTitle>
 
         {step === "building" && (
           <div className="grid place-items-center gap-3 py-8 text-center">
-            <Loader2 className="size-8 animate-spin text-olive" />
+            <Loader2
+              className="size-8 motion-safe:animate-spin text-olive"
+              aria-hidden="true"
+            />
             <div className="text-sm font-medium text-ink">
-              Building your disclosure…
-            </div>
-            <div className="text-xs text-muted-text">
-              Assembling the commitment opening and Merkle proof for this single
-              payment.
+              Preparing your receipt…
             </div>
           </div>
         )}
 
         {step === "error" && (
           <div className="grid gap-4">
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-            <Button variant="secondary" className="min-h-11" onClick={build}>
+            <ToastFeedback
+              message={error}
+              variant="error"
+              toastId="disclosure-error"
+            />
+            <Button variant="glass" className="min-h-11" onClick={build}>
               Try again
             </Button>
           </div>
@@ -103,7 +99,7 @@ export function DiscloseDialog({
 
         {step === "ready" && bundle && (
           <div className="grid gap-4">
-            <div className="rounded-lg border border-line bg-white/60 p-4">
+            <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-muted-text">
                   Payment received
@@ -120,20 +116,8 @@ export function DiscloseDialog({
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-text">Note</dt>
+                  <dt className="text-muted-text">Payment reference</dt>
                   <dd className="font-mono text-ink">#{bundle.leafIndex}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-text">Commitment</dt>
-                  <dd className="font-mono text-ink">
-                    {truncMiddle(bundle.commitmentHex)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-text">Merkle root</dt>
-                  <dd className="font-mono text-ink">
-                    {truncMiddle(bundle.rootHex)}
-                  </dd>
                 </div>
               </dl>
             </div>
@@ -141,18 +125,19 @@ export function DiscloseDialog({
             <div className="flex items-start gap-2 rounded-lg bg-sage/50 px-3 py-2.5 text-xs text-olive-deep">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-olive" />
               <span>
-                The PDF proves this one payment only. It opens this note's
-                commitment and reveals nothing about your other payments.
+                The receipt confirms this payment without revealing your balance
+                or any other payment activity.
               </span>
             </div>
 
             <Button
-              className="min-h-11"
+              variant="glass"
+              className="min-h-11 mt-4"
               size="lg"
               onClick={() => void downloadDisclosurePdf(bundle)}
             >
-              <Download className="size-4" />
-              Download proof (PDF)
+              <Download className="size-4" aria-hidden="true" />
+              Download receipt (PDF)
             </Button>
           </div>
         )}

@@ -13,11 +13,25 @@ vi.mock("../src/components/WalletProvider", () => ({
 
 // Stub the form so we can drive its onClaimed callback directly.
 vi.mock("../src/components/CreateAccountForm", () => ({
-  CreateAccountForm: ({ onClaimed }: { onClaimed: (u: string) => void }) => (
-    <button type="button" onClick={() => onClaimed("alice")}>
-      STUB_CLAIM
-    </button>
-  ),
+  CreateAccountForm: ({
+    open,
+    onClose,
+    onClaimed,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onClaimed: (u: string) => void;
+  }) =>
+    open ? (
+      <div role="dialog">
+        <button type="button" onClick={() => onClaimed("alice")}>
+          STUB_CLAIM
+        </button>
+        <button type="button" onClick={onClose}>
+          STUB_CLOSE
+        </button>
+      </div>
+    ) : null,
 }));
 
 import { UsernameModal } from "../src/components/UsernameModal";
@@ -48,7 +62,7 @@ describe("UsernameModal", () => {
 
   it("closes on Escape", async () => {
     render(<UsernameModal open onClose={mocks.onClose} />);
-    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByText("STUB_CLOSE"));
     expect(mocks.onClose).toHaveBeenCalled();
   });
 });

@@ -208,6 +208,13 @@ export function Chrome({ children }: { children: ReactNode }) {
         </svg>
       </div>
 
+      <a
+        href="#main-content"
+        className="fixed left-4 top-4 z-[90] -translate-y-24 rounded-md bg-ed-cream px-4 py-3 font-semibold text-ed-dark shadow-xl transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
+
       <EditionsTopNav />
 
       {children}

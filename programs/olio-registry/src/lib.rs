@@ -85,12 +85,18 @@ impl RegistryContract {
         Ok(())
     }
 
-    /// Rotate the note key for a username. Only the current owner may call.
+    /// Rotate both keys for a username. Only the current owner may call.
+    ///
+    /// Re-keying (e.g. PIN-escrow recovery) mints a fresh master from which the
+    /// note key AND the viewing key are re-derived, so both must rotate together
+    /// — rotating only `note_pubkey` would leave payers encrypting note metadata
+    /// to a stale `view_pubkey` the new master cannot decrypt.
     pub fn set_pubkey(
         env: Env,
         owner: Address,
         username: String,
         note_pubkey: BytesN<32>,
+        view_pubkey: BytesN<32>,
     ) -> Result<(), Error> {
         owner.require_auth();
         let store = env.storage().persistent();
@@ -103,6 +109,7 @@ impl RegistryContract {
             return Err(Error::UsernameNotFound);
         }
         account.note_pubkey = note_pubkey;
+        account.view_pubkey = view_pubkey;
         store.set(&DataKey::Name(username), &account);
         Ok(())
     }

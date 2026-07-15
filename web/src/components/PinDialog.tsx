@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -10,6 +9,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { ToastFeedback } from "./ui/toast-feedback";
 
 const PIN_RE = /^\d{6}$/;
 
@@ -35,29 +35,28 @@ export function PinDialog({
   const [localError, setLocalError] = useState("");
   const pinId = useId();
   const confirmId = useId();
+  const resetKey = open ? mode : null;
 
-  // Reset every time the dialog (re)opens or switches mode.
   useEffect(() => {
-    if (open) {
-      setPin("");
-      setConfirm("");
-      setLocalError("");
-    }
-  }, [open, mode]);
+    if (!resetKey) return;
+    setPin("");
+    setConfirm("");
+    setLocalError("");
+  }, [resetKey]);
 
   const dualField = mode === "set" || mode === "secure";
   const mandatory = mode === "set"; // only create blocks dismissal
   const title =
     mode === "set"
-      ? "Set your recovery PIN"
+      ? "Set Your Recovery PIN"
       : mode === "secure"
         ? "Secure your account"
         : "Unlock your account";
   const description =
     mode === "set"
-      ? "This 6-digit PIN encrypts your account key so you can restore your balance on any device. It can't be reset — keep it safe."
+      ? "This 6-digit PIN encrypts your account key so you can restore your balance on any device. It can't be reset, so keep it safe."
       : mode === "secure"
-        ? "This account was created before PIN recovery. Set a 6-digit PIN to secure it — it re-keys your account so you can restore it on any device."
+        ? "This account was created before PIN recovery. Set a 6-digit PIN to secure it, it re-keys your account so you can restore it on any device."
         : "Enter your 6-digit PIN to restore your account key on this device and reveal your balance.";
   const cta =
     mode === "set"
@@ -92,31 +91,37 @@ export function PinDialog({
         if (!next && !mandatory && !submitting) onClose();
       }}
     >
-      <DialogContent className="max-w-[420px]" showCloseButton={!mandatory}>
-        <div className="grid gap-1.5">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </div>
+      <DialogContent
+        appearance="glass"
+        className="max-w-[420px] gap-0"
+        showCloseButton={!mandatory}
+      >
+        <DialogTitle className="text-lg font-semibold text-center">
+          {title}
+        </DialogTitle>
+        <DialogDescription className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4">
+          {description}
+        </DialogDescription>
 
         {mode === "secure" ? (
           <div
-            className="rounded-lg border border-amber-500/30 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            className="mt-6 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-50"
             role="note"
           >
             Any payments received before now stay tied to your old key. Cash
-            them out from the original browser first — re-keying makes them
+            them out from the original browser first. Re-keying makes them
             invisible here.
           </div>
         ) : null}
 
-        <form className="grid gap-3" onSubmit={submit}>
-          <div className="grid gap-1.5">
-            <label htmlFor={pinId} className="text-sm font-medium text-ink">
+        <form className="mt-6 grid gap-3" onSubmit={submit}>
+          <div className="grid gap-2">
+            <label htmlFor={pinId} className="text-sm font-medium text-white">
               {dualField ? "New PIN" : "PIN"}
             </label>
             <Input
+              appearance="glass"
               id={pinId}
-              // biome-ignore lint/a11y/noAutofocus: single-purpose modal; focus belongs on the only field
               autoFocus
               className="min-h-11 text-center tracking-[0.5em]"
               type="password"
@@ -131,14 +136,15 @@ export function PinDialog({
           </div>
 
           {dualField ? (
-            <div className="grid gap-1.5">
+            <div className="grid gap-2">
               <label
                 htmlFor={confirmId}
-                className="text-sm font-medium text-ink"
+                className="text-sm font-medium text-white"
               >
                 Confirm PIN
               </label>
               <Input
+                appearance="glass"
                 id={confirmId}
                 className="min-h-11 text-center tracking-[0.5em]"
                 type="password"
@@ -153,13 +159,19 @@ export function PinDialog({
             </div>
           ) : null}
 
-          {shownError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{shownError}</AlertDescription>
-            </Alert>
-          ) : null}
+          <ToastFeedback
+            message={shownError}
+            variant="error"
+            toastId="pin-error"
+          />
 
-          <Button className="min-h-11" type="submit" disabled={submitting}>
+          <Button
+            variant="glass"
+            className="min-h-11 w-full mt-4"
+            type="submit"
+            disabled={submitting}
+            aria-busy={submitting}
+          >
             {submitting ? "Working…" : cta}
           </Button>
         </form>

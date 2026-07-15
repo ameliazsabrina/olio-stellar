@@ -28,6 +28,7 @@ describe("renderDisclosurePdf", () => {
     const bytes = new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);
     // Valid PDFs start with the "%PDF" magic header.
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("%PDF");
-    expect(bytes.length).toBeGreaterThan(1000);
+    expect(bytes.length).toBeGreaterThan(5000);
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(3);
   });
 });

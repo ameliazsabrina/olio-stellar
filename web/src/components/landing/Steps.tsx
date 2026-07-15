@@ -28,7 +28,7 @@ export function Steps() {
       id="steps"
       aria-labelledby="steps-title"
     >
-      <div className="mx-auto w-full max-w-7xl  sm:px-8 lg:px-12 lg:py-16">
+      <div className="mx-auto w-full max-w-7xl lg:px-12 lg:py-16">
         <div className="mx-auto max-w-[680px] text-center">
           <h2
             className="text-balance text-[clamp(2.3rem,5vw,4rem)] font-semibold leading-[0.96] tracking-[-0.04em] text-ink"

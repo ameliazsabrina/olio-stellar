@@ -14,10 +14,10 @@ import {
 } from "../lib/crypto";
 import { accountPubkeys, getAccount } from "../lib/notes";
 import { poolDeposit, usdcBalance } from "../lib/stellar";
-import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
+import { ToastFeedback } from "./ui/toast-feedback";
 import { useWallet } from "./WalletProvider";
 
 const depositInput = z.object({
@@ -115,16 +115,16 @@ export function DepositForm() {
             ? "Shields your own USDC into the pool as a private note only you can spend."
             : "Connect a wallet (top right) to deposit."}
         </span>
-        {errors.amount ? (
-          <Alert variant="destructive">
-            <AlertDescription>{errors.amount.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        {status ? (
-          <Alert variant={status.kind === "ok" ? "success" : "destructive"}>
-            <AlertDescription>{status.msg}</AlertDescription>
-          </Alert>
-        ) : null}
+        <ToastFeedback
+          message={errors.amount?.message}
+          variant="error"
+          toastId="deposit-amount-error"
+        />
+        <ToastFeedback
+          message={status?.msg}
+          variant={status?.kind === "ok" ? "success" : "error"}
+          toastId="deposit-status"
+        />
       </form>
     </Card>
   );

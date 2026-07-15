@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { DashboardShell } from "./dashboard/DashboardShell";
 import { StellarWalletModal } from "./landing/StellarWalletModal";
 import { PinDialog } from "./PinDialog";
 import { UsernameModal } from "./UsernameModal";
@@ -68,6 +69,25 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
+  if (isPay) {
+    return (
+      <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
+        <header className="mb-0 flex min-w-0 items-center justify-center">
+          <Link href="/" aria-label="Olio home">
+            <Image
+              src="/assets/olio-white.svg"
+              alt="Olio"
+              width={40}
+              height={40}
+              className="size-16"
+            />
+          </Link>
+        </header>
+        <div className="grid flex-1 content-center gap-5 py-8">{children}</div>
+      </DashboardShell>
+    );
+  }
+
   return (
     <>
       <header className="border-b border-line bg-gradient-to-b from-[#f7f6f0] to-[#f2f1e8]">
@@ -102,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : address ? (
               <Badge
                 variant="secondary"
-                className="h-auto cursor-pointer rounded-full px-3 py-1.5 font-sans text-xs hover:border-olive"
+                className="h-auto cursor-pointer rounded-lg px-3 py-1.5 font-sans text-xs hover:border-olive"
                 title={address}
                 onClick={disconnect}
               >
@@ -123,9 +143,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto grid w-full gap-[18px] pb-20 [&>*]:mx-auto [&>*]:w-[min(720px,calc(100%-32px))]">
         {children}
       </main>
-      {isPay ? null : usernameModal}
-      {isPay ? null : walletModal}
-      {isPay ? null : pinModal}
+      {usernameModal}
+      {walletModal}
+      {pinModal}
     </>
   );
 }

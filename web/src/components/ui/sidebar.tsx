@@ -12,7 +12,6 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 const MOBILE_BREAKPOINT = 768;
 
 function useIsMobile() {
@@ -86,20 +85,6 @@ function SidebarProvider({
     return isMobile ? setOpenMobile((o) => !o) : setOpen((o) => !o);
   }, [isMobile, setOpen]);
 
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
-        event.preventDefault();
-        toggleSidebar();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
-
   const state = open ? "expanded" : "collapsed";
 
   const contextValue = React.useMemo<SidebarContextValue>(
@@ -157,7 +142,7 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+          "flex h-full w-(--sidebar-width) flex-col bg-sidebar/90 text-sidebar-foreground backdrop-blur-xl",
           className,
         )}
         {...props}
@@ -177,7 +162,7 @@ function Sidebar({
             data-slot="sidebar"
             data-mobile="true"
             className={cn(
-              "fixed inset-y-0 z-50 flex h-svh w-(--sidebar-width) flex-col bg-sidebar p-0 text-sidebar-foreground shadow-lg outline-none duration-300 ease-in-out data-open:animate-in data-closed:animate-out",
+              "fixed inset-y-0 z-50 flex h-svh w-(--sidebar-width) flex-col bg-sidebar/95 p-0 text-sidebar-foreground shadow-2xl backdrop-blur-xl outline-none duration-300 ease-in-out data-open:animate-in data-closed:animate-out",
               side === "left"
                 ? "left-0 border-r border-sidebar-border data-open:slide-in-from-left data-closed:slide-out-to-left"
                 : "right-0 border-l border-sidebar-border data-open:slide-in-from-right data-closed:slide-out-to-right",
@@ -238,7 +223,7 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
+          className="flex h-full w-full flex-col bg-sidebar/90 backdrop-blur-xl group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
         >
           {children}
         </div>
@@ -309,7 +294,10 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function SidebarSeparator({ className, ...props }: React.ComponentProps<"div">) {
+function SidebarSeparator({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sidebar-separator"
@@ -400,7 +388,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonClasses =
-  "peer/menu-button flex w-full items-center gap-3 overflow-hidden rounded-lg p-2 text-left text-sm font-medium outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2 [&>span:last-child]:truncate [&>svg]:size-[18px] [&>svg]:shrink-0";
+  "peer/menu-button flex min-h-10 w-full items-center gap-3 overflow-hidden rounded-lg p-2 text-left text-sm font-semibold outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent/85 hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2 [&>span:last-child]:truncate [&>svg]:size-[18px] [&>svg]:shrink-0";
 
 function SidebarMenuButton({
   isActive = false,

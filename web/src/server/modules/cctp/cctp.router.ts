@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { rateLimit } from "../../lib/rateLimit";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
   CctpAttestationError,
@@ -13,6 +14,30 @@ import {
   relayOutput,
 } from "./cctp.schema";
 import { fetchAttestation, relayDeposit } from "./cctp.service";
+
+// Public unauthenticated procedures driving scarce resources; throttle per IP.
+const ATTEST_LIMIT = 60;
+const RELAY_LIMIT = 10;
+const RATE_WINDOW_MS = 60_000;
+
+function enforceRateLimit(
+  kind: string,
+  limit: number,
+  ip: string | null,
+): void {
+  if (!ip) return;
+  const { ok, retryAfterMs } = rateLimit(
+    `cctp:${kind}:ip:${ip}`,
+    limit,
+    RATE_WINDOW_MS,
+  );
+  if (!ok) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: `Too many requests. Retry in ${Math.ceil(retryAfterMs / 1000)}s.`,
+    });
+  }
+}
 
 function mapError(e: unknown): never {
   if (e instanceof CctpPayeeError) {
@@ -31,12 +56,16 @@ export const cctpRouter = createTRPCRouter({
   attestation: publicProcedure
     .input(attestationInput)
     .output(attestationOutput)
-    .query(({ input }) =>
-      fetchAttestation(input.sourceDomain, input.txHash).catch(mapError),
-    ),
+    .query(({ input, ctx }) => {
+      enforceRateLimit("attest", ATTEST_LIMIT, ctx.ip);
+      return fetchAttestation(input.sourceDomain, input.txHash).catch(mapError);
+    }),
 
   relay: publicProcedure
     .input(relayInput)
     .output(relayOutput)
-    .mutation(({ input }) => relayDeposit(input).catch(mapError)),
+    .mutation(({ input, ctx }) => {
+      enforceRateLimit("relay", RELAY_LIMIT, ctx.ip);
+      return relayDeposit(input).catch(mapError);
+    }),
 });

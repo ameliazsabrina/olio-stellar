@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["programs/olio-registry", "programs/olio-pool"]
+members = ["programs/olio-registry", "programs/olio-pool", "programs/olio-intake"]
 # Vendored passkey-kit smart-wallet — its own workspace pinned to soroban-sdk 23,
 # built standalone. Excluded so it never perturbs the soroban-sdk 26 pin here.
 exclude = ["vendor/passkey-contracts"]

@@ -86,8 +86,29 @@ fn rotate_pubkey() {
     client.register(&owner, &name, &pk(&env, 1), &pk(&env, 206));
 
     let new_key = pk(&env, 9);
-    client.set_pubkey(&owner, &name, &new_key);
-    assert_eq!(client.resolve(&name).note_pubkey, new_key);
+    let new_view = pk(&env, 99);
+    client.set_pubkey(&owner, &name, &new_key, &new_view);
+    let acct = client.resolve(&name);
+    assert_eq!(acct.note_pubkey, new_key);
+    assert_eq!(acct.view_pubkey, new_view);
+}
+
+#[test]
+fn set_pubkey_wrong_owner_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let client = setup(&env);
+
+    let owner = Address::generate(&env);
+    let name = String::from_str(&env, "dinar");
+    client.register(&owner, &name, &pk(&env, 1), &pk(&env, 206));
+
+    let intruder = Address::generate(&env);
+    let err = client
+        .try_set_pubkey(&intruder, &name, &pk(&env, 9), &pk(&env, 99))
+        .err()
+        .unwrap();
+    assert_eq!(err, Ok(Error::UsernameNotFound));
 }
 
 #[test]

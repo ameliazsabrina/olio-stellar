@@ -25,11 +25,11 @@ export function StellarAcknowledgement() {
     >
       <div className="mx-auto max-w-6xl text-center">
         <h2
-          className="mx-auto flex max-w-[1120px] flex-wrap items-center justify-center gap-x-6 gap-y-3 text-balance text-[clamp(1rem,7.5vw,6rem)] font-semibold leading-[0.86] tracking-[-0.065em] text-ink"
+          className="mx-auto flex max-w-[1120px] flex-col items-center justify-center gap-3 text-balance text-[clamp(2.5rem,7.5vw,6rem)] font-semibold leading-[0.86] tracking-[-0.065em] text-ink sm:flex-row sm:gap-6"
           id="stellar-title"
         >
           <span>Built on</span>
-          <span className="ml-4 inline-flex w-[clamp(10.5rem,18vw,17rem)] translate-y-[0.08em] items-center justify-center">
+          <span className="inline-flex w-40 items-center justify-center sm:w-[clamp(12rem,28vw,17rem)] sm:translate-y-[0.08em]">
             <Image
               src="/assets/stellar-logo.png"
               alt="Stellar"
