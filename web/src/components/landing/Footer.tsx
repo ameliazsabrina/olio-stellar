@@ -2,7 +2,11 @@ import { BookText, Github } from "lucide-react";
 import Image from "next/image";
 
 const NAV_LINKS = [
-  { label: "Docs", href: "https://gitbook.oliopay", Icon: BookText },
+  {
+    label: "Docs",
+    href: "https://amelias-organization-20.gitbook.io/olio/",
+    Icon: BookText,
+  },
   {
     label: "GitHub",
     href: "https://github.com/ameliazsabrina/olio-stellar",
