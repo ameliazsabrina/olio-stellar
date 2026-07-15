@@ -41,6 +41,7 @@ function mapError(e: unknown): never {
 }
 
 export const paymentLinksRouter = createTRPCRouter({
+  // Ownership of `username` is intentionally unverified here; funds still route on-chain, accepted risk is slug-squatting.
   create: publicProcedure
     .input(createLinkInput)
     .output(createLinkResult)
