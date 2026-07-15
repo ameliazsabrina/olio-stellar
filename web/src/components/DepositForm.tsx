@@ -82,7 +82,7 @@ export function DepositForm() {
       );
       setStatus({
         kind: "ok",
-        msg: `Shielded ${amount} USDC into your account · note #${leafIndex}.`,
+        msg: `Shielded ${amount} USDC into your account.`,
       });
       reset({ amount: "" });
     } catch (e) {

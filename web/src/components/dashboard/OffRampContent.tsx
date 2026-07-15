@@ -210,7 +210,7 @@ export function OffRampContent({
                         <Check className="size-3" aria-hidden="true" />
                       )}
                     </span>
-                    Payment #{note.leafIndex}
+                    Payment
                   </span>
                   <span className="font-mono text-sm font-semibold text-ink">
                     {fromBaseUnits(note.amount)} USDC

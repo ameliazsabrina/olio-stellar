@@ -486,7 +486,7 @@ function WalletWithdrawal({
                     >
                       {active ? <Check className="size-3" /> : null}
                     </span>
-                    Payment #{note.leafIndex}
+                    Payment
                   </span>
                   <span className="font-mono text-sm font-semibold text-white tabular-nums">
                     {fromBaseUnits(note.amount)} USDC

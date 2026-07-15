@@ -194,9 +194,6 @@ export function ActivityFeed({
                     >
                       private note
                     </Badge>
-                    <span className="font-mono text-xs text-white/45">
-                      #{event.leafIndex}
-                    </span>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
@@ -216,7 +213,7 @@ export function ActivityFeed({
                       size="icon"
                       className="size-10 bg-white/18 text-white ring-white/35 hover:bg-white/25"
                       onClick={() => setDiscloseLeaf(event.leafIndex)}
-                      aria-label={`Prove payment ${event.leafIndex}`}
+                      aria-label={`Prove payment`}
                       title="Generate a per-payment proof (PDF)"
                     >
                       <FileCheck className="size-3.5" aria-hidden="true" />

@@ -11,6 +11,9 @@ dist/
 target/
 *.wasm
 *.optimized.wasm
+# ...but the circom circuit artifacts under web/public are runtime assets that
+# must ship to the deployed app, not build output.
+!web/public/zk/*.wasm
 
 .stellar/
 .claude
