@@ -93,6 +93,12 @@ export function OffRampContent({
     }
     setError(null);
     setStep("preparing");
+    // Open the anchor window synchronously inside the click gesture, otherwise
+    // the post-await window.open below is treated as programmatic and blocked.
+    // Navigated to the interactive URL once it's ready; closed on failure. If a
+    // pop-up blocker nulls this out, the "interactive" step's button is fallback.
+    const anchorWindow =
+      typeof window !== "undefined" ? window.open("", "_blank") : null;
     try {
       const acct = getAccount();
       if (!acct) throw new Error("No local account found on this device.");
@@ -130,6 +136,9 @@ export function OffRampContent({
         bridge.publicKey,
         fromBaseUnits(note.amount),
       );
+      // Point the pre-opened window at the anchor's hosted UI (the redirect).
+      if (anchorWindow && !anchorWindow.closed)
+        anchorWindow.location.href = url;
       setInteractive({ info, token, id, url });
       setStep("interactive");
 
@@ -156,6 +165,8 @@ export function OffRampContent({
       setSettled(final);
       setStep("done");
     } catch (e) {
+      // Nothing to show if we bailed before the URL was ready; close the blank tab.
+      if (anchorWindow && !anchorWindow.closed) anchorWindow.close();
       setError(e instanceof Error ? e.message : "Off-ramp failed.");
       setStep("select");
     }
@@ -173,8 +184,8 @@ export function OffRampContent({
   if (step === "select") {
     return (
       <div className="grid gap-4">
-        <div className="flex items-start gap-2 rounded-lg bg-sage/50 px-3 py-2.5 text-xs text-olive-deep">
-          <Landmark className="mt-0.5 size-4 shrink-0 text-olive" />
+        <div className="flex items-start gap-2 rounded-lg bg-sage/50 px-3 py-2.5 text-xs text-white">
+          <Landmark className="mt-0.5 size-4 shrink-0 text-white/80" />
           <span>
             Cash out to your bank through <b>{anchorLabel()}</b>. Identity and
             bank details are handled by the anchor — they never touch Olio.
@@ -182,7 +193,9 @@ export function OffRampContent({
         </div>
 
         <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm text-ink">Payment to cash out</legend>
+          <legend className="mb-1 text-sm text-white">
+            Payment to cash out
+          </legend>
           <div className="grid gap-2">
             {options.map((note) => {
               const active = note.leafIndex === selectedLeaf;
@@ -198,7 +211,7 @@ export function OffRampContent({
                       : "border-white/15 bg-white/8 hover:border-white/25 hover:bg-white/12"
                   }`}
                 >
-                  <span className="flex items-center gap-2 text-sm text-ink">
+                  <span className="flex items-center gap-2 text-sm text-white">
                     <span
                       className={`grid size-4 place-items-center rounded-lg border ${
                         active
