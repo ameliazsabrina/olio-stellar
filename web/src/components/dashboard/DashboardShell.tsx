@@ -51,7 +51,7 @@ export function DashboardShell({
   header?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-svh overflow-x-clip bg-paper bg-[url('/assets/section3-bg.jpg')] bg-cover bg-fixed bg-center text-white before:pointer-events-none before:absolute before:inset-0 before:bg-gradient-to-br before:from-ink/6 before:via-ink/62 before:to-olive-deep/18">
+    <div className="relative min-h-svh overflow-x-clip bg-paper bg-[url('/assets/section3-bg.webp')] bg-cover bg-fixed bg-center text-white before:pointer-events-none before:absolute before:inset-0 before:bg-gradient-to-br before:from-ink/5 before:via-ink/62 before:to-olive-deep/10">
       <main
         id="dashboard-content"
         className={cn(
@@ -109,6 +109,7 @@ function DashboardNavigation({
       >
         <DropdownMenu>
           <DropdownMenuTrigger
+            id="dashboard-nav-menu-trigger"
             className="flex size-11 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70"
             aria-label="Open dashboard navigation"
           >
@@ -195,7 +196,10 @@ function DashboardNavigation({
       </nav>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className="hidden min-h-11 items-center justify-self-end gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex">
+        <DropdownMenuTrigger
+          id="dashboard-account-menu-trigger"
+          className="hidden min-h-11 items-center justify-self-end gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
+        >
           <span className="flex size-7 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase text-white">
             {username?.slice(0, 1) || "O"}
           </span>

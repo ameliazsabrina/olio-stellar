@@ -118,7 +118,7 @@ export function Solution() {
       >
         <Image
           className="object-cover"
-          src="/assets/section3-bg.jpg"
+          src="/assets/section3-bg.webp"
           alt=""
           fill
           sizes="100vw"
