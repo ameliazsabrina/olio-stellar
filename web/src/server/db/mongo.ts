@@ -28,6 +28,22 @@ export type IndexerStateDoc = {
   lastLedger: number;
   lastLeafIndex?: number;
   updatedAt: Date;
+  poolId?: string;
+  publishedLedger?: number;
+  publishedLeafIndex?: number;
+  indexedAt?: Date;
+  health?: "healthy" | "degraded";
+  lastError?: string;
+  leaseOwner?: string;
+  leaseUntil?: Date;
+};
+
+export type SpentNullifierDoc = {
+  _id: string;
+  ledger: number;
+  eventId: string;
+  txHash: string;
+  ts: Date;
 };
 
 export type PaymentLinkDoc = {
@@ -92,6 +108,12 @@ export async function getUsernames(): Promise<Collection<UsernameDoc>> {
 
 export async function getIndexerState(): Promise<Collection<IndexerStateDoc>> {
   return (await getDb()).collection<IndexerStateDoc>("indexer_state");
+}
+
+export async function getSpentNullifiers(): Promise<
+  Collection<SpentNullifierDoc>
+> {
+  return (await getDb()).collection<SpentNullifierDoc>("spent_nullifiers");
 }
 
 export async function getUsers(): Promise<Collection<UserDoc>> {

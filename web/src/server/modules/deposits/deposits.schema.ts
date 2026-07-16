@@ -14,5 +14,31 @@ export const depositOutput = z.object({
   ts: z.string(),
 });
 
+export const poolSnapshotInput = z
+  .object({
+    afterLeafIndex: z.number().int().gte(-1).optional(),
+    spentAfterLedger: z.number().int().nonnegative().optional(),
+  })
+  .optional();
+
+export const poolSnapshotOutput = z.object({
+  deposits: depositOutput.array(),
+  spentNullifiers: z
+    .object({
+      nullifierHex: z.string().regex(/^[0-9a-f]{64}$/),
+      ledger: z.number().int().nonnegative(),
+    })
+    .array(),
+  index: z.object({
+    poolId: z.string(),
+    networkPassphrase: z.string(),
+    publishedLedger: z.number().int().nonnegative(),
+    publishedLeafIndex: z.number().int().gte(-1),
+    indexedAt: z.string(),
+    health: z.enum(["healthy", "stale", "degraded"]),
+  }),
+});
+
 export type ListDepositsInput = z.infer<typeof listDepositsInput>;
 export type DepositOutput = z.infer<typeof depositOutput>;
+export type PoolSnapshotOutput = z.infer<typeof poolSnapshotOutput>;

@@ -12,7 +12,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { api } from "../trpc/client";
-import { fromBaseUnits, hexToBytes } from "./crypto";
+import { bytesToHex, fromBaseUnits, hexToBytes } from "./crypto";
 import type { RawProof } from "./prover";
 
 export const networkPassphrase =
@@ -340,9 +340,19 @@ export type DepositEvent = {
   ciphertext: Uint8Array;
 };
 
+export type SpentEvent = {
+  nullifierHex: string;
+};
+
+function poolEventKind(e: rpc.Api.EventResponse): string | null {
+  const topic = e.topic.at(0);
+  return topic ? String(scValToNative(topic)) : null;
+}
+
 export function parseDepositEvent(
   e: rpc.Api.EventResponse,
 ): DepositEvent | null {
+  if (poolEventKind(e) !== "deposit") return null;
   const val = scValToNative(
     typeof e.value === "string"
       ? xdr.ScVal.fromXDR(e.value, "base64")
@@ -355,6 +365,18 @@ export function parseDepositEvent(
     ephemeralPk: toBytes(val[2]),
     ciphertext: toBytes(val[3]),
   };
+}
+
+export function parseSpentEvent(e: rpc.Api.EventResponse): SpentEvent | null {
+  if (poolEventKind(e) !== "spend") return null;
+  const val = scValToNative(
+    typeof e.value === "string"
+      ? xdr.ScVal.fromXDR(e.value, "base64")
+      : e.value,
+  );
+  const bytes = toBytes(val);
+  if (bytes.length !== 32) return null;
+  return { nullifierHex: bytesToHex(bytes) };
 }
 
 export async function fetchPoolEventsSince(sinceLedger: number): Promise<{

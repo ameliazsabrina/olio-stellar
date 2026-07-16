@@ -4,8 +4,8 @@ use super::fixture::*;
 use super::groth16::{verify, Proof, VerificationKey};
 use super::{Error, PoolContract, PoolContractClient};
 use soroban_sdk::{
-    crypto::bn254::Bn254Fr, testutils::Address as _, token, Address, Bytes, BytesN, Env, String,
-    U256, Vec,
+    crypto::bn254::Bn254Fr, symbol_short, testutils::{Address as _, Events as _}, token, Address,
+    Bytes, BytesN, Env, IntoVal, String, U256, Vec,
 };
 
 // Fixture note (from circuits/build/gen_input.mjs): ownerSecret=111111111111,
@@ -185,6 +185,22 @@ fn withdraw_full_flow() {
     };
 
     f.pool.withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof);
+    assert_eq!(
+        f.env.events().all().filter_by_contract(&f.pool.address),
+        soroban_sdk::vec![
+            &f.env,
+            (
+                f.pool.address.clone(),
+                (symbol_short!("withdraw"),).into_val(&f.env),
+                (nullifier.clone(), dest.clone(), WD_AMOUNT).into_val(&f.env),
+            ),
+            (
+                f.pool.address.clone(),
+                (symbol_short!("spend"),).into_val(&f.env),
+                nullifier.clone().into_val(&f.env),
+            ),
+        ]
+    );
     assert_eq!(token.balance(&dest), WD_AMOUNT);
     assert_eq!(token.balance(&f.pool.address), 0);
 
@@ -228,6 +244,27 @@ fn transfer_full_flow() {
 
     let (recipient_index, change_index) = f.pool.transfer(
         &root, &nullifier, &proof, &recipient_com, &eph, &ct, &change_com, &eph, &ct,
+    );
+    assert_eq!(
+        f.env.events().all().filter_by_contract(&f.pool.address),
+        soroban_sdk::vec![
+            &f.env,
+            (
+                f.pool.address.clone(),
+                (symbol_short!("deposit"),).into_val(&f.env),
+                (1u32, recipient_com.clone(), eph.clone(), ct.clone()).into_val(&f.env),
+            ),
+            (
+                f.pool.address.clone(),
+                (symbol_short!("deposit"),).into_val(&f.env),
+                (2u32, change_com.clone(), eph.clone(), ct.clone()).into_val(&f.env),
+            ),
+            (
+                f.pool.address.clone(),
+                (symbol_short!("spend"),).into_val(&f.env),
+                nullifier.clone().into_val(&f.env),
+            ),
+        ]
     );
     assert_eq!(recipient_index, 1);
     assert_eq!(change_index, 2);

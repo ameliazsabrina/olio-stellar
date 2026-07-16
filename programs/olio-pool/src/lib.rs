@@ -224,7 +224,9 @@ impl PoolContract {
             &amount,
         );
         env.events()
-            .publish((symbol_short!("withdraw"),), (nullifier, dest, amount));
+            .publish((symbol_short!("withdraw"),), (nullifier.clone(), dest, amount));
+        env.events()
+            .publish((symbol_short!("spend"),), nullifier);
         Ok(())
     }
 
@@ -300,6 +302,8 @@ impl PoolContract {
             (symbol_short!("deposit"),),
             (change_index, change_commitment, change_ephemeral_pk, change_ciphertext),
         );
+        env.events()
+            .publish((symbol_short!("spend"),), nullifier);
         Ok((recipient_index, change_index))
     }
 

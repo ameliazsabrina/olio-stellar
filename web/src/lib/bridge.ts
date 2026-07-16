@@ -8,7 +8,7 @@ import {
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 import { friendbotUrl, horizon, offRampAsset } from "./anchor";
-import { fromBaseUnits } from "./crypto";
+import { fromBaseUnits, toBaseUnits } from "./crypto";
 import type { LocalAccount, MyNote, ScanResult } from "./notes";
 import { networkPassphrase, type Signer } from "./stellar";
 import { withdrawNote } from "./withdraw";
@@ -37,6 +37,7 @@ export type StrandedBridge = {
   secret: string;
   publicKey: string;
   amount: string;
+  destination?: string;
   at: number;
 };
 
@@ -44,6 +45,7 @@ export function persistBridge(
   bridge: Bridge,
   ref: string,
   amount: bigint,
+  destination?: string,
 ): void {
   if (typeof localStorage === "undefined") return;
   const record: StrandedBridge = {
@@ -51,6 +53,7 @@ export function persistBridge(
     secret: bridge.keypair.secret(),
     publicKey: bridge.publicKey,
     amount: amount.toString(),
+    destination,
     at: Date.now(),
   };
   try {
@@ -170,4 +173,46 @@ export async function createClaimableBalanceToDestination(
     // Rebuild against a fresh sequence number and try once more.
     return build();
   }
+}
+
+// --- stranded-fund recovery --------------------------------------------------
+
+/// Live USDC balance of a bridge account in base units; 0 if the account is
+/// gone or holds none (already swept).
+export async function bridgeUsdcBalance(publicKey: string): Promise<bigint> {
+  let account: Awaited<ReturnType<typeof horizon.loadAccount>>;
+  try {
+    account = await horizon.loadAccount(publicKey);
+  } catch {
+    return 0n;
+  }
+  const asset = offRampAsset();
+  const held = account.balances.find(
+    (b) =>
+      b.asset_type !== "native" &&
+      "asset_code" in b &&
+      b.asset_code === asset.code &&
+      b.asset_issuer === asset.issuer,
+  );
+  return held ? toBaseUnits(held.balance) : 0n;
+}
+
+/// Sweep whatever USDC a stranded bridge still holds to `destination` as a
+/// claimable balance the recipient claims later. Reads the live balance so a
+/// repeated sweep can't over-send.
+export async function reclaimBridge(
+  secret: string,
+  destination: string,
+): Promise<{ claimableBalanceId: string; amount: bigint }> {
+  const keypair = Keypair.fromSecret(secret);
+  const amount = await bridgeUsdcBalance(keypair.publicKey());
+  if (amount === 0n) {
+    throw new Error("This account no longer holds any USDC.");
+  }
+  const claimableBalanceId = await createClaimableBalanceToDestination(
+    keypair,
+    destination,
+    amount,
+  );
+  return { claimableBalanceId, amount };
 }

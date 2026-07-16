@@ -35,6 +35,7 @@ import { Label } from "../ui/label";
 import { useWallet } from "../WalletProvider";
 import { DashboardShell } from "./DashboardShell";
 import { OffRampContent } from "./OffRampContent";
+import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
 import { useMyNotes } from "./useMyNotes";
 
 type Step = "form" | "review" | "proving" | "done";
@@ -192,6 +193,8 @@ export function WithdrawDashboard() {
           directly to your bank.
         </p>
       </div>
+
+      <StrandedFundsRecovery defaultDestination={address} />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:gap-6">
         <Card appearance="glass" className="gap-0 p-0">

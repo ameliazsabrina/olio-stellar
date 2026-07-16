@@ -281,12 +281,27 @@ and server-only secrets from plain variables.
 Important server-only values:
 
 - `MONGODB_URI` - MongoDB connection string.
+- `CRON_SECRET` - long random bearer token used by Vercel Cron to authorize the
+  one-minute pool-indexer request.
 - `CHANNELS_API_KEY` - OpenZeppelin Relayer Channels key, when using Channels.
 - `CCTP_OPERATOR_SECRET` - Stellar secret key for the CCTP intake operator.
 - `CIRCLE_API_KEY` - Circle API key for Iris attestation access if required.
 
 Do not commit `web/.env.local`. The repository intentionally ignores `.env*`
 files except `.env.example`.
+
+Before deploying the asynchronous pool indexer, apply the Mongo migrations:
+
+```sh
+pnpm --filter web migrate:up
+```
+
+The production deployment schedules `/api/cron/pool-indexer` every minute.
+After deploying a new testnet pool contract, invoke that route once with
+`Authorization: Bearer <CRON_SECRET>` and confirm it reports `status: synced`
+before relying on the dashboard mirror. Contract-id changes automatically clear
+and rebuild the public encrypted deposit/nullifier mirror; they never clear user
+keys or other application collections.
 
 ## Testnet Payment Notes
 

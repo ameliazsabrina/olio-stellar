@@ -1,8 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import { DepositIndexGapError } from "./deposits.errors";
-import { depositOutput, listDepositsInput } from "./deposits.schema";
-import { listDeposits } from "./deposits.service";
+import {
+  depositOutput,
+  listDepositsInput,
+  poolSnapshotInput,
+  poolSnapshotOutput,
+} from "./deposits.schema";
+import { getPoolSnapshot, listDeposits } from "./deposits.service";
 
 function mapError(e: unknown): never {
   if (e instanceof DepositIndexGapError) {
@@ -12,6 +17,15 @@ function mapError(e: unknown): never {
 }
 
 export const depositsRouter = createTRPCRouter({
+  snapshot: publicProcedure
+    .input(poolSnapshotInput)
+    .output(poolSnapshotOutput)
+    .query(({ input }) =>
+      getPoolSnapshot(
+        input?.afterLeafIndex ?? -1,
+        input?.spentAfterLedger ?? 0,
+      ).catch(mapError),
+    ),
   list: publicProcedure
     .input(listDepositsInput)
     .output(depositOutput.array())

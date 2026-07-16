@@ -1,8 +1,10 @@
 import { StrKey } from "@stellar/stellar-sdk";
 import { horizon } from "./anchor";
 import {
+  clearPersistedBridge,
   createBridge,
   createClaimableBalanceToDestination,
+  persistBridge,
   provisionBridge,
   releaseNoteToBridge,
 } from "./bridge";
@@ -238,6 +240,8 @@ async function cashOutViaBridge(params: {
 
   const bridge = createBridge();
   await provisionBridge(bridge);
+  // Persist the bridge key before spending so a failed forward is recoverable, not stranded on a lost in-memory key.
+  persistBridge(bridge, bridge.publicKey, note.amount, destination);
   const { provingMs } = await releaseNoteToBridge({
     signer,
     acct,
@@ -250,6 +254,7 @@ async function cashOutViaBridge(params: {
     destination,
     note.amount,
   );
+  clearPersistedBridge(bridge.publicKey);
 
   return { provingMs, mode: "claimable", claimableBalanceId };
 }

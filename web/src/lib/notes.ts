@@ -11,7 +11,11 @@ import {
   viewPubkey,
 } from "./crypto";
 import { deriveNoteSecrets } from "./keys";
-import { type DepositEvent, isSpent, scanDeposits } from "./stellar";
+import {
+  loadPoolMirror,
+  type PoolMirror,
+  refreshPoolMirror,
+} from "./poolMirror";
 
 const OWNER_KEY = "olio.ownerSecret";
 const VIEW_KEY = "olio.viewSecret";
@@ -69,12 +73,30 @@ export type ScanResult = {
   notes: MyNote[];
   leaves: bigint[];
   claimable: bigint;
+  mirrorAvailable: boolean;
+  indexedAt: string;
+  health: "healthy" | "stale" | "degraded";
 };
 
 /// Scan the pool, decrypting each deposit; the ones that decrypt are ours.
 /// Also returns the full ordered leaf set needed to build Merkle proofs.
-export async function scanMyNotes(acct: LocalAccount): Promise<ScanResult> {
-  const deposits: DepositEvent[] = await scanDeposits();
+export async function scanMyNotes(
+  acct: LocalAccount,
+  options: { refresh?: boolean } = {},
+): Promise<ScanResult> {
+  const mirror =
+    options.refresh === false
+      ? await loadPoolMirror()
+      : await refreshPoolMirror();
+  return scanMirrorForAccount(acct, mirror);
+}
+
+async function scanMirrorForAccount(
+  acct: LocalAccount,
+  mirror: PoolMirror,
+): Promise<ScanResult> {
+  const deposits = mirror.deposits;
+  const spentNullifiers = new Set(mirror.spentNullifiers);
   const leaves: bigint[] = [];
   for (const d of deposits) leaves[d.leafIndex] = fromBE(d.commitment);
 
@@ -109,9 +131,10 @@ export async function scanMyNotes(acct: LocalAccount): Promise<ScanResult> {
     }
     if (debug)
       console.info(`[olio] leaf ${d.leafIndex}: MINE, amount=${dec.amount}`);
-    const spent = await isSpent(
+    const nullifierHex = bytesToHex(
       toBE32(await nullifier(acct.ownerSecret, d.leafIndex)),
     );
+    const spent = spentNullifiers.has(nullifierHex);
     notes.push({
       leafIndex: d.leafIndex,
       amount: dec.amount,
@@ -123,7 +146,14 @@ export async function scanMyNotes(acct: LocalAccount): Promise<ScanResult> {
   const claimable = notes
     .filter((n) => !n.spent)
     .reduce((s, n) => s + n.amount, 0n);
-  return { notes, leaves, claimable };
+  return {
+    notes,
+    leaves,
+    claimable,
+    mirrorAvailable: mirror.hydrated,
+    indexedAt: mirror.indexedAt,
+    health: mirror.health,
+  };
 }
 
 export { TREE_DEPTH };

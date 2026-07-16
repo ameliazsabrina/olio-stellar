@@ -1,102 +1,254 @@
-// Mongo-backed mirror of pool `deposit` events. Lazily syncs new events from
-// Soroban RPC on each call (no standalone worker) so notes stay discoverable
-// past RPC's short event-retention window. Only ever stores what's already
-// public/encrypted on-chain — no keys, no plaintext amounts.
+// Mongo-backed, asynchronous mirror of public pool events. Dashboard reads are
+// bounded by the last published watermark and never wait for Soroban RPC.
 
 import "server-only";
-import { Binary } from "mongodb";
+import { randomUUID } from "node:crypto";
+import { Binary, MongoServerError } from "mongodb";
 import { bytesToHex } from "../../../lib/crypto";
 import {
   fetchPoolEventsSince,
+  networkPassphrase,
   parseDepositEvent,
+  parseSpentEvent,
   poolId,
   simulateRead,
 } from "../../../lib/stellar";
-import { getDeposits, getIndexerState } from "../../db/mongo";
+import {
+  getDeposits,
+  getIndexerState,
+  getSpentNullifiers,
+  type DepositDoc,
+} from "../../db/mongo";
 import { DepositIndexGapError } from "./deposits.errors";
-import type { DepositOutput } from "./deposits.schema";
+import type { DepositOutput, PoolSnapshotOutput } from "./deposits.schema";
+
+const LEASE_MS = 50_000;
+const STALE_AFTER_MS = 120_000;
+
+export type PoolSyncResult = {
+  status: "synced" | "skipped" | "degraded";
+  fromLedger: number;
+  toLedger: number;
+  depositsUpserted: number;
+  nullifiersUpserted: number;
+  durationMs: number;
+  error?: string;
+};
 
 async function poolLeafCount(): Promise<number> {
   return Number(await simulateRead(poolId, "leaf_count", []));
 }
 
-// Single-flight guard: concurrent calls within one server process await the
-// same sync instead of redundantly re-scanning RPC. Correctness across
-// multiple processes is guaranteed by the `$max` cursor update below, not by
-// this guard.
-let syncInFlight: Promise<void> | null = null;
-
-export async function syncPoolDeposits(): Promise<void> {
-  if (syncInFlight) return syncInFlight;
-  syncInFlight = doSyncPoolDeposits().finally(() => {
-    syncInFlight = null;
-  });
-  return syncInFlight;
+async function acquireLease(owner: string): Promise<boolean> {
+  const now = new Date();
+  const leaseUntil = new Date(now.getTime() + LEASE_MS);
+  const states = await getIndexerState();
+  try {
+    const state = await states.findOneAndUpdate(
+      {
+        _id: "pool",
+        $or: [
+          { leaseUntil: { $exists: false } },
+          { leaseUntil: { $lte: now } },
+          { leaseOwner: owner },
+        ],
+      },
+      {
+        $set: { leaseOwner: owner, leaseUntil },
+        $setOnInsert: { lastLedger: 0, updatedAt: now },
+      },
+      { upsert: true, returnDocument: "after" },
+    );
+    return state?.leaseOwner === owner;
+  } catch (error) {
+    // An existing, leased singleton makes the upsert collide on `_id`.
+    if (error instanceof MongoServerError && error.code === 11000) return false;
+    throw error;
+  }
 }
 
-async function doSyncPoolDeposits(): Promise<void> {
-  const indexerState = await getIndexerState();
-  const cursor = await indexerState.findOne({ _id: "pool" });
-  const lastLedger = cursor?.lastLedger ?? 0;
+async function releaseLease(owner: string): Promise<void> {
+  const states = await getIndexerState();
+  await states.updateOne(
+    { _id: "pool", leaseOwner: owner },
+    { $unset: { leaseOwner: "", leaseUntil: "" } },
+  );
+}
 
-  const { events, latestLedger } = await fetchPoolEventsSince(lastLedger);
+async function resetForConfiguredPool(owner: string): Promise<void> {
+  const [deposits, nullifiers, states] = await Promise.all([
+    getDeposits(),
+    getSpentNullifiers(),
+    getIndexerState(),
+  ]);
+  await Promise.all([deposits.deleteMany({}), nullifiers.deleteMany({})]);
+  await states.updateOne(
+    { _id: "pool", leaseOwner: owner },
+    {
+      $set: {
+        poolId,
+        lastLedger: 0,
+        lastLeafIndex: -1,
+        publishedLedger: 0,
+        publishedLeafIndex: -1,
+        updatedAt: new Date(),
+        health: "degraded",
+        lastError: "Pool mirror is awaiting its initial synchronization",
+      },
+      $unset: { indexedAt: "" },
+    },
+  );
+}
 
-  const deposits = await getDeposits();
-  let maxLeafIndex = cursor?.lastLeafIndex ?? -1;
+export async function syncPoolIndex(): Promise<PoolSyncResult> {
+  const startedAt = Date.now();
+  const owner = randomUUID();
+  if (!(await acquireLease(owner))) {
+    return {
+      status: "skipped",
+      fromLedger: 0,
+      toLedger: 0,
+      depositsUpserted: 0,
+      nullifiersUpserted: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  }
 
-  for (const e of events) {
-    const parsed = parseDepositEvent(e);
-    if (!parsed) continue; // withdraw event, not a deposit
-    await deposits.updateOne(
-      { _id: parsed.leafIndex },
+  const states = await getIndexerState();
+  let fromLedger = 0;
+  try {
+    let state = await states.findOne({ _id: "pool" });
+    if (state?.poolId !== poolId) {
+      await resetForConfiguredPool(owner);
+      state = await states.findOne({ _id: "pool" });
+    }
+    fromLedger = state?.publishedLedger ?? state?.lastLedger ?? 0;
+
+    const { events, scannedFromLedger, latestLedger } =
+      await fetchPoolEventsSince(fromLedger);
+    if (fromLedger > 0 && scannedFromLedger !== fromLedger + 1) {
+      throw new Error(
+        `RPC retention gap: requested ledger ${fromLedger + 1}, started at ${scannedFromLedger}`,
+      );
+    }
+
+    const depositOps = [];
+    const nullifierOps = [];
+    for (const event of events) {
+      const deposit = parseDepositEvent(event);
+      if (deposit) {
+        depositOps.push({
+          updateOne: {
+            filter: { _id: deposit.leafIndex },
+            update: {
+              $set: {
+                commitment: new Binary(Buffer.from(deposit.commitment)),
+                ephemeralPk: new Binary(Buffer.from(deposit.ephemeralPk)),
+                ciphertext: new Binary(Buffer.from(deposit.ciphertext)),
+                ledger: event.ledger,
+                txHash: event.txHash,
+                ts: new Date(event.ledgerClosedAt),
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
+      const spent = parseSpentEvent(event);
+      if (spent) {
+        nullifierOps.push({
+          updateOne: {
+            filter: { _id: spent.nullifierHex },
+            update: {
+              $set: {
+                ledger: event.ledger,
+                eventId: event.id,
+                txHash: event.txHash,
+                ts: new Date(event.ledgerClosedAt),
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
+    }
+
+    const [deposits, nullifiers] = await Promise.all([
+      getDeposits(),
+      getSpentNullifiers(),
+    ]);
+    await Promise.all([
+      depositOps.length
+        ? deposits.bulkWrite(depositOps, { ordered: false })
+        : Promise.resolve(),
+      nullifierOps.length
+        ? nullifiers.bulkWrite(nullifierOps, { ordered: false })
+        : Promise.resolve(),
+    ]);
+
+    const [onChainCount, mirroredCount] = await Promise.all([
+      poolLeafCount(),
+      deposits.countDocuments(),
+    ]);
+    if (onChainCount !== mirroredCount) {
+      throw new DepositIndexGapError(onChainCount, mirroredCount);
+    }
+
+    const indexedAt = new Date();
+    await states.updateOne(
+      { _id: "pool", leaseOwner: owner },
       {
         $set: {
-          commitment: new Binary(Buffer.from(parsed.commitment)),
-          ephemeralPk: new Binary(Buffer.from(parsed.ephemeralPk)),
-          ciphertext: new Binary(Buffer.from(parsed.ciphertext)),
-          ledger: e.ledger,
-          txHash: e.txHash,
-          ts: new Date(e.ledgerClosedAt),
+          poolId,
+          lastLedger: latestLedger,
+          lastLeafIndex: onChainCount - 1,
+          publishedLedger: latestLedger,
+          publishedLeafIndex: onChainCount - 1,
+          indexedAt,
+          updatedAt: indexedAt,
+          health: "healthy",
+        },
+        $unset: { lastError: "" },
+      },
+    );
+
+    return {
+      status: "synced",
+      fromLedger,
+      toLedger: latestLedger,
+      depositsUpserted: depositOps.length,
+      nullifiersUpserted: nullifierOps.length,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Indexer sync failed";
+    await states.updateOne(
+      { _id: "pool", leaseOwner: owner },
+      {
+        $set: {
+          health: "degraded",
+          lastError: message,
+          updatedAt: new Date(),
         },
       },
-      { upsert: true },
     );
-    if (parsed.leafIndex > maxLeafIndex) maxLeafIndex = parsed.leafIndex;
-  }
-
-  // $max (not $set) so a slow/late concurrent writer can never regress the
-  // cursor across processes.
-  await indexerState.findOneAndUpdate(
-    { _id: "pool" },
-    {
-      $max: { lastLedger: latestLedger, lastLeafIndex: maxLeafIndex },
-      $set: { updatedAt: new Date() },
-    },
-    { upsert: true },
-  );
-
-  // Completeness check. `deposits._id` is a positional Merkle leaf index —
-  // every user's Merkle proof is built from the full contiguous leaf array
-  // (see scanMyNotes in lib/notes.ts). A single missing leafIndex, even one
-  // belonging to a different user, breaks proofs for the whole pool. Fail
-  // loud rather than silently serving a gapped array.
-  const [onChainCount, mongoCount] = await Promise.all([
-    poolLeafCount(),
-    deposits.countDocuments(),
-  ]);
-  if (onChainCount !== mongoCount) {
-    throw new DepositIndexGapError(onChainCount, mongoCount);
+    return {
+      status: "degraded",
+      fromLedger,
+      toLedger: fromLedger,
+      depositsUpserted: 0,
+      nullifiersUpserted: 0,
+      durationMs: Date.now() - startedAt,
+      error: message,
+    };
+  } finally {
+    await releaseLease(owner);
   }
 }
 
-export async function listDeposits(since: number): Promise<DepositOutput[]> {
-  await syncPoolDeposits();
-  const deposits = await getDeposits();
-  const docs = await deposits
-    .find({ _id: { $gt: since } })
-    .sort({ _id: 1 })
-    .toArray();
-  return docs.map((d) => ({
+function toDepositOutput(d: DepositDoc): DepositOutput {
+  return {
     leafIndex: d._id,
     commitmentHex: bytesToHex(d.commitment.buffer),
     ephemeralPkHex: bytesToHex(d.ephemeralPk.buffer),
@@ -104,5 +256,75 @@ export async function listDeposits(since: number): Promise<DepositOutput[]> {
     ledger: d.ledger,
     txHash: d.txHash,
     ts: d.ts.toISOString(),
-  }));
+  };
+}
+
+export async function getPoolSnapshot(
+  afterLeafIndex: number,
+  spentAfterLedger: number,
+): Promise<PoolSnapshotOutput> {
+  const startedAt = Date.now();
+  const [states, deposits, nullifiers] = await Promise.all([
+    getIndexerState(),
+    getDeposits(),
+    getSpentNullifiers(),
+  ]);
+  const state = await states.findOne({ _id: "pool" });
+  const configuredPool = state?.poolId === poolId;
+  const publishedLedger = configuredPool ? (state.publishedLedger ?? 0) : 0;
+  const publishedLeafIndex = configuredPool
+    ? (state.publishedLeafIndex ?? -1)
+    : -1;
+  const indexedAt = configuredPool ? state?.indexedAt : undefined;
+  const stale = !indexedAt || Date.now() - indexedAt.getTime() > STALE_AFTER_MS;
+  const health =
+    !configuredPool || state?.health === "degraded"
+      ? "degraded"
+      : stale
+        ? "stale"
+        : "healthy";
+
+  const [depositDocs, spentDocs] = await Promise.all([
+    deposits
+      .find({ _id: { $gt: afterLeafIndex, $lte: publishedLeafIndex } })
+      .sort({ _id: 1 })
+      .toArray(),
+    nullifiers
+      .find({ ledger: { $gt: spentAfterLedger, $lte: publishedLedger } })
+      .sort({ ledger: 1, _id: 1 })
+      .toArray(),
+  ]);
+
+  const snapshot: PoolSnapshotOutput = {
+    deposits: depositDocs.map(toDepositOutput),
+    spentNullifiers: spentDocs.map((doc) => ({
+      nullifierHex: doc._id,
+      ledger: doc.ledger,
+    })),
+    index: {
+      poolId,
+      networkPassphrase,
+      publishedLedger,
+      publishedLeafIndex,
+      indexedAt: indexedAt?.toISOString() ?? new Date(0).toISOString(),
+      health,
+    },
+  };
+  console.info(
+    "[pool-snapshot]",
+    JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      deposits: snapshot.deposits.length,
+      nullifiers: snapshot.spentNullifiers.length,
+      publishedLedger,
+      health,
+    }),
+  );
+  return snapshot;
+}
+
+// Compatibility query for callers deployed before `deposits.snapshot`.
+export async function listDeposits(since: number): Promise<DepositOutput[]> {
+  const snapshot = await getPoolSnapshot(since, Number.MAX_SAFE_INTEGER);
+  return snapshot.deposits;
 }

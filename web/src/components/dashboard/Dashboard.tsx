@@ -13,7 +13,8 @@ export function Dashboard() {
   const { address, username, accountUnlocked, promptUnlock } = useWallet();
   const [origin, setOrigin] = useState("");
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const { notes, claimable, loading } = useMyNotes(address);
+  const { notes, claimable, loading, refreshing, stale, refresh } =
+    useMyNotes(address);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -34,6 +35,15 @@ export function Dashboard() {
           <p className="mt-2 md:max-w-xl text-sm text-white/70 sm:text-base font-medium">
             Receive privately, keep control, and cash out when you are ready.
           </p>
+          {(refreshing || stale) && (
+            <button
+              type="button"
+              className="mt-2 text-xs font-medium text-white/60 underline-offset-4 hover:text-white hover:underline"
+              onClick={refresh}
+            >
+              {stale ? "Balance data is delayed — retry" : "Updating balance…"}
+            </button>
+          )}
         </div>
       }
     >
