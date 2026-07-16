@@ -9,23 +9,30 @@
  * @returns {Promise<void>}
  */
 export const up = async (db) => {
-  await db.createCollection("payment_links", {
-    validator: {
-      $jsonSchema: {
-        bsonType: "object",
-        required: ["_id", "owner", "amount", "label", "status", "createdAt"],
-        properties: {
-          _id: { bsonType: "string" },
-          owner: { bsonType: "string" },
-          amount: { bsonType: ["string", "null"] },
-          label: { bsonType: ["string", "null"] },
-          status: { enum: ["pending", "paid"] },
-          createdAt: { bsonType: "date" },
+  const collections = await db
+    .listCollections({ name: "payment_links" }, { nameOnly: true })
+    .toArray();
+
+  if (collections.length === 0) {
+    await db.createCollection("payment_links", {
+      validator: {
+        $jsonSchema: {
+          bsonType: "object",
+          required: ["_id", "owner", "amount", "label", "status", "createdAt"],
+          properties: {
+            _id: { bsonType: "string" },
+            owner: { bsonType: "string" },
+            amount: { bsonType: ["string", "null"] },
+            label: { bsonType: ["string", "null"] },
+            status: { enum: ["pending", "paid"] },
+            createdAt: { bsonType: "date" },
+          },
         },
       },
-    },
-    validationLevel: "moderate",
-  });
+      validationLevel: "moderate",
+    });
+  }
+
   await db
     .collection("payment_links")
     .createIndex({ owner: 1, createdAt: -1 }, { name: "owner_createdAt" });
