@@ -6,9 +6,13 @@ import type { AnchorInfo } from "./anchor";
 // Re-exported here so existing off-ramp callers keep importing from ./offramp.
 export {
   type Bridge,
+  clearPersistedBridge,
   createBridge,
+  listStrandedBridges,
+  persistBridge,
   provisionBridge,
   releaseNoteToBridge,
+  type StrandedBridge,
 } from "./bridge";
 
 export type { AnchorInfo };

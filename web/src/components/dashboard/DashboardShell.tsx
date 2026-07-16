@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
@@ -51,7 +52,7 @@ export function DashboardShell({
   header?: ReactNode;
 }) {
   return (
-    <div className="relative min-h-svh overflow-x-clip bg-paper bg-[url('/assets/section3-bg.webp')] bg-cover bg-fixed bg-center text-white before:pointer-events-none before:absolute before:inset-0 before:bg-gradient-to-br before:from-ink/5 before:via-ink/62 before:to-olive-deep/10">
+    <div className="relative min-h-svh overflow-x-clip text-white">
       <main
         id="dashboard-content"
         className={cn(
@@ -137,16 +138,17 @@ function DashboardNavigation({
               return (
                 <DropdownMenuItem
                   key={href}
+                  render={<Link href={href} />}
                   aria-current={current ? "page" : undefined}
                   className={cn(
                     "min-h-11",
                     current && "bg-white/15 text-white",
                   )}
-                  onClick={() =>
-                    current
-                      ? window.scrollTo({ top: 0, behavior: "smooth" })
-                      : window.location.assign(href)
-                  }
+                  onClick={(event) => {
+                    if (!current) return;
+                    event.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                 >
                   <Icon aria-hidden="true" />
                   {label}
@@ -154,9 +156,7 @@ function DashboardNavigation({
               );
             })}
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => window.location.assign("/dashboard#settings")}
-            >
+            <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
               <Settings aria-hidden="true" /> Settings
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={disconnect}>
@@ -175,13 +175,14 @@ function DashboardNavigation({
           return (
             <Button
               key={href}
-              type="button"
+              nativeButton={false}
+              render={<Link href={href} />}
               variant="glass"
-              onClick={() =>
-                current
-                  ? window.scrollTo({ top: 0, behavior: "smooth" })
-                  : window.location.assign(href)
-              }
+              onClick={(event) => {
+                if (!current) return;
+                event.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               aria-current={current ? "page" : undefined}
               className={cn(
                 "min-h-11 justify-center gap-2 px-3 text-sm whitespace-nowrap",
@@ -214,9 +215,7 @@ function DashboardNavigation({
           sideOffset={8}
           className="min-w-48"
         >
-          <DropdownMenuItem
-            onClick={() => window.location.assign("/dashboard#settings")}
-          >
+          <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
             <Settings aria-hidden="true" /> Settings
           </DropdownMenuItem>
           <DropdownMenuItem variant="destructive" onClick={disconnect}>

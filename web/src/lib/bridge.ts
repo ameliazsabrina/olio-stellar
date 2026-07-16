@@ -24,6 +24,65 @@ export function createBridge(): Bridge {
   return { keypair, publicKey: keypair.publicKey() };
 }
 
+// --- stranded-fund recovery net ---------------------------------------------
+// The bridge holds the withdrawn USDC for the brief window between releasing the
+// note and settling to the anchor. Its key is otherwise in-memory only, so a
+// crash/close in that window would strand the funds forever. We persist the
+// secret (keyed by the SEP-24 transaction id) right before releasing and clear
+// it once the withdrawal completes, so an interrupted off-ramp is recoverable.
+const BRIDGE_STORE_PREFIX = "olio.offramp.bridge.";
+
+export type StrandedBridge = {
+  ref: string;
+  secret: string;
+  publicKey: string;
+  amount: string;
+  at: number;
+};
+
+export function persistBridge(
+  bridge: Bridge,
+  ref: string,
+  amount: bigint,
+): void {
+  if (typeof localStorage === "undefined") return;
+  const record: StrandedBridge = {
+    ref,
+    secret: bridge.keypair.secret(),
+    publicKey: bridge.publicKey,
+    amount: amount.toString(),
+    at: Date.now(),
+  };
+  try {
+    localStorage.setItem(BRIDGE_STORE_PREFIX + ref, JSON.stringify(record));
+  } catch {
+    // Storage full/blocked — nothing we can safely do; the in-memory key still works this session.
+  }
+}
+
+export function clearPersistedBridge(ref: string): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(BRIDGE_STORE_PREFIX + ref);
+  } catch {}
+}
+
+/// Bridges that were funded but whose off-ramp never reached `completed` — their
+/// USDC (and residual XLM) is still claimable with the persisted secret.
+export function listStrandedBridges(): StrandedBridge[] {
+  if (typeof localStorage === "undefined") return [];
+  const out: StrandedBridge[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(BRIDGE_STORE_PREFIX)) continue;
+    try {
+      const rec = JSON.parse(localStorage.getItem(key) ?? "");
+      if (rec?.secret && rec?.publicKey) out.push(rec as StrandedBridge);
+    } catch {}
+  }
+  return out;
+}
+
 // Fund the bridge (testnet friendbot) and open the USDC trustline; mainnet needs a sponsor instead (see README).
 export async function provisionBridge(bridge: Bridge): Promise<void> {
   const res = await fetch(

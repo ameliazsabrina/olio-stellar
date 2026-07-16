@@ -23,7 +23,9 @@ import { fromBaseUnits } from "../../lib/crypto";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   type Bridge,
+  clearPersistedBridge,
   createBridge,
+  persistBridge,
   provisionBridge,
   releaseNoteToBridge,
 } from "../../lib/offramp";
@@ -122,51 +124,39 @@ export function OffRampContent({
       "Preparing your secure withdrawal…",
       "This tab will redirect to the anchor automatically once your zero-knowledge proof is ready. Keep it open.",
     );
+    // Track whether the note has actually been spent to the bridge. Until it
+    // has, any failure is harmless — nothing has left the shielded pool. This
+    // is the whole point of the ordering below.
+    const bridge: Bridge = createBridge();
+    let released = false;
     try {
       const acct = getAccount();
       if (!acct) throw new Error("No local account found on this device.");
-      const scan = await scanMyNotes(acct);
-      const note = scan.notes.find(
-        (n) => n.leafIndex === selected.leafIndex && !n.spent,
-      );
-      if (!note) throw new Error("That payment is no longer available.");
+      const amount = fromBaseUnits(selected.amount);
 
-      // 1 · one-time bridge account (XLM + trustline)
+      // 1 · one-time bridge account (XLM + trustline). No funds move yet.
       setPrepPhase("fund");
-      const bridge: Bridge = createBridge();
       await provisionBridge(bridge);
 
-      // 2 · zk-withdraw the note into the bridge (this generates the proof)
-      setPrepPhase("release");
-      await releaseNoteToBridge({
-        signer: getSigner(),
-        acct,
-        scan,
-        note,
-        bridge,
-      });
-
-      // 3 · SEP-10 auth as the bridge account
+      // 2 · SEP-10 auth + open the interactive withdrawal, then redirect the
+      // user to the anchor — all BEFORE spending the note, so a failure or an
+      // abandoned KYC never strands funds.
       setPrepPhase("auth");
       const info = await fetchAnchorInfo();
       const token = await authenticate(info, bridge.keypair);
-
-      // 4 · open the interactive SEP-24 withdrawal
       setPrepPhase("init");
       const { id, url } = await startInteractiveWithdraw(
         info,
         token,
         bridge.publicKey,
-        fromBaseUnits(note.amount),
+        amount,
       );
-      // Point the pre-opened window at the anchor's hosted UI (the redirect).
       if (anchorWindow && !anchorWindow.closed)
         anchorWindow.location.href = url;
       setInteractive({ info, token, id, url });
       setStep("interactive");
 
-      // 5 · wait for the user to finish KYC/bank details in the anchor window,
-      // then settle the on-chain leg from the bridge.
+      // 3 · wait for the user to finish KYC/bank details in the anchor window.
       const ready = await pollSep24Until(
         info,
         token,
@@ -175,16 +165,39 @@ export function OffRampContent({
           tx.status === "pending_user_transfer_start" ||
           tx.status === "completed",
       );
+
+      // 4 · only NOW, once the anchor is ready for the payment, release the note
+      // into the bridge and settle. Re-scan for the freshest Merkle root (the
+      // pool keeps a 30-root history, so the KYC wait can't stale the proof).
       if (ready.status !== "completed") {
         setStep("settling");
+        const scan = await scanMyNotes(acct);
+        const note = scan.notes.find(
+          (n) => n.leafIndex === selected.leafIndex && !n.spent,
+        );
+        if (!note) throw new Error("That payment is no longer available.");
+        // Persist the bridge secret BEFORE spending, so an interrupted settle
+        // leaves the funds recoverable instead of stranded on a lost key.
+        persistBridge(bridge, id, note.amount);
+        await releaseNoteToBridge({
+          signer: getSigner(),
+          acct,
+          scan,
+          note,
+          bridge,
+        });
+        released = true;
         await sendWithdrawalPayment(bridge.keypair, ready);
       }
+
       const final = await pollSep24Until(
         info,
         token,
         id,
         (tx) => tx.status === "completed",
       );
+      // Settled end-to-end — the bridge is drained, drop the recovery record.
+      clearPersistedBridge(id);
       setSettled(final);
       setStep("done");
     } catch (e) {
@@ -192,7 +205,13 @@ export function OffRampContent({
       // Surface the failure IN the pre-opened tab instead of leaving a blank
       // window (or silently closing it), so the cause is visible.
       paintAnchorWindow(anchorWindow, "Withdrawal couldn't be prepared", msg);
-      setError(msg);
+      // If the note was already spent, the funds sit on the (persisted) bridge
+      // account — say so rather than implying the money is simply gone.
+      setError(
+        released
+          ? `${msg} Your USDC is safe on a recovery account and can be reclaimed — it has not been lost.`
+          : msg,
+      );
       setStep("select");
     }
   }

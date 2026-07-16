@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { DashboardBackground } from "./dashboard/DashboardBackground";
 import { DashboardShell } from "./dashboard/DashboardShell";
 import { StellarWalletModal } from "./landing/StellarWalletModal";
 import { PinDialog } from "./PinDialog";
@@ -71,20 +72,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (isPay) {
     return (
-      <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
-        <header className="mb-0 flex min-w-0 items-center justify-center">
-          <Link href="/" aria-label="Olio home">
-            <Image
-              src="/assets/olio-white.svg"
-              alt="Olio"
-              width={40}
-              height={40}
-              className="size-16"
-            />
-          </Link>
-        </header>
-        <div className="grid flex-1 content-center gap-5 py-8">{children}</div>
-      </DashboardShell>
+      <DashboardBackground>
+        <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
+          <header className="mb-0 flex min-w-0 items-center justify-center">
+            <Link href="/" aria-label="Olio home">
+              <Image
+                src="/assets/olio-white.svg"
+                alt="Olio"
+                width={40}
+                height={40}
+                className="size-16"
+              />
+            </Link>
+          </header>
+          <div className="grid flex-1 content-center gap-5 py-8">
+            {children}
+          </div>
+        </DashboardShell>
+      </DashboardBackground>
     );
   }
 
