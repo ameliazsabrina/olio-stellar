@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   type AnchorInfo,
   anchorHomeDomain,
@@ -116,7 +117,6 @@ export function OffRampContent({
   );
 
   const selected = options.find((n) => n.leafIndex === selectedLeaf) ?? null;
-  const selectedIssue = selected ? limitIssue(selected.amount) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -156,16 +156,19 @@ export function OffRampContent({
     }
     // Pre-flight against the anchor's advertised limits so we never provision a
     // bridge account (and spend gas) for a withdrawal the anchor will reject.
+    // Surfaced as a toast on the withdraw attempt rather than blocking the note.
     const issue = limitIssue(selected.amount);
     if (issue === "over") {
-      setError(
+      toast.error(
         `This payment is ${fromBaseUnits(selected.amount)} USDC, above ${anchorLabel()}'s ${limits?.max} USDC per-withdrawal limit. Cash out a smaller payment.`,
+        { id: "off-ramp-limit" },
       );
       return;
     }
     if (issue === "under") {
-      setError(
+      toast.error(
         `This payment is below ${anchorLabel()}'s ${limits?.min} USDC minimum withdrawal.`,
+        { id: "off-ramp-limit" },
       );
       return;
     }
@@ -303,7 +306,6 @@ export function OffRampContent({
           <div className="grid gap-2">
             {options.map((note) => {
               const active = note.leafIndex === selectedLeaf;
-              const issue = limitIssue(note.amount);
               return (
                 <button
                   key={note.leafIndex}
@@ -329,17 +331,8 @@ export function OffRampContent({
                     </span>
                     Payment
                   </span>
-                  <span className="flex flex-col items-end gap-0.5">
-                    <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                      {fromBaseUnits(note.amount)} USDC
-                    </span>
-                    {issue ? (
-                      <span className="text-[0.7rem] font-medium text-amber-300/90">
-                        {issue === "over"
-                          ? `Over ${limits?.max} USDC anchor limit`
-                          : `Below ${limits?.min} USDC minimum`}
-                      </span>
-                    ) : null}
+                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
+                    {fromBaseUnits(note.amount)} USDC
                   </span>
                 </button>
               );
@@ -358,13 +351,7 @@ export function OffRampContent({
           </Alert>
         ) : null}
 
-        <Button
-          variant="glass"
-          className="min-h-11"
-          size="lg"
-          onClick={start}
-          disabled={!!selectedIssue}
-        >
+        <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
           <Banknote className="size-4" aria-hidden="true" />
           Continue to bank
         </Button>
