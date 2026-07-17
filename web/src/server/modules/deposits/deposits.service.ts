@@ -118,7 +118,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
   let fromLedger = 0;
   try {
     let state = await states.findOne({ _id: "pool" });
-    if (state?.poolId !== poolId) {
+    if (state?.poolId && state.poolId !== poolId) {
       await resetForConfiguredPool(owner);
       state = await states.findOne({ _id: "pool" });
     }
@@ -126,9 +126,10 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
 
     const { events, scannedFromLedger, latestLedger } =
       await fetchPoolEventsSince(fromLedger);
-    if (fromLedger > 0 && scannedFromLedger !== fromLedger + 1) {
-      throw new Error(
-        `RPC retention gap: requested ledger ${fromLedger + 1}, started at ${scannedFromLedger}`,
+    const retentionGap = fromLedger > 0 && scannedFromLedger !== fromLedger + 1;
+    if (retentionGap) {
+      console.warn(
+        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; relying on leaf-count check`,
       );
     }
 
@@ -259,6 +260,24 @@ function toDepositOutput(d: DepositDoc): DepositOutput {
   };
 }
 
+// Reads self-heal a cold or stale mirror by kicking the indexer, so deployments
+// without the Vercel cron (local dev, previews) still converge. `syncPoolIndex`
+// is lease-guarded across processes; this single-flight collapses the stampede
+// within one process, and the cooldown keeps a genuinely broken pool from making
+// every request pay for a full failed sync.
+let healInFlight: Promise<PoolSyncResult> | null = null;
+let lastHealAttempt = 0;
+const HEAL_COOLDOWN_MS = 15_000;
+
+function healMirror(): Promise<PoolSyncResult> {
+  if (healInFlight) return healInFlight;
+  lastHealAttempt = Date.now();
+  healInFlight = syncPoolIndex().finally(() => {
+    healInFlight = null;
+  });
+  return healInFlight;
+}
+
 export async function getPoolSnapshot(
   afterLeafIndex: number,
   spentAfterLedger: number,
@@ -269,11 +288,30 @@ export async function getPoolSnapshot(
     getDeposits(),
     getSpentNullifiers(),
   ]);
-  const state = await states.findOne({ _id: "pool" });
+  let state = await states.findOne({ _id: "pool" });
+
+  // With no published watermark there is nothing to return, so block on one sync
+  // (deduped) before answering; a client's first dashboard load then shows real
+  // data instead of $0. With data already published but stale, refresh in the
+  // background and serve what we have.
+  const published =
+    state?.poolId === poolId && (state.publishedLeafIndex ?? -1) >= 0;
+  const cooled = Date.now() - lastHealAttempt > HEAL_COOLDOWN_MS;
+  if (!published) {
+    if (healInFlight || cooled) {
+      await healMirror().catch(() => {});
+      state = await states.findOne({ _id: "pool" });
+    }
+  } else {
+    const isStale =
+      !state?.indexedAt ||
+      Date.now() - state.indexedAt.getTime() > STALE_AFTER_MS;
+    if (isStale && (healInFlight || cooled)) void healMirror().catch(() => {});
+  }
   const configuredPool = state?.poolId === poolId;
-  const publishedLedger = configuredPool ? (state.publishedLedger ?? 0) : 0;
+  const publishedLedger = configuredPool ? (state?.publishedLedger ?? 0) : 0;
   const publishedLeafIndex = configuredPool
-    ? (state.publishedLeafIndex ?? -1)
+    ? (state?.publishedLeafIndex ?? -1)
     : -1;
   const indexedAt = configuredPool ? state?.indexedAt : undefined;
   const stale = !indexedAt || Date.now() - indexedAt.getTime() > STALE_AFTER_MS;
