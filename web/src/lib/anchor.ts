@@ -132,6 +132,31 @@ export async function authenticate(
   return token;
 }
 
+// --- SEP-24: /info withdraw limits ------------------------------------------
+
+export type WithdrawLimits = { min?: number; max?: number };
+
+export async function fetchWithdrawLimits(
+  info: AnchorInfo,
+  assetCode = offRampAssetCode,
+): Promise<WithdrawLimits> {
+  try {
+    const res = await fetch(`${info.transferServer}/info`);
+    if (!res.ok) return {};
+    const json = (await res.json()) as {
+      withdraw?: Record<
+        string,
+        { enabled?: boolean; min_amount?: number; max_amount?: number }
+      >;
+    };
+    const entry = json.withdraw?.[assetCode];
+    if (!entry || entry.enabled === false) return {};
+    return { min: entry.min_amount, max: entry.max_amount };
+  } catch {
+    return {};
+  }
+}
+
 // --- SEP-24: interactive withdraw -------------------------------------------
 
 export type Sep24Transaction = {
@@ -174,7 +199,19 @@ export async function startInteractiveWithdraw(
     },
   );
   if (!res.ok) {
-    throw new Error(`Anchor rejected the withdrawal (${res.status}).`);
+    // The anchor returns a JSON `{ error }` explaining the rejection (e.g.
+    // "amount exceeds asset's maximum limit: 20"). Surface it instead of the
+    // bare status, which hides the one detail the user needs.
+    const reason = await res
+      .clone()
+      .json()
+      .then((b: { error?: string }) => b?.error)
+      .catch(() => undefined);
+    throw new Error(
+      reason
+        ? `Anchor rejected the withdrawal: ${reason}`
+        : `Anchor rejected the withdrawal (${res.status}).`,
+    );
   }
   const json = (await res.json()) as { id?: string; url?: string };
   if (!json.id || !json.url) {

@@ -14,12 +14,14 @@ import {
   anchorHomeDomain,
   authenticate,
   fetchAnchorInfo,
+  fetchWithdrawLimits,
   pollSep24Until,
   type Sep24Transaction,
   sendWithdrawalPayment,
   startInteractiveWithdraw,
+  type WithdrawLimits,
 } from "../../lib/anchor";
-import { fromBaseUnits } from "../../lib/crypto";
+import { fromBaseUnits, toBaseUnits } from "../../lib/crypto";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   type Bridge,
@@ -91,24 +93,80 @@ export function OffRampContent({
   } | null>(null);
   const [settled, setSettled] = useState<Sep24Transaction | null>(null);
 
-  const options = useMemo(() => claimableNotes(notes), [notes]);
-  const selected = options.find((n) => n.leafIndex === selectedLeaf) ?? null;
+  const [limits, setLimits] = useState<WithdrawLimits | null>(null);
 
-  // The exit can't be switched once the pool release is under way (the note is
-  // already spent), so let the parent lock the wallet/bank toggle.
+  const options = useMemo(() => claimableNotes(notes), [notes]);
+
+  const { minUnits, maxUnits } = useMemo(
+    () => ({
+      minUnits: limits?.min != null ? toBaseUnits(String(limits.min)) : null,
+      maxUnits: limits?.max != null ? toBaseUnits(String(limits.max)) : null,
+    }),
+    [limits],
+  );
+
+  const limitIssue = useMemo(
+    () =>
+      (amount: bigint): "over" | "under" | null => {
+        if (maxUnits != null && amount > maxUnits) return "over";
+        if (minUnits != null && amount < minUnits) return "under";
+        return null;
+      },
+    [minUnits, maxUnits],
+  );
+
+  const selected = options.find((n) => n.leafIndex === selectedLeaf) ?? null;
+  const selectedIssue = selected ? limitIssue(selected.amount) : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const info = await fetchAnchorInfo();
+        const l = await fetchWithdrawLimits(info);
+        if (!cancelled) setLimits(l);
+      } catch {
+        // Non-fatal: without limits we just skip the client-side pre-check.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     onBusyChange?.(step !== "select");
   }, [step, onBusyChange]);
 
   useEffect(() => {
-    if (options.length === 0) setSelectedLeaf(null);
-    else if (!options.some((n) => n.leafIndex === selectedLeaf))
-      setSelectedLeaf(options[0].leafIndex);
-  }, [options, selectedLeaf]);
+    if (options.length === 0) {
+      setSelectedLeaf(null);
+      return;
+    }
+
+    if (options.some((n) => n.leafIndex === selectedLeaf)) return;
+    const firstEligible = options.find((n) => limitIssue(n.amount) === null);
+    setSelectedLeaf((firstEligible ?? options[0]).leafIndex);
+  }, [options, selectedLeaf, limitIssue]);
 
   async function start() {
     if (!selected) {
       setError("Select a payment to cash out.");
+      return;
+    }
+    // Pre-flight against the anchor's advertised limits so we never provision a
+    // bridge account (and spend gas) for a withdrawal the anchor will reject.
+    const issue = limitIssue(selected.amount);
+    if (issue === "over") {
+      setError(
+        `This payment is ${fromBaseUnits(selected.amount)} USDC, above ${anchorLabel()}'s ${limits?.max} USDC per-withdrawal limit. Cash out a smaller payment.`,
+      );
+      return;
+    }
+    if (issue === "under") {
+      setError(
+        `This payment is below ${anchorLabel()}'s ${limits?.min} USDC minimum withdrawal.`,
+      );
       return;
     }
     setError(null);
@@ -245,6 +303,7 @@ export function OffRampContent({
           <div className="grid gap-2">
             {options.map((note) => {
               const active = note.leafIndex === selectedLeaf;
+              const issue = limitIssue(note.amount);
               return (
                 <button
                   key={note.leafIndex}
@@ -270,8 +329,17 @@ export function OffRampContent({
                     </span>
                     Payment
                   </span>
-                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                    {fromBaseUnits(note.amount)} USDC
+                  <span className="flex flex-col items-end gap-0.5">
+                    <span className="font-mono text-sm font-semibold text-white tabular-nums">
+                      {fromBaseUnits(note.amount)} USDC
+                    </span>
+                    {issue ? (
+                      <span className="text-[0.7rem] font-medium text-amber-300/90">
+                        {issue === "over"
+                          ? `Over ${limits?.max} USDC anchor limit`
+                          : `Below ${limits?.min} USDC minimum`}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               );
@@ -290,7 +358,13 @@ export function OffRampContent({
           </Alert>
         ) : null}
 
-        <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
+        <Button
+          variant="glass"
+          className="min-h-11"
+          size="lg"
+          onClick={start}
+          disabled={!!selectedIssue}
+        >
           <Banknote className="size-4" aria-hidden="true" />
           Continue to bank
         </Button>
