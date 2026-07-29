@@ -36,6 +36,7 @@ export type IndexerStateDoc = {
   lastError?: string;
   leaseOwner?: string;
   leaseUntil?: Date;
+  nullifiersComplete?: boolean;
 };
 
 export type SpentNullifierDoc = {

@@ -16,6 +16,7 @@ import {
   type PoolMirror,
   refreshPoolMirror,
 } from "./poolMirror";
+import { isSpent } from "./stellar";
 
 const OWNER_KEY = "olio.ownerSecret";
 const VIEW_KEY = "olio.viewSecret";
@@ -113,6 +114,9 @@ async function scanMirrorForAccount(
     });
   }
   const notes: MyNote[] = [];
+  // Notes the event mirror believes are unspent still need on-chain
+  // confirmation (see below) — collect their nullifier bytes as we go.
+  const unverified: { note: MyNote; nullifierBytes: Uint8Array }[] = [];
   for (const d of deposits) {
     const dec = decryptNote(acct.viewSk, d.ephemeralPk, d.ciphertext);
     if (!dec) {
@@ -131,17 +135,35 @@ async function scanMirrorForAccount(
     }
     if (debug)
       console.info(`[olio] leaf ${d.leafIndex}: MINE, amount=${dec.amount}`);
-    const nullifierHex = bytesToHex(
-      toBE32(await nullifier(acct.ownerSecret, d.leafIndex)),
-    );
-    const spent = spentNullifiers.has(nullifierHex);
-    notes.push({
+    const nullifierBytes = toBE32(await nullifier(acct.ownerSecret, d.leafIndex));
+    const spent = spentNullifiers.has(bytesToHex(nullifierBytes));
+    const note: MyNote = {
       leafIndex: d.leafIndex,
       amount: dec.amount,
       salt: dec.salt,
       spent,
-    });
+    };
+    notes.push(note);
+    if (!spent) unverified.push({ note, nullifierBytes });
   }
+
+  // The spent-nullifier mirror is indexed from pool events, which testnet RPC
+  // only retains for ~24h; a withdraw whose `spend` event ages out before it's
+  // indexed is lost from the mirror forever (there's no nullifier integrity
+  // backstop). That surfaces an already-cashed-out note as claimable and makes
+  // the next withdraw trap with the pool's DoubleSpend (Error #7). Confirm every
+  // mirror-"unspent" note against the contract's on-chain nullifier set — the
+  // source of truth — so phantom notes never reach a withdraw.
+  await Promise.all(
+    unverified.map(async ({ note, nullifierBytes }) => {
+      try {
+        if (await isSpent(nullifierBytes)) note.spent = true;
+      } catch {
+        // A failed view leaves the mirror's optimistic value; the pool still
+        // rejects an actual double-spend on-chain.
+      }
+    }),
+  );
 
   const claimable = notes
     .filter((n) => !n.spent)

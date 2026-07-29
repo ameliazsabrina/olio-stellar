@@ -1,12 +1,11 @@
 "use client";
 
 import { ArrowDownLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 import { ActivityFeed } from "./ActivityFeed";
-import { DashboardShell } from "./DashboardShell";
 import { useMyNotes } from "./useMyNotes";
 
 export function HistoryDashboard() {
@@ -18,7 +17,7 @@ export function HistoryDashboard() {
   const cashedOutCount = notes.filter((note) => note.spent).length;
 
   return (
-    <DashboardShell navigation showBack>
+    <>
       <div className="mb-7">
         <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
           History
@@ -33,20 +32,13 @@ export function HistoryDashboard() {
           {!accountUnlocked ? (
             <LockedHistory onUnlock={promptUnlock} />
           ) : error ? (
-            <Alert appearance="glass" variant="destructive">
-              <AlertTitle>Could not load history</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>{error}</p>
-                <Button
-                  type="button"
-                  variant="glass"
-                  size="sm"
-                  onClick={refresh}
-                >
-                  Try again
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <ToastFeedback
+              title="Could not load history"
+              message={error}
+              variant="error"
+              toastId="history-load-error"
+              action={{ label: "Try again", onClick: refresh }}
+            />
           ) : (
             <ActivityFeed
               notes={notes}
@@ -73,7 +65,7 @@ export function HistoryDashboard() {
           />
         </aside>
       </div>
-    </DashboardShell>
+    </>
   );
 }
 

@@ -5,41 +5,48 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
+  Building2,
   Check,
-  CircleDollarSign,
+  Landmark,
   Loader2,
   LockKeyhole,
-  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import { offRampEnabled } from "../../lib/anchor";
 import { fromBaseUnits } from "../../lib/crypto";
 import { getAccount, scanMyNotes } from "../../lib/notes";
+import { transakEnabled } from "../../lib/transak";
 import {
-  type BatchWithdrawResult,
   claimableNotes,
+  isAlreadyCashedOut,
   isValidDestination,
-  type WithdrawResult,
   withdrawAll,
   withdrawNote,
 } from "../../lib/withdraw";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { ToastFeedback } from "../ui/toast-feedback";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 import { useWallet } from "../WalletProvider";
-import { DashboardShell } from "./DashboardShell";
 import { OffRampContent } from "./OffRampContent";
 import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
+import { TransakOffRampContent } from "./TransakOffRampContent";
 import { useMyNotes } from "./useMyNotes";
 
-type Step = "form" | "review" | "proving" | "done";
-type Exit = "wallet" | "bank";
+type Step = "form" | "review" | "proving";
+type Exit = "wallet" | "bank_anchor" | "bank_transak";
 
 const withdrawFormSchema = z.object({
   destination: z
@@ -67,6 +74,34 @@ function formatUsd(units: bigint): string {
   });
 }
 
+const EXITS: {
+  key: Exit;
+  label: string;
+  icon: typeof Wallet;
+  tooltip: string;
+}[] = [
+  {
+    key: "wallet",
+    label: "Wallet",
+    icon: Wallet,
+    tooltip: "Private, instant. Stays on-chain; no ID check.",
+  },
+  {
+    key: "bank_anchor",
+    label: "Bank · Anchor",
+    icon: Landmark,
+    tooltip:
+      "Cash out via a Stellar anchor. ID + bank details verified by the anchor.",
+  },
+  {
+    key: "bank_transak",
+    label: "Bank · Transak",
+    icon: Building2,
+    tooltip:
+      "Cash out to bank/e-wallet via Transak. ID + bank details verified by Transak. Mainnet only.",
+  },
+];
+
 export function WithdrawDashboard() {
   const { address, accountUnlocked, promptUnlock, getSigner } = useWallet();
   const {
@@ -82,10 +117,6 @@ export function WithdrawDashboard() {
   const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
   const [selectMode, setSelectMode] = useState<"one" | "all">("one");
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [result, setResult] = useState<WithdrawResult | null>(null);
-  const [batchResult, setBatchResult] = useState<BatchWithdrawResult | null>(
-    null,
-  );
   const {
     register,
     handleSubmit,
@@ -139,10 +170,27 @@ export function WithdrawDashboard() {
             batch.failed[0]?.error ?? "No payments were available to cash out.",
           );
         }
-        setBatchResult(batch);
-        setResult(null);
-        setStep("done");
+        const count = batch.succeeded.length;
+        toast.success(`Cashed out ${fromBaseUnits(batch.total)} USDC`, {
+          description:
+            batch.mode === "claimable"
+              ? `${count} payment${count === 1 ? "" : "s"} waiting for ${shortAddress(destination.trim())} to claim in a Stellar wallet.`
+              : `${count} payment${count === 1 ? "" : "s"} sent to ${shortAddress(destination.trim())}.`,
+          id: "wallet-withdrawal-success",
+        });
+        if (batch.failed.length > 0) {
+          const failedCount = batch.failed.length;
+          toast.error(
+            `${failedCount} payment${failedCount === 1 ? "" : "s"} couldn't be cashed out`,
+            {
+              description:
+                `They're still in your balance — try again. ${batch.failed[0]?.error ?? ""}`.trim(),
+              id: "wallet-withdrawal-partial-error",
+            },
+          );
+        }
         refresh();
+        startAnother();
         return;
       }
 
@@ -159,31 +207,43 @@ export function WithdrawDashboard() {
         note,
         destination: destination.trim(),
       });
-      setResult(withdrawal);
-      setBatchResult(null);
-      setStep("done");
+      toast.success(`Cashed out ${fromBaseUnits(selected.amount)} USDC`, {
+        description: `${
+          withdrawal.mode === "claimable"
+            ? `The funds are waiting for ${shortAddress(destination.trim())} to claim them in a Stellar wallet.`
+            : `The funds were sent to ${shortAddress(destination.trim())}.`
+        }`,
+        id: "wallet-withdrawal-success",
+      });
       refresh();
+      startAnother();
     } catch (error) {
-      setSubmitError(
-        error instanceof Error
-          ? error.message
-          : "Withdrawal failed. Try again.",
-      );
+      // An already-cashed-out note means the funds already left the pool — not a
+      // retryable failure. Re-scan so the on-chain nullifier check drops the
+      // phantom note instead of offering it again.
+      if (isAlreadyCashedOut(error)) {
+        setSubmitError("This payment was already cashed out.");
+        refresh();
+      } else {
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Withdrawal failed. Try again.",
+        );
+      }
       setStep("review");
     }
   }
 
   function startAnother() {
     setStep("form");
-    setResult(null);
-    setBatchResult(null);
     setSelectMode("one");
     setSubmitError(null);
     reset({ destination: "" });
   }
 
   return (
-    <DashboardShell navigation showBack>
+    <>
       <div className="mb-7">
         <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
           Withdraw
@@ -199,41 +259,53 @@ export function WithdrawDashboard() {
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:gap-6">
         <Card appearance="glass" className="gap-0 p-0">
           <div className="border-b border-white/12 p-4 sm:p-5">
-            <fieldset className="grid grid-cols-2 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md">
-              <legend className="sr-only">Cash-out destination</legend>
-              {(
-                [
-                  { key: "wallet", label: "Stellar wallet", icon: Wallet },
-                  { key: "bank", label: "Bank account", icon: Banknote },
-                ] as const
-              ).map(({ key, label, icon: Icon }) => {
-                const active = exit === key;
-                const disabled = key === "bank" && !offRampEnabled;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={active}
-                    disabled={disabled || bankBusy}
-                    onClick={() => {
-                      setExit(key);
-                      setSubmitError(null);
-                    }}
-                    className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      active
-                        ? "bg-white/18 text-white ring-1 ring-white/25"
-                        : "text-white/65 hover:bg-white/8 hover:text-white"
-                    }`}
-                  >
-                    <Icon className="size-4" aria-hidden="true" />
-                    {label}
-                  </button>
-                );
-              })}
-            </fieldset>
+            <TooltipProvider>
+              <fieldset className="grid grid-cols-1 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md sm:grid-cols-3">
+                <legend className="sr-only">Cash-out destination</legend>
+                {EXITS.map(({ key, label, icon: Icon, tooltip }) => {
+                  const active = exit === key;
+                  const disabled =
+                    (key === "bank_anchor" && !offRampEnabled) ||
+                    (key === "bank_transak" && !transakEnabled);
+                  return (
+                    <Tooltip key={key}>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            aria-pressed={active}
+                            disabled={disabled || bankBusy}
+                            onClick={() => {
+                              setExit(key);
+                              setSubmitError(null);
+                            }}
+                            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50 ${
+                              active
+                                ? "bg-white/18 text-white ring-1 ring-white/25"
+                                : "text-white/65 hover:bg-white/8 hover:text-white"
+                            }`}
+                          >
+                            <Icon className="size-4" aria-hidden="true" />
+                            {label}
+                          </button>
+                        }
+                      />
+                      <TooltipContent appearance="glass">
+                        {tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </fieldset>
+            </TooltipProvider>
             {!offRampEnabled ? (
               <p className="mt-2 text-xs text-white/55">
-                Bank cash-out is unavailable in this environment.
+                Anchor bank cash-out is unavailable in this environment.
+              </p>
+            ) : null}
+            {!transakEnabled ? (
+              <p className="mt-2 text-xs text-white/55">
+                Transak bank cash-out is available on mainnet only.
               </p>
             ) : null}
           </div>
@@ -247,9 +319,16 @@ export function WithdrawDashboard() {
               <ErrorState message={notesError} onRetry={refresh} />
             ) : options.length === 0 ? (
               <EmptyState />
-            ) : exit === "bank" ? (
+            ) : exit === "bank_anchor" ? (
               <div>
                 <OffRampContent notes={notes} onBusyChange={setBankBusy} />
+              </div>
+            ) : exit === "bank_transak" ? (
+              <div>
+                <TransakOffRampContent
+                  notes={notes}
+                  onBusyChange={setBankBusy}
+                />
               </div>
             ) : (
               <div>
@@ -261,8 +340,6 @@ export function WithdrawDashboard() {
                   selectMode={selectMode}
                   claimableTotal={claimable}
                   destination={destination}
-                  result={result}
-                  batchResult={batchResult}
                   submitError={submitError}
                   fieldError={errors.destination?.message}
                   registerDestination={register("destination")}
@@ -274,7 +351,6 @@ export function WithdrawDashboard() {
                   onReview={review}
                   onBack={() => setStep("form")}
                   onConfirm={confirm}
-                  onDone={startAnother}
                 />
               </div>
             )}
@@ -318,7 +394,7 @@ export function WithdrawDashboard() {
           </Card>
         </aside>
       </div>
-    </DashboardShell>
+    </>
   );
 }
 
@@ -330,8 +406,6 @@ type WalletWithdrawalProps = {
   selectMode: "one" | "all";
   claimableTotal: bigint;
   destination: string;
-  result: WithdrawResult | null;
-  batchResult: BatchWithdrawResult | null;
   submitError: string | null;
   fieldError?: string;
   registerDestination: ReturnType<
@@ -342,7 +416,6 @@ type WalletWithdrawalProps = {
   onReview: () => void;
   onBack: () => void;
   onConfirm: () => void;
-  onDone: () => void;
 };
 
 function WalletWithdrawal({
@@ -353,8 +426,6 @@ function WalletWithdrawal({
   selectMode,
   claimableTotal,
   destination,
-  result,
-  batchResult,
   submitError,
   fieldError,
   registerDestination,
@@ -363,7 +434,6 @@ function WalletWithdrawal({
   onReview,
   onBack,
   onConfirm,
-  onDone,
 }: WalletWithdrawalProps) {
   if (options.length === 0 && step === "form") {
     return (
@@ -588,68 +658,6 @@ function WalletWithdrawal({
     );
   }
 
-  if (step === "done" && batchResult) {
-    const count = batchResult.succeeded.length;
-    const failedCount = batchResult.failed.length;
-    return (
-      <div className="grid place-items-center gap-4 py-8 text-center">
-        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/20 text-emerald-100 ring-1 ring-ok/40">
-          <Check className="size-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="font-heading text-xl font-semibold text-white">
-            Cashed out {fromBaseUnits(batchResult.total)} USDC
-          </h2>
-          <p className="max-w-md text-sm text-white/65">
-            {count} payment{count === 1 ? "" : "s"}{" "}
-            {batchResult.mode === "claimable"
-              ? `waiting for ${shortAddress(destination.trim())} to claim in a Stellar wallet.`
-              : `sent to ${shortAddress(destination.trim())}.`}
-          </p>
-        </div>
-        {failedCount > 0 ? (
-          <Alert appearance="glass" variant="destructive" className="text-left">
-            <AlertTitle>
-              {failedCount} payment{failedCount === 1 ? "" : "s"} couldn&apos;t
-              be cashed out
-            </AlertTitle>
-            <AlertDescription>
-              {`They're still in your balance — try again. `}
-              {batchResult.failed[0]?.error}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <Button variant="glass" size="lg" onClick={onDone} className="mt-4">
-          Cash out more
-        </Button>
-      </div>
-    );
-  }
-
-  if (step === "done" && result && selectedAmount !== null) {
-    return (
-      <div className="grid place-items-center gap-4 py-8 text-center">
-        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/20 text-emerald-100 ring-1 ring-ok/40">
-          <Check className="size-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="font-heading text-xl font-semibold text-white">
-            Cashed out {fromBaseUnits(selectedAmount)} USDC
-          </h2>
-          <p className="max-w-md text-sm text-white/65">
-            {result.mode === "claimable"
-              ? `The funds are waiting for ${shortAddress(destination.trim())} to claim them in a Stellar wallet.`
-              : `The funds were sent to ${shortAddress(destination.trim())}.`}{" "}
-            The proof took {(result.provingMs / 1000).toFixed(1)}s.
-          </p>
-        </div>
-        <Button variant="glass" size="lg" onClick={onDone} className="mt-4">
-          Cash out another payment
-        </Button>
-      </div>
-    );
-  }
-
   return null;
 }
 
@@ -729,23 +737,23 @@ function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <Alert appearance="glass" variant="destructive">
-      <AlertTitle>Could not load private payments</AlertTitle>
-      <AlertDescription className="space-y-3">
-        <p>{message}</p>
-        <Button type="button" variant="glass" size="sm" onClick={onRetry}>
-          Try again
-        </Button>
-      </AlertDescription>
-    </Alert>
+    <ToastFeedback
+      title="Could not load private payments"
+      message={message}
+      variant="error"
+      toastId="private-payments-load-error"
+      action={{ label: "Try again", onClick: onRetry }}
+    />
   );
 }
 
 function InlineError({ message }: { message: string }) {
   return (
-    <Alert appearance="glass" variant="destructive">
-      <AlertTitle>Withdrawal not completed</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
+    <ToastFeedback
+      title="Withdrawal not completed"
+      message={message}
+      variant="error"
+      toastId="wallet-withdrawal-error"
+    />
   );
 }

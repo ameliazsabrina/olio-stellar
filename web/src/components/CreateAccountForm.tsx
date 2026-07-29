@@ -112,11 +112,12 @@ export function CreateAccountForm({
           />
         </form>
 
-        {error ? (
-          <p className="mt-4 text-center text-sm text-red-500" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <ToastFeedback
+          title="Could not create account"
+          message={error}
+          variant="error"
+          toastId="create-account-submit-error"
+        />
       </DialogContent>
     </Dialog>
   );

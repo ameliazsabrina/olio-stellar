@@ -33,7 +33,6 @@ import {
   releaseNoteToBridge,
 } from "../../lib/offramp";
 import { claimableNotes } from "../../lib/withdraw";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
@@ -344,12 +343,12 @@ export function OffRampContent({
           </p>
         </fieldset>
 
-        {error ? (
-          <Alert appearance="glass" variant="destructive">
-            <AlertTitle>Withdrawal not completed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
+        <ToastFeedback
+          title="Withdrawal not completed"
+          message={error}
+          variant="error"
+          toastId="off-ramp-error"
+        />
 
         <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
           <Banknote className="size-4" aria-hidden="true" />

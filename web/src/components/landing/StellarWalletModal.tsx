@@ -4,6 +4,7 @@ import { Fingerprint, LogIn } from "lucide-react";
 import { useLayoutEffect } from "react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
 export function StellarWalletModal({
@@ -57,11 +58,12 @@ export function StellarWalletModal({
           </Button>
         </div>
 
-        {error ? (
-          <p className="mt-4 text-sm text-red-400" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <ToastFeedback
+          title="Wallet connection failed"
+          message={error}
+          variant="error"
+          toastId="wallet-connection-error"
+        />
       </DialogContent>
     </Dialog>
   );

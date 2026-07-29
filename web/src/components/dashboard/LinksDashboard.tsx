@@ -32,7 +32,6 @@ import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
-import { DashboardShell } from "./DashboardShell";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 import { PersonalLinkCard } from "./PersonalLinkCard";
 
@@ -82,7 +81,7 @@ export function LinksDashboard({
   }
 
   return (
-    <DashboardShell navigation showBack>
+    <>
       <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
@@ -146,7 +145,7 @@ export function LinksDashboard({
           await refresh();
         }}
       />
-    </DashboardShell>
+    </>
   );
 }
 

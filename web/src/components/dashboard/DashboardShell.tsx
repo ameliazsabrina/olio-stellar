@@ -11,6 +11,7 @@ import {
   Menu,
   Settings,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -42,14 +43,10 @@ export function DashboardShell({
   children,
   contentClassName,
   navigation = false,
-  showBack = false,
-  header,
 }: {
   children: ReactNode;
   contentClassName?: string;
   navigation?: boolean;
-  showBack?: boolean;
-  header?: ReactNode;
 }) {
   return (
     <div className="relative min-h-svh overflow-x-clip text-white">
@@ -60,49 +57,45 @@ export function DashboardShell({
           contentClassName,
         )}
       >
-        {navigation ? (
-          <DashboardNavigation showBack={showBack} header={header} />
-        ) : null}
+        {navigation ? <DashboardNavigation /> : null}
         {children}
       </main>
     </div>
   );
 }
 
-function DashboardNavigation({
-  showBack,
-  header,
-}: {
-  showBack: boolean;
-  header?: ReactNode;
-}) {
+function DashboardNavigation() {
   const pathname = usePathname();
   const { username, disconnect } = useWallet();
+  const showBack = pathname !== "/dashboard";
 
   return (
-    <header
-      className={cn(
-        "mb-7 grid items-start pt-4 gap-4 sm:mb-9 lg:gap-5",
-        showBack
-          ? "grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto]"
-          : "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto]",
-      )}
-    >
-      {showBack ? (
-        <Button
-          type="button"
-          variant="glass"
-          size="icon"
-          className="size-11"
-          onClick={() => window.history.back()}
-          aria-label="Go back"
-          title="Go back"
-        >
-          <ChevronLeft className="size-5" aria-hidden="true" />
-        </Button>
-      ) : (
-        <div className="min-w-0">{header}</div>
-      )}
+    <header className="mb-7 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 pt-4 sm:mb-9 sm:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-5">
+      <div className="min-h-11">
+        {showBack ? (
+          <Button
+            type="button"
+            variant="glass"
+            size="icon"
+            className="size-11"
+            onClick={() => window.history.back()}
+            aria-label="Go back"
+            title="Go back"
+          >
+            <ChevronLeft className="size-5" aria-hidden="true" />
+          </Button>
+        ) : (
+          <Link href="/" aria-label="Olio home" className="block size-14">
+            <Image
+              src="/assets/olio-white.svg"
+              alt=""
+              width={48}
+              height={48}
+              className="size-14"
+            />
+          </Link>
+        )}
+      </div>
 
       <nav
         aria-label="Dashboard navigation"
@@ -168,7 +161,7 @@ function DashboardNavigation({
 
       <nav
         aria-label="Dashboard navigation"
-        className="order-3 col-span-full hidden grid-cols-4 gap-2 sm:grid lg:order-none lg:col-span-1"
+        className="order-3 col-span-full hidden grid-cols-4 gap-2 sm:col-start-1 sm:grid lg:order-none lg:col-span-1 lg:col-start-2"
       >
         {DASHBOARD_ACTIONS.map(({ label, icon: Icon, href }) => {
           const current = pathname === href;
@@ -199,7 +192,7 @@ function DashboardNavigation({
       <DropdownMenu>
         <DropdownMenuTrigger
           id="dashboard-account-menu-trigger"
-          className="hidden min-h-11 items-center justify-self-end gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 sm:flex"
+          className="hidden min-h-11 items-center justify-self-end gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 sm:col-start-3 sm:flex lg:col-start-3"
         >
           <span className="flex size-7 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase text-white">
             {username?.slice(0, 1) || "O"}

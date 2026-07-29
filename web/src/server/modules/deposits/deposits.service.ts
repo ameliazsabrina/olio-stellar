@@ -93,6 +93,7 @@ async function resetForConfiguredPool(owner: string): Promise<void> {
         publishedLeafIndex: -1,
         updatedAt: new Date(),
         health: "degraded",
+        nullifiersComplete: true,
         lastError: "Pool mirror is awaiting its initial synchronization",
       },
       $unset: { indexedAt: "" },
@@ -127,9 +128,11 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     const { events, scannedFromLedger, latestLedger } =
       await fetchPoolEventsSince(fromLedger);
     const retentionGap = fromLedger > 0 && scannedFromLedger !== fromLedger + 1;
+    const nullifiersComplete =
+      (state?.nullifiersComplete ?? true) && !retentionGap;
     if (retentionGap) {
       console.warn(
-        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; relying on leaf-count check`,
+        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; spend events in the gap may be unindexed (nullifier mirror marked incomplete)`,
       );
     }
 
@@ -196,6 +199,8 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     }
 
     const indexedAt = new Date();
+    const gapMessage =
+      "Retention gap skipped a ledger window; some spent notes may be missing from the mirror until a full resync.";
     await states.updateOne(
       { _id: "pool", leaseOwner: owner },
       {
@@ -207,9 +212,11 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
           publishedLeafIndex: onChainCount - 1,
           indexedAt,
           updatedAt: indexedAt,
-          health: "healthy",
+          nullifiersComplete,
+          health: nullifiersComplete ? "healthy" : "degraded",
+          ...(nullifiersComplete ? {} : { lastError: gapMessage }),
         },
-        $unset: { lastError: "" },
+        ...(nullifiersComplete ? { $unset: { lastError: "" } } : {}),
       },
     );
 
@@ -260,11 +267,6 @@ function toDepositOutput(d: DepositDoc): DepositOutput {
   };
 }
 
-// Reads self-heal a cold or stale mirror by kicking the indexer, so deployments
-// without the Vercel cron (local dev, previews) still converge. `syncPoolIndex`
-// is lease-guarded across processes; this single-flight collapses the stampede
-// within one process, and the cooldown keeps a genuinely broken pool from making
-// every request pay for a full failed sync.
 let healInFlight: Promise<PoolSyncResult> | null = null;
 let lastHealAttempt = 0;
 const HEAL_COOLDOWN_MS = 15_000;
@@ -290,10 +292,6 @@ export async function getPoolSnapshot(
   ]);
   let state = await states.findOne({ _id: "pool" });
 
-  // With no published watermark there is nothing to return, so block on one sync
-  // (deduped) before answering; a client's first dashboard load then shows real
-  // data instead of $0. With data already published but stale, refresh in the
-  // background and serve what we have.
   const published =
     state?.poolId === poolId && (state.publishedLeafIndex ?? -1) >= 0;
   const cooled = Date.now() - lastHealAttempt > HEAL_COOLDOWN_MS;
@@ -316,7 +314,9 @@ export async function getPoolSnapshot(
   const indexedAt = configuredPool ? state?.indexedAt : undefined;
   const stale = !indexedAt || Date.now() - indexedAt.getTime() > STALE_AFTER_MS;
   const health =
-    !configuredPool || state?.health === "degraded"
+    !configuredPool ||
+    state?.health === "degraded" ||
+    state?.nullifiersComplete === false
       ? "degraded"
       : stale
         ? "stale"

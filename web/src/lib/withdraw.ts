@@ -19,24 +19,12 @@ import type { LocalAccount, MyNote, ScanResult } from "./notes";
 import { proveWithdraw, type WithdrawInput } from "./prover";
 import { poolWithdraw, type Signer } from "./stellar";
 
-// How the payout reached the destination:
-//   "direct"    — SAC transfer straight to the destination (contract, or a
-//                 classic account that already holds a USDC trustline). This
-//                 keeps the destination bound in the ZK proof: fully trustless.
-//   "claimable" — the destination is a classic account without a USDC trustline
-//                 (or not created yet), so we routed through an ephemeral bridge
-//                 and left the funds as a Stellar claimable balance the
-//                 recipient claims later.
 export type WithdrawResult = {
   provingMs: number;
   mode: "direct" | "claimable";
   claimableBalanceId?: string;
 };
 
-// Aggregate outcome of cashing out several notes to one destination in a single
-// action. Each note is released independently (see `withdrawAll`), so a batch
-// can partially succeed: `succeeded`/`total` cover the notes that went through,
-// `failed` lists the ones that didn't (still unspent and retryable).
 export type BatchWithdrawResult = {
   total: bigint; // base units successfully cashed out
   mode: "direct" | "claimable"; // shared destination, classified once
@@ -44,20 +32,9 @@ export type BatchWithdrawResult = {
   failed: { leafIndex: number; amount: bigint; error: string }[];
 };
 
-// The pool releases USDC by calling the SAC's `transfer`, which credits a
-// classic account's trustline balance. Classic accounts (G…) must therefore
-// hold a USDC trustline first; without one the SAC traps with
-// Error(Contract, #13) "trustline entry is missing". Contracts (C…) — including
-// our passkey smart wallets — take a SAC balance entry directly and need no
-// trustline. The issuer is the same USDC we deposit into the pool.
 const USDC_ASSET_CODE = "USDC";
 const USDC_ISSUER = process.env.NEXT_PUBLIC_USDC_ISSUER || "";
 
-/// Decide how a cash-out to `destination` must be delivered. Contracts and
-/// classic accounts that already hold a USDC trustline can receive a direct SAC
-/// transfer (proof-bound, trustless). A classic account with no trustline — or
-/// one that doesn't exist on-chain yet — cannot, so it needs the bridge +
-/// claimable-balance path. Throws only for a malformed strkey.
 export async function classifyDestination(
   destination: string,
 ): Promise<"direct" | "needs-bridge"> {
@@ -83,6 +60,14 @@ export async function classifyDestination(
   );
   return hasTrustline ? "direct" : "needs-bridge";
 }
+
+export function isAlreadyCashedOut(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Error(Contract, #7)");
+}
+
+const ALREADY_CASHED_OUT_MESSAGE =
+  "This payment was already cashed out. Refreshing your balance…";
 
 export function claimableNotes(notes: MyNote[]): MyNote[] {
   return notes
@@ -124,17 +109,6 @@ export async function withdrawNote(params: {
   return { provingMs: ms, mode: "direct" };
 }
 
-/// Cash out EVERY claimable note to a single destination in one action. The
-/// withdraw circuit has no change output (see `withdrawNote`), so there is no
-/// "withdraw an arbitrary total" primitive — this simply loops the single-note
-/// release over each note.
-///
-/// Notes are processed SEQUENTIALLY: the passkey signer + gasless relay can't be
-/// driven in parallel without racing. Every note proves against the SAME `scan`
-/// snapshot — a withdrawal spends a nullifier, it never mutates the Merkle
-/// leaves, so the root stays valid for the whole batch (no re-scan needed
-/// between notes). A note that fails does not abort the rest: it lands in
-/// `failed` (still unspent, retryable) and the loop continues.
 export async function withdrawAll(params: {
   signer: Signer;
   acct: LocalAccount;
@@ -175,7 +149,11 @@ export async function withdrawAll(params: {
       failed.push({
         leafIndex: note.leafIndex,
         amount: note.amount,
-        error: error instanceof Error ? error.message : "Withdrawal failed.",
+        error: isAlreadyCashedOut(error)
+          ? ALREADY_CASHED_OUT_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Withdrawal failed.",
       });
     }
   }
@@ -183,9 +161,6 @@ export async function withdrawAll(params: {
   return { total, mode, succeeded, failed };
 }
 
-/// The low-level direct withdraw: prove against `dest` and release the note from
-/// the pool straight to it via the SAC transfer. `dest` must already be able to
-/// receive (contract, or classic with a USDC trustline) — the caller classifies.
 async function directWithdraw(params: {
   signer: Signer;
   acct: LocalAccount;
@@ -223,12 +198,6 @@ async function directWithdraw(params: {
   return { ms };
 }
 
-/// Cash out to a classic account that can't receive a direct SAC transfer.
-/// A fresh ephemeral bridge (funded + USDC-trustlined) takes the zk-withdrawn
-/// note, then hands the funds to the destination as a Stellar claimable balance
-/// — the recipient claims it later, adding the USDC trustline as they claim.
-/// The note is spent once released to the bridge, so the claimable-balance
-/// submit retries internally to avoid stranding funds mid-flow.
 async function cashOutViaBridge(params: {
   signer: Signer;
   acct: LocalAccount;

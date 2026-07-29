@@ -64,9 +64,8 @@ describe("syncPoolIndex", () => {
   });
 
   it("publishes a new watermark only after completeness succeeds", async () => {
-    const { syncPoolIndex } = await import(
-      "../src/server/modules/deposits/deposits.service"
-    );
+    const { syncPoolIndex } =
+      await import("../src/server/modules/deposits/deposits.service");
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("synced");
@@ -85,9 +84,8 @@ describe("syncPoolIndex", () => {
 
   it("keeps the published watermark unchanged on a completeness gap", async () => {
     mocks.simulateRead.mockResolvedValue(1);
-    const { syncPoolIndex } = await import(
-      "../src/server/modules/deposits/deposits.service"
-    );
+    const { syncPoolIndex } =
+      await import("../src/server/modules/deposits/deposits.service");
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("degraded");
@@ -106,11 +104,57 @@ describe("syncPoolIndex", () => {
     );
   });
 
+  it("marks nullifiers incomplete and degrades health on a retention gap", async () => {
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    const { syncPoolIndex } =
+      await import("../src/server/modules/deposits/deposits.service");
+    const result = await syncPoolIndex();
+
+    expect(result.status).toBe("synced");
+    expect(mocks.stateUpdateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "pool" }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          publishedLedger: 60,
+          nullifiersComplete: false,
+          health: "degraded",
+        }),
+      }),
+    );
+  });
+
+  it("keeps nullifiers incomplete sticky across a later clean sync", async () => {
+    mocks.stateFindOne.mockResolvedValue({
+      _id: "pool",
+      poolId: "CPOOL",
+      publishedLedger: 10,
+      publishedLeafIndex: -1,
+      nullifiersComplete: false,
+    });
+    const { syncPoolIndex } =
+      await import("../src/server/modules/deposits/deposits.service");
+    const result = await syncPoolIndex();
+
+    expect(result.status).toBe("synced");
+    expect(mocks.stateUpdateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: "pool" }),
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          nullifiersComplete: false,
+          health: "degraded",
+        }),
+      }),
+    );
+  });
+
   it("skips work when another worker owns the lease", async () => {
     mocks.stateFindOneAndUpdate.mockResolvedValue(null);
-    const { syncPoolIndex } = await import(
-      "../src/server/modules/deposits/deposits.service"
-    );
+    const { syncPoolIndex } =
+      await import("../src/server/modules/deposits/deposits.service");
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("skipped");

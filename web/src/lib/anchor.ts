@@ -260,16 +260,52 @@ export async function pollSep24Until(
 
 // --- classic settlement payment ---------------------------------------------
 
-function buildMemo(tx: Sep24Transaction): Memo | undefined {
-  if (!tx.withdraw_memo) return undefined;
-  switch (tx.withdraw_memo_type) {
+export function buildMemoFrom(
+  value?: string,
+  type?: "text" | "id" | "hash",
+): Memo | undefined {
+  if (!value) return undefined;
+  switch (type) {
     case "id":
-      return Memo.id(tx.withdraw_memo);
+      return Memo.id(value);
     case "hash":
-      return Memo.hash(Buffer.from(tx.withdraw_memo, "base64"));
+      return Memo.hash(Buffer.from(value, "base64"));
     default:
-      return Memo.text(tx.withdraw_memo);
+      return Memo.text(value);
   }
+}
+
+function buildMemo(tx: Sep24Transaction): Memo | undefined {
+  return buildMemoFrom(tx.withdraw_memo, tx.withdraw_memo_type);
+}
+
+export async function sendUsdcPayment(
+  bridge: Keypair,
+  {
+    destination,
+    amount,
+    memo,
+  }: { destination: string; amount: string; memo?: Memo },
+): Promise<string> {
+  const source = await horizon.loadAccount(bridge.publicKey());
+  const fee = (await horizon.fetchBaseFee()).toString();
+  const builder = new TransactionBuilder(source, {
+    fee,
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.payment({
+        destination,
+        asset: offRampAsset(),
+        amount,
+      }),
+    )
+    .setTimeout(120);
+  if (memo) builder.addMemo(memo);
+  const payment = builder.build();
+  payment.sign(bridge);
+  const res = await horizon.submitTransaction(payment);
+  return res.hash;
 }
 
 /// Send `amount_in` of the asset from the bridge account to the anchor's
@@ -282,24 +318,9 @@ export async function sendWithdrawalPayment(
   if (!tx.withdraw_anchor_account || !tx.amount_in) {
     throw new Error("Anchor did not provide payment instructions.");
   }
-  const source = await horizon.loadAccount(bridge.publicKey());
-  const fee = (await horizon.fetchBaseFee()).toString();
-  const builder = new TransactionBuilder(source, {
-    fee,
-    networkPassphrase,
-  })
-    .addOperation(
-      Operation.payment({
-        destination: tx.withdraw_anchor_account,
-        asset: offRampAsset(),
-        amount: tx.amount_in,
-      }),
-    )
-    .setTimeout(120);
-  const memo = buildMemo(tx);
-  if (memo) builder.addMemo(memo);
-  const payment = builder.build();
-  payment.sign(bridge);
-  const res = await horizon.submitTransaction(payment);
-  return res.hash;
+  return sendUsdcPayment(bridge, {
+    destination: tx.withdraw_anchor_account,
+    amount: tx.amount_in,
+    memo: buildMemo(tx),
+  });
 }

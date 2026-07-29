@@ -17,6 +17,10 @@ vi.mock("../src/components/WalletProvider", () => ({
 import { DashboardShell } from "../src/components/dashboard/DashboardShell";
 
 describe("DashboardShell navigation", () => {
+  beforeEach(() => {
+    mocks.usePathname.mockReturnValue("/dashboard");
+  });
+
   it("moves dashboard navigation and account controls into a hamburger menu on mobile", async () => {
     const user = userEvent.setup();
     render(
@@ -58,5 +62,48 @@ describe("DashboardShell navigation", () => {
       "hidden",
       "sm:flex",
     );
+  });
+
+  it("keeps the dashboard chrome mounted while the route content changes", () => {
+    const { rerender } = render(
+      <DashboardShell navigation>
+        <div>Overview content</div>
+      </DashboardShell>,
+    );
+    const accountMenu = document.querySelector(
+      "#dashboard-account-menu-trigger",
+    );
+    const desktopNavigation = screen
+      .getAllByRole("navigation", { name: "Dashboard navigation" })
+      .find((navigation) => navigation.classList.contains("sm:grid"));
+
+    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Olio home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+
+    mocks.usePathname.mockReturnValue("/dashboard/history");
+    rerender(
+      <DashboardShell navigation>
+        <div>History content</div>
+      </DashboardShell>,
+    );
+
+    expect(document.querySelector("#dashboard-account-menu-trigger")).toBe(
+      accountMenu,
+    );
+    expect(
+      screen
+        .getAllByRole("navigation", { name: "Dashboard navigation" })
+        .find((navigation) => navigation.classList.contains("sm:grid")),
+    ).toBe(desktopNavigation);
+    expect(screen.getByRole("button", { name: "Go back" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Olio home" })).toBeNull();
+    expect(screen.getByRole("button", { name: "History" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByText("History content")).toBeInTheDocument();
   });
 });
