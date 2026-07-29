@@ -1,30 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LinksDashboard } from "../../../components/dashboard/LinksDashboard";
-import { useWallet } from "../../../components/WalletProvider";
-import { SIGN_IN_PATH } from "../../../lib/auth-routes";
+import { useEffect } from "react";
+import { WithdrawDashboard } from "@/components/dashboard/WithdrawDashboard";
+import { useWallet } from "@/components/WalletProvider";
+import { SIGN_IN_PATH } from "@/lib/auth-routes";
 
-export default function DashboardLinksPage() {
-  const { address, username, sessionReady } = useWallet();
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+export default function DashboardWithdrawPage() {
+  const { address, sessionReady } = useWallet();
 
   useEffect(() => {
     if (!sessionReady || address) return;
     window.location.replace(SIGN_IN_PATH);
   }, [address, sessionReady]);
 
-  if (!sessionReady || !address || !username) {
+  if (!sessionReady || !address) {
     return (
       <div
         className="motion-safe:animate-pulse"
         role="status"
         aria-busy="true"
-        aria-label="Loading links page"
+        aria-label="Loading cash-out page"
       >
         <div className="mb-8 space-y-3">
           <div className="h-12 w-56 max-w-full rounded-lg bg-white/12" />
@@ -38,5 +33,5 @@ export default function DashboardLinksPage() {
     );
   }
 
-  return <LinksDashboard username={username} origin={origin} />;
+  return <WithdrawDashboard />;
 }

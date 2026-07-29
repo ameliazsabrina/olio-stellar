@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { WithdrawDashboard } from "../../../components/dashboard/WithdrawDashboard";
-import { useWallet } from "../../../components/WalletProvider";
-import { SIGN_IN_PATH } from "../../../lib/auth-routes";
+import { HistoryDashboard } from "@/components/dashboard/HistoryDashboard";
+import { useWallet } from "@/components/WalletProvider";
+import { SIGN_IN_PATH } from "@/lib/auth-routes";
 
-export default function DashboardWithdrawPage() {
+export default function DashboardHistoryPage() {
   const { address, sessionReady } = useWallet();
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function DashboardWithdrawPage() {
         className="motion-safe:animate-pulse"
         role="status"
         aria-busy="true"
-        aria-label="Loading cash-out page"
+        aria-label="Loading history page"
       >
         <div className="mb-8 space-y-3">
           <div className="h-12 w-56 max-w-full rounded-lg bg-white/12" />
@@ -33,5 +33,5 @@ export default function DashboardWithdrawPage() {
     );
   }
 
-  return <WithdrawDashboard />;
+  return <HistoryDashboard />;
 }

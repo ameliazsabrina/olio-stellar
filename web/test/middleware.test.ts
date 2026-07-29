@@ -10,8 +10,13 @@ function request(pathname: string, cookie?: string) {
 }
 
 describe("route middleware", () => {
-  it("redirects unsigned users away from the dashboard", () => {
-    const response = middleware(request("/dashboard"));
+  it.each([
+    "/dashboard",
+    "/links",
+    "/withdraw",
+    "/history",
+  ])("redirects unsigned users away from %s", (pathname) => {
+    const response = middleware(request(pathname));
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/");

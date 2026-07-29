@@ -61,7 +61,7 @@ vi.mock("../src/lib/stellar", () => ({
   addUsdcTrustline: mocks.addUsdcTrustline,
 }));
 
-import DashboardPage from "../src/app/dashboard/page";
+import DashboardPage from "../src/app/(dashboard)/dashboard/page";
 import Home from "../src/app/page";
 
 function wallet(overrides: Record<string, unknown> = {}) {

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { Dashboard } from "../../components/dashboard/Dashboard";
-import { Card } from "../../components/ui/card";
-import { useWallet } from "../../components/WalletProvider";
-import { SIGN_IN_PATH } from "../../lib/auth-routes";
+import { Dashboard } from "@/components/dashboard/Dashboard";
+import { Card } from "@/components/ui/card";
+import { useWallet } from "@/components/WalletProvider";
+import { SIGN_IN_PATH } from "@/lib/auth-routes";
 
 export default function DashboardPage() {
   const { address, sessionReady } = useWallet();

@@ -50,6 +50,18 @@ describe("DashboardShell navigation", () => {
       "aria-current",
       "page",
     );
+    expect(screen.getByRole("menuitem", { name: "Links" })).toHaveAttribute(
+      "href",
+      "/links",
+    );
+    expect(screen.getByRole("menuitem", { name: "Cash out" })).toHaveAttribute(
+      "href",
+      "/withdraw",
+    );
+    expect(screen.getByRole("menuitem", { name: "History" })).toHaveAttribute(
+      "href",
+      "/history",
+    );
     expect(screen.getAllByText("@toreno")).toHaveLength(2);
     expect(
       screen.getByRole("menuitem", { name: "Settings" }),
@@ -83,7 +95,7 @@ describe("DashboardShell navigation", () => {
       "/",
     );
 
-    mocks.usePathname.mockReturnValue("/dashboard/history");
+    mocks.usePathname.mockReturnValue("/history");
     rerender(
       <DashboardShell navigation>
         <div>History content</div>

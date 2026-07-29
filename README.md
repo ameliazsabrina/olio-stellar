@@ -267,9 +267,9 @@ Useful routes:
 
 - `/` - landing and onboarding.
 - `/dashboard` - private balance overview.
-- `/dashboard/links` - manage payment links.
-- `/dashboard/withdraw` - withdraw to Stellar or cash out through SEP-24.
-- `/dashboard/history` - local payment history.
+- `/links` - manage payment links.
+- `/withdraw` - withdraw to Stellar or cash out through SEP-24.
+- `/history` - local payment history.
 - `/pay/<username>` - payer checkout.
 - `/pay/<username>/<slug>` - managed payment-link checkout.
 

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { HISTORY_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
 import type { MyNote } from "../../lib/notes";
 import { cn } from "../../lib/utils";
@@ -232,7 +233,7 @@ export function ActivityFeed({
             size="sm"
             className="min-h-10"
             nativeButton={false}
-            render={<Link href="/dashboard/history" />}
+            render={<Link href={HISTORY_PATH} />}
           >
             See all
             <ChevronRight className="size-3.5" aria-hidden="true" />

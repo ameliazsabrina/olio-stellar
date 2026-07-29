@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { isDashboardRoute } from "../lib/auth-routes";
 import { DashboardBackground } from "./dashboard/DashboardBackground";
 import { DashboardShell } from "./dashboard/DashboardShell";
 import { StellarWalletModal } from "./landing/StellarWalletModal";
@@ -59,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     />
   );
 
-  if (pathname === "/" || pathname.startsWith("/dashboard")) {
+  if (pathname === "/" || isDashboardRoute(pathname)) {
     return (
       <>
         <main className="block w-full m-0 p-0">{children}</main>

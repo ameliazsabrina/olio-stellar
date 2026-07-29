@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { offRampEnabled } from "../../lib/anchor";
+import { LINKS_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
 import { getAccount, scanMyNotes } from "../../lib/notes";
 import { transakEnabled } from "../../lib/transak";
@@ -453,7 +454,7 @@ function WalletWithdrawal({
         <Button
           variant="glass"
           nativeButton={false}
-          render={<Link href="/dashboard/links" />}
+          render={<Link href={LINKS_PATH} />}
         >
           View payment links
           <ArrowRight className="size-4" aria-hidden="true" />
@@ -700,7 +701,7 @@ function EmptyState() {
       <Button
         variant="glass"
         nativeButton={false}
-        render={<Link href="/dashboard/links" />}
+        render={<Link href={LINKS_PATH} />}
       >
         View payment links
         <ArrowRight className="size-4" aria-hidden="true" />

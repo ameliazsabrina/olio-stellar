@@ -85,8 +85,8 @@ cd circuits && npm install && ./build.sh      # circuits + Soroban VKs
 | --- | --- |
 | `/` | Landing & onboarding |
 | `/dashboard` | Private balance overview |
-| `/dashboard/links` | Manage payment links |
-| `/dashboard/withdraw` | Withdraw to Stellar or SEP-24 cash-out |
-| `/dashboard/history` | Local payment history |
+| `/links` | Manage payment links |
+| `/withdraw` | Withdraw to Stellar or SEP-24 cash-out |
+| `/history` | Local payment history |
 | `/pay/<username>` | Payer checkout |
 | `/pay/<username>/<slug>` | Managed payment-link checkout |

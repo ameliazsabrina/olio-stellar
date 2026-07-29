@@ -15,6 +15,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  DASHBOARD_PATH,
+  HISTORY_PATH,
+  LINKS_PATH,
+  WITHDRAW_PATH,
+} from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import {
@@ -29,14 +35,14 @@ import {
 import { useWallet } from "../WalletProvider";
 
 const DASHBOARD_ACTIONS = [
-  { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Links", icon: Link2, href: "/dashboard/links" },
+  { label: "Overview", icon: LayoutDashboard, href: DASHBOARD_PATH },
+  { label: "Links", icon: Link2, href: LINKS_PATH },
   {
     label: "Cash out",
     icon: ArrowDownToLine,
-    href: "/dashboard/withdraw",
+    href: WITHDRAW_PATH,
   },
-  { label: "History", icon: History, href: "/dashboard/history" },
+  { label: "History", icon: History, href: HISTORY_PATH },
 ] as const;
 
 export function DashboardShell({
@@ -67,7 +73,7 @@ export function DashboardShell({
 function DashboardNavigation() {
   const pathname = usePathname();
   const { username, disconnect } = useWallet();
-  const showBack = pathname !== "/dashboard";
+  const showBack = pathname !== DASHBOARD_PATH;
 
   return (
     <header className="mb-7 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 pt-4 sm:mb-9 sm:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-5">

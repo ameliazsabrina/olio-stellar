@@ -1,25 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
-import { HistoryDashboard } from "../../../components/dashboard/HistoryDashboard";
-import { useWallet } from "../../../components/WalletProvider";
-import { SIGN_IN_PATH } from "../../../lib/auth-routes";
+import { useEffect, useState } from "react";
+import { LinksDashboard } from "@/components/dashboard/LinksDashboard";
+import { useWallet } from "@/components/WalletProvider";
+import { SIGN_IN_PATH } from "@/lib/auth-routes";
 
-export default function DashboardHistoryPage() {
-  const { address, sessionReady } = useWallet();
+export default function DashboardLinksPage() {
+  const { address, username, sessionReady } = useWallet();
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (!sessionReady || address) return;
     window.location.replace(SIGN_IN_PATH);
   }, [address, sessionReady]);
 
-  if (!sessionReady || !address) {
+  if (!sessionReady || !address || !username) {
     return (
       <div
         className="motion-safe:animate-pulse"
         role="status"
         aria-busy="true"
-        aria-label="Loading history page"
+        aria-label="Loading links page"
       >
         <div className="mb-8 space-y-3">
           <div className="h-12 w-56 max-w-full rounded-lg bg-white/12" />
@@ -33,5 +38,5 @@ export default function DashboardHistoryPage() {
     );
   }
 
-  return <HistoryDashboard />;
+  return <LinksDashboard username={username} origin={origin} />;
 }

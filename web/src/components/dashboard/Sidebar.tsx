@@ -15,6 +15,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  DASHBOARD_PATH,
+  HISTORY_PATH,
+  LINKS_PATH,
+  WITHDRAW_PATH,
+} from "../../lib/auth-routes";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -36,14 +42,14 @@ import {
 import { useWallet } from "../WalletProvider";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Links", href: "/dashboard/links", icon: Link2 },
+  { label: "Dashboard", href: DASHBOARD_PATH, icon: LayoutDashboard },
+  { label: "Links", href: LINKS_PATH, icon: Link2 },
   {
     label: "Withdraw",
-    href: "/dashboard/withdraw",
+    href: WITHDRAW_PATH,
     icon: ArrowDownToLine,
   },
-  { label: "History", href: "/dashboard/history", icon: History },
+  { label: "History", href: HISTORY_PATH, icon: History },
   { label: "Settings", href: "/dashboard#settings", icon: Settings },
 ] as const;
 
@@ -134,12 +140,12 @@ export function DashboardSidebar() {
                     }
                     isActive={
                       activeHref === href ||
-                      (href === "/dashboard/links" &&
-                        activeHref.startsWith("/dashboard/links")) ||
-                      (href === "/dashboard/withdraw" &&
-                        activeHref.startsWith("/dashboard/withdraw")) ||
-                      (href === "/dashboard/history" &&
-                        activeHref.startsWith("/dashboard/history"))
+                      (href === LINKS_PATH &&
+                        activeHref.startsWith(LINKS_PATH)) ||
+                      (href === WITHDRAW_PATH &&
+                        activeHref.startsWith(WITHDRAW_PATH)) ||
+                      (href === HISTORY_PATH &&
+                        activeHref.startsWith(HISTORY_PATH))
                     }
                     className="data-[active=true]:bg-olive-deep data-[active=true]:text-paper data-[active=true]:hover:bg-olive-deep data-[active=true]:hover:text-paper group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-olive-deep"
                   >

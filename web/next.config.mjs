@@ -32,6 +32,25 @@ if (fs.existsSync(rootEnv)) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/links",
+        destination: "/links",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/withdraw",
+        destination: "/withdraw",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/history",
+        destination: "/history",
+        permanent: true,
+      },
+    ];
+  },
   // Emit a self-contained server bundle for the Docker runtime image. Combined
   // with outputFileTracingRoot (the monorepo root), the standalone output lands
   // at web/.next/standalone/web/server.js with node_modules traced from the
