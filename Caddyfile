@@ -1,0 +1,13 @@
+# Caddy auto-provisions and renews a Let's Encrypt certificate for {$DOMAIN}
+# on first request. Requires ports 80 + 443 open in the Lightsail firewall and
+# a DNS A record pointing {$DOMAIN} at the instance's static IP.
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Redirect the apex/www counterpart if you serve both. Uncomment and adjust:
+# www.{$DOMAIN} {
+# 	redir https://{$DOMAIN}{uri} permanent
+# }

@@ -1,0 +1,35 @@
+# Dependencies and build output — reinstalled/rebuilt inside the image.
+node_modules
+**/node_modules
+.next
+web/.next
+web/coverage
+web/tsconfig.tsbuildinfo
+
+# Rust / Stellar contract + ZK circuit toolchain — not needed to run `web`.
+target
+Cargo.toml
+Cargo.lock
+rust-toolchain.toml
+programs
+circuits
+vendor
+scripts
+
+# Secrets and local env — never bake into an image layer.
+.env
+.env.*
+web/.env
+web/.env.*
+!web/.env.example
+
+# VCS, CI, editor, and docs.
+.git
+.github
+.gitignore
+.gitbook.yaml
+.vercel
+.claude
+docs
+README.md
+*.md

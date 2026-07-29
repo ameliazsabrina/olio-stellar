@@ -32,6 +32,11 @@ if (fs.existsSync(rootEnv)) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a self-contained server bundle for the Docker runtime image. Combined
+  // with outputFileTracingRoot (the monorepo root), the standalone output lands
+  // at web/.next/standalone/web/server.js with node_modules traced from the
+  // repo root — see the Dockerfile runner stage.
+  output: "standalone",
   outputFileTracingRoot: repoRoot,
   reactStrictMode: true,
   // passkey-kit and its sibling SDKs ship raw TypeScript as their entry point

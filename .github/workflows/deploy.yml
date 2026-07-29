@@ -1,0 +1,92 @@
+name: Deploy web to Lightsail
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/olio-web
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image tag
+        id: meta
+        run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_STELLAR_NETWORK=${{ vars.NEXT_PUBLIC_STELLAR_NETWORK }}
+            NEXT_PUBLIC_STELLAR_RPC_URL=${{ vars.NEXT_PUBLIC_STELLAR_RPC_URL }}
+            NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE=${{ vars.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE }}
+            NEXT_PUBLIC_OLIO_REGISTRY_ID=${{ vars.NEXT_PUBLIC_OLIO_REGISTRY_ID }}
+            NEXT_PUBLIC_OLIO_POOL_ID=${{ vars.NEXT_PUBLIC_OLIO_POOL_ID }}
+            NEXT_PUBLIC_USDC_SAC_ID=${{ vars.NEXT_PUBLIC_USDC_SAC_ID }}
+            NEXT_PUBLIC_USDC_ISSUER=${{ vars.NEXT_PUBLIC_USDC_ISSUER }}
+            NEXT_PUBLIC_POOL_DEPTH=${{ vars.NEXT_PUBLIC_POOL_DEPTH }}
+            NEXT_PUBLIC_SMART_WALLET_WASM_HASH=${{ vars.NEXT_PUBLIC_SMART_WALLET_WASM_HASH }}
+            NEXT_PUBLIC_CHANNELS_ENABLED=${{ vars.NEXT_PUBLIC_CHANNELS_ENABLED }}
+            NEXT_PUBLIC_SEP24_ANCHOR_URL=${{ vars.NEXT_PUBLIC_SEP24_ANCHOR_URL }}
+            NEXT_PUBLIC_SEP24_ASSET_CODE=${{ vars.NEXT_PUBLIC_SEP24_ASSET_CODE }}
+            NEXT_PUBLIC_STELLAR_HORIZON_URL=${{ vars.NEXT_PUBLIC_STELLAR_HORIZON_URL }}
+            NEXT_PUBLIC_FRIENDBOT_URL=${{ vars.NEXT_PUBLIC_FRIENDBOT_URL }}
+            NEXT_PUBLIC_CCTP_INTAKE_CONTRACT=${{ vars.NEXT_PUBLIC_CCTP_INTAKE_CONTRACT }}
+            NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER=${{ vars.NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER }}
+            NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER=${{ vars.NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER }}
+            NEXT_PUBLIC_CCTP_FORWARDER=${{ vars.NEXT_PUBLIC_CCTP_FORWARDER }}
+            NEXT_PUBLIC_SOLANA_RPC_URL=${{ vars.NEXT_PUBLIC_SOLANA_RPC_URL }}
+            NEXT_PUBLIC_SOLANA_USDC_MINT=${{ vars.NEXT_PUBLIC_SOLANA_USDC_MINT }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull and restart on the box
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/${{ secrets.SSH_USER }}/olio
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            export OLIO_IMAGE="${{ needs.build-and-push.outputs.image }}"
+            # Persist the tag so manual `docker compose up` reuses this exact image.
+            grep -q '^OLIO_IMAGE=' .env && sed -i "s#^OLIO_IMAGE=.*#OLIO_IMAGE=${OLIO_IMAGE}#" .env || echo "OLIO_IMAGE=${OLIO_IMAGE}" >> .env
+            docker compose pull web
+            docker compose up -d
+            docker image prune -f
