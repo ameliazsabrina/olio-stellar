@@ -75,27 +75,36 @@ export type UserDoc = {
   updatedAt: Date;
 };
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017/olio";
-
 declare global {
   // eslint-disable-next-line no-var
   var _olioMongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-let clientPromise: Promise<MongoClient>;
+let clientPromise: Promise<MongoClient> | undefined;
 
-if (process.env.NODE_ENV === "development") {
-  // Reuse the connection across HMR reloads in dev.
-  if (!global._olioMongoClientPromise) {
-    global._olioMongoClientPromise = new MongoClient(uri).connect();
+function getClient(): Promise<MongoClient> {
+  if (clientPromise) return clientPromise;
+
+  const configuredUri = process.env.MONGODB_URI?.trim();
+  if (process.env.NODE_ENV === "production" && !configuredUri) {
+    throw new Error("MONGODB_URI must be configured in production.");
   }
-  clientPromise = global._olioMongoClientPromise;
-} else {
-  clientPromise = new MongoClient(uri).connect();
+  const uri = configuredUri || "mongodb://localhost:27017/olio";
+
+  if (process.env.NODE_ENV === "development") {
+    // Reuse the connection across HMR reloads in dev.
+    if (!global._olioMongoClientPromise) {
+      global._olioMongoClientPromise = new MongoClient(uri).connect();
+    }
+    clientPromise = global._olioMongoClientPromise;
+  } else {
+    clientPromise = new MongoClient(uri).connect();
+  }
+  return clientPromise;
 }
 
 export async function getDb(): Promise<Db> {
-  const client = await clientPromise;
+  const client = await getClient();
   return client.db(); // resolves db name from the URI path (`olio`)
 }
 

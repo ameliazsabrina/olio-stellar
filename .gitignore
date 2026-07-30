@@ -17,6 +17,7 @@ target/
 
 .stellar/
 .claude
+.superstack/
 coverage/
 
 *.tsbuildinfo

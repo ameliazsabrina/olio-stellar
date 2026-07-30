@@ -78,20 +78,32 @@ jobs:
       - name: Pull and restart on the box
         uses: appleboy/ssh-action@v1
         env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SEP10_CLIENT_SIGNING_SECRET: ${{ secrets.SEP10_CLIENT_SIGNING_SECRET }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: SEP10_CLIENT_SIGNING_SECRET
+          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET
           script: |
             set -euo pipefail
             cd /home/${{ secrets.SSH_USER }}/olio
+            # Keep host-side deployment files (especially docker-compose.yml)
+            # on the exact commit that built the image.
+            git fetch origin main
+            git merge --ff-only origin/main
             umask 077
+            test -n "${MONGODB_URI}"
+            test -n "${CRON_SECRET}"
             test -n "${SEP10_CLIENT_SIGNING_SECRET}"
             secret_env="$(mktemp)"
-            grep -v '^SEP10_CLIENT_SIGNING_SECRET=' .env.production > "${secret_env}" || true
-            printf '%s\n' "SEP10_CLIENT_SIGNING_SECRET=${SEP10_CLIENT_SIGNING_SECRET}" >> "${secret_env}"
+            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET)=' .env.production > "${secret_env}" || true
+            {
+              printf '%s\n' "MONGODB_URI=${MONGODB_URI}"
+              printf '%s\n' "CRON_SECRET=${CRON_SECRET}"
+              printf '%s\n' "SEP10_CLIENT_SIGNING_SECRET=${SEP10_CLIENT_SIGNING_SECRET}"
+            } >> "${secret_env}"
             mv "${secret_env}" .env.production
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             export OLIO_IMAGE="${{ needs.build-and-push.outputs.image }}"

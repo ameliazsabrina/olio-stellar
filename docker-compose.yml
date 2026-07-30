@@ -26,6 +26,30 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Vercel only interprets web/vercel.json on Vercel. The production app is
+  # self-hosted, so keep the RPC event mirror inside the same Compose stack.
+  pool-indexer:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    command:
+      [
+        "node",
+        "-e",
+        "const run=async()=>{try{const r=await fetch('http://web:3000/api/cron/pool-indexer',{headers:{authorization:'Bearer '+(process.env.CRON_SECRET||'')}});const body=await r.text();if(!r.ok)throw new Error('HTTP '+r.status+': '+body);console.log('[pool-indexer]',body)}catch(e){console.error('[pool-indexer]',e)}};run();setInterval(run,60000)",
+      ]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   caddy:
     image: caddy:2
     restart: unless-stopped
