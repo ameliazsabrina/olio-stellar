@@ -77,7 +77,7 @@ describe("PinDialog — set mode", () => {
 describe("PinDialog — secure (re-key) mode", () => {
   it("warns about old funds and re-keys with a confirmed PIN", async () => {
     const { onSubmit } = setup({ mode: "secure" });
-    expect(screen.getByRole("note")).toHaveTextContent(/invisible here/i);
+    expect(screen.getByText(/cash out old payments/i)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("New PIN"), "112233");
     await userEvent.type(screen.getByLabelText("Confirm PIN"), "112233");
     await userEvent.click(

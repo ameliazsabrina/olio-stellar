@@ -7,10 +7,11 @@ import {
   Operation,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
+import { api } from "../trpc/client";
 import { friendbotUrl, horizon, offRampAsset } from "./anchor";
 import { fromBaseUnits, toBaseUnits } from "./crypto";
 import type { LocalAccount, MyNote, ScanResult } from "./notes";
-import { networkPassphrase, type Signer } from "./stellar";
+import { isMainnet, networkPassphrase, type Signer } from "./stellar";
 import { withdrawNote } from "./withdraw";
 
 // Fresh single-use classic G-account for SEP-24 off-ramp and claimable-balance payouts; per-op to avoid reuse linkage.
@@ -86,14 +87,18 @@ export function listStrandedBridges(): StrandedBridge[] {
   return out;
 }
 
-// Fund the bridge (testnet friendbot) and open the USDC trustline; mainnet needs a sponsor instead (see README).
+// Fund the bridge and open its USDC trustline.
 export async function provisionBridge(bridge: Bridge): Promise<void> {
-  const res = await fetch(
-    `${friendbotUrl}?addr=${encodeURIComponent(bridge.publicKey)}`,
-  );
-  if (!res.ok && res.status !== 400) {
-    // 400 == already funded; anything else is a real failure.
-    throw new Error(`Could not fund the payout account (${res.status}).`);
+  if (isMainnet) {
+    await api.bridge.fund.mutate({ bridgePublicKey: bridge.publicKey });
+  } else {
+    const res = await fetch(
+      `${friendbotUrl}?addr=${encodeURIComponent(bridge.publicKey)}`,
+    );
+    if (!res.ok && res.status !== 400) {
+      // 400 == already funded; anything else is a real failure.
+      throw new Error(`Could not fund the payout account (${res.status}).`);
+    }
   }
 
   const account = await horizon.loadAccount(bridge.publicKey);

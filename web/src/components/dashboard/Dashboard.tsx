@@ -32,15 +32,6 @@ export function Dashboard() {
         <p className="mt-2 max-w-xl text-sm font-medium text-white/70 sm:text-base">
           Receive privately, keep control, and cash out when you are ready.
         </p>
-        {(refreshing || stale) && (
-          <button
-            type="button"
-            className="mt-2 text-xs font-medium text-white/60 underline-offset-4 hover:text-white hover:underline"
-            onClick={refresh}
-          >
-            {stale ? "Balance data is delayed — retry" : "Updating balance…"}
-          </button>
-        )}
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)] lg:gap-x-6 lg:gap-y-5 xl:gap-x-7">
@@ -52,6 +43,9 @@ export function Dashboard() {
               locked={locked}
               onUnlock={promptUnlock}
               onReceive={() => setReceiveOpen(true)}
+              onRefresh={refresh}
+              refreshing={refreshing}
+              stale={stale}
             />
           </section>
 

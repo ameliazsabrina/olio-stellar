@@ -5,10 +5,10 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Info,
   LockKeyhole,
   QrCode,
   ReceiptText,
+  RotateCw,
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -58,12 +58,18 @@ export function BalanceCard({
   locked = false,
   onUnlock,
   onReceive,
+  onRefresh,
+  refreshing = false,
+  stale = false,
 }: {
   claimable: bigint;
   loading: boolean;
   locked?: boolean;
   onUnlock?: () => void;
   onReceive?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  stale?: boolean;
 }) {
   const [balanceVisible, setBalanceVisible] = useState(true);
 
@@ -76,7 +82,31 @@ export function BalanceCard({
           <div className="grid gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-white/75">
               Your private balance
-              <Info className="size-4 text-white/45" aria-hidden="true" />
+              <button
+                type="button"
+                className="rounded-sm text-white/45 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-wait disabled:text-white/30"
+                onClick={onRefresh}
+                disabled={!onRefresh || refreshing}
+                aria-label={
+                  refreshing
+                    ? "Updating balance"
+                    : stale
+                      ? "Balance data is delayed. Retry"
+                      : "Refresh balance"
+                }
+                title={
+                  refreshing
+                    ? "Updating balance…"
+                    : stale
+                      ? "Balance data is delayed — retry"
+                      : "Refresh balance"
+                }
+              >
+                <RotateCw
+                  className={`size-4 ${refreshing ? "motion-safe:animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
             </div>
             {loading ? (
               <div className="h-11 w-36 rounded-lg bg-white/10 motion-safe:animate-pulse" />

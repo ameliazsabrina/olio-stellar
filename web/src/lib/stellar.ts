@@ -17,9 +17,14 @@ import type { RawProof } from "./prover";
 
 export const networkPassphrase =
   process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
-export const rpcUrl =
-  process.env.NEXT_PUBLIC_STELLAR_RPC_URL ||
-  "https://soroban-testnet.stellar.org";
+export const isMainnet = networkPassphrase === Networks.PUBLIC;
+const configuredRpcUrl = process.env.NEXT_PUBLIC_STELLAR_RPC_URL?.trim();
+if (isMainnet && !configuredRpcUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_STELLAR_RPC_URL must be configured for mainnet.",
+  );
+}
+export const rpcUrl = configuredRpcUrl || "https://soroban-testnet.stellar.org";
 export const registryId = process.env.NEXT_PUBLIC_OLIO_REGISTRY_ID || "";
 export const poolId = process.env.NEXT_PUBLIC_OLIO_POOL_ID || "";
 export const usdcSacId = process.env.NEXT_PUBLIC_USDC_SAC_ID || "";

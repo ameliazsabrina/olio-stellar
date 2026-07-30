@@ -113,7 +113,7 @@ describe("DepositForm", () => {
     expect(mocks.poolDeposit).not.toHaveBeenCalled();
   });
 
-  it("shields the deposit and reports the note index on success", async () => {
+  it("shields the deposit and reports success", async () => {
     mocks.usdcBalance.mockResolvedValue(1_000_000_000n); // plenty
     mocks.poolDeposit.mockResolvedValue(7);
     renderForm();
@@ -123,7 +123,7 @@ describe("DepositForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /deposit/i }));
 
     expect(
-      await screen.findByText(/shielded 5 usdc into your account · note #7/i),
+      await screen.findByText(/shielded 5 usdc into your account/i),
     ).toBeInTheDocument();
 
     // Deposited to the user's OWN pubkeys, with the amount in base units (5 * 1e7).

@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
-  Building2,
   Check,
   Landmark,
   Loader2,
@@ -89,18 +88,18 @@ const EXITS: {
   },
   {
     key: "bank_anchor",
-    label: "Bank · Anchor",
+    label: "Cash · Anchor",
     icon: Landmark,
     tooltip:
-      "Cash out via a Stellar anchor. ID + bank details verified by the anchor.",
+      "Cash out via a Stellar anchor. Identity and pickup details are verified by the anchor.",
   },
-  {
-    key: "bank_transak",
-    label: "Bank · Transak",
-    icon: Building2,
-    tooltip:
-      "Cash out to bank/e-wallet via Transak. ID + bank details verified by Transak. Mainnet only.",
-  },
+  // {
+  //   key: "bank_transak",
+  //   label: "Bank · Transak",
+  //   icon: Building2,
+  //   tooltip:
+  //     "Cash out to bank/e-wallet via Transak. ID + bank details verified by Transak. Mainnet only.",
+  // },
 ];
 
 export function WithdrawDashboard() {
@@ -250,8 +249,8 @@ export function WithdrawDashboard() {
           Withdraw
         </h1>
         <p className="mt-2 max-w-2xl text-sm font-medium text-white/70 sm:text-base">
-          Cash out private USDC to another Stellar wallet or, when available,
-          directly to your bank.
+          Cash out private USDC to another Stellar wallet or, when available, as
+          local currency.
         </p>
       </div>
 
@@ -261,7 +260,7 @@ export function WithdrawDashboard() {
         <Card appearance="glass" className="gap-0 p-0">
           <div className="border-b border-white/12 p-4 sm:p-5">
             <TooltipProvider>
-              <fieldset className="grid grid-cols-1 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md sm:grid-cols-3">
+              <fieldset className="grid grid-cols-1 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md sm:grid-cols-2">
                 <legend className="sr-only">Cash-out destination</legend>
                 {EXITS.map(({ key, label, icon: Icon, tooltip }) => {
                   const active = exit === key;
@@ -301,14 +300,14 @@ export function WithdrawDashboard() {
             </TooltipProvider>
             {!offRampEnabled ? (
               <p className="mt-2 text-xs text-white/55">
-                Anchor bank cash-out is unavailable in this environment.
+                Anchor cash-out is unavailable in this environment.
               </p>
             ) : null}
-            {!transakEnabled ? (
+            {/* {!transakEnabled ? (
               <p className="mt-2 text-xs text-white/55">
                 Transak bank cash-out is available on mainnet only.
               </p>
-            ) : null}
+            ) : null} */}
           </div>
 
           <div className="p-4 sm:p-6">

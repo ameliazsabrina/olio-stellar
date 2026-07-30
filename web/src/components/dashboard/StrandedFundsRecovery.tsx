@@ -2,8 +2,15 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { StrKey } from "@stellar/stellar-sdk";
-import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  Wallet,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
@@ -15,7 +22,13 @@ import {
 } from "../../lib/bridge";
 import { fromBaseUnits } from "../../lib/crypto";
 import { Button } from "../ui/button";
-import { Card } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
@@ -30,11 +43,22 @@ const recoverySchema = z.object({
 });
 
 type RecoveryInput = z.infer<typeof recoverySchema>;
-
 type Row = StrandedBridge & { balance: bigint | null };
+type RecoverySuccess = {
+  amount: bigint;
+  destination: string;
+};
 
 function shortKey(key: string): string {
   return `${key.slice(0, 6)}…${key.slice(-6)}`;
+}
+
+function formatUsd(units: bigint): string {
+  return Number(fromBaseUnits(units)).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
 }
 
 export function StrandedFundsRecovery({
@@ -42,31 +66,39 @@ export function StrandedFundsRecovery({
 }: {
   defaultDestination?: string;
 }) {
+  const hasDefaultDestination =
+    !!defaultDestination && StrKey.isValidEd25519PublicKey(defaultDestination);
   const [rows, setRows] = useState<Row[]>([]);
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [rowError, setRowError] = useState<Record<string, string | null>>({});
+  const [open, setOpen] = useState(false);
+  const [editingDestination, setEditingDestination] = useState(
+    !hasDefaultDestination,
+  );
+  const [success, setSuccess] = useState<RecoverySuccess | null>(null);
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<RecoveryInput>({
     resolver: zodResolver(recoverySchema),
     defaultValues: {
-      destination:
-        defaultDestination && StrKey.isValidEd25519PublicKey(defaultDestination)
-          ? defaultDestination
-          : "",
+      destination: hasDefaultDestination ? defaultDestination : "",
     },
   });
 
+  const destination = watch("destination");
+
   const load = useCallback(async () => {
     const bridges = listStrandedBridges();
-    setRows(bridges.map((b) => ({ ...b, balance: null })));
+    setRows(bridges.map((bridge) => ({ ...bridge, balance: null })));
     const withBalances = await Promise.all(
-      bridges.map(async (b) => ({
-        ...b,
-        balance: await bridgeUsdcBalance(b.publicKey).catch(() => null),
+      bridges.map(async (bridge) => ({
+        ...bridge,
+        balance: await bridgeUsdcBalance(bridge.publicKey).catch(() => null),
       })),
     );
     setRows(withBalances);
@@ -76,121 +108,322 @@ export function StrandedFundsRecovery({
     void load();
   }, [load]);
 
-  if (rows.length === 0) return null;
+  useEffect(() => {
+    if (!hasDefaultDestination || destination) return;
+    setValue("destination", defaultDestination);
+    setEditingDestination(false);
+  }, [defaultDestination, destination, hasDefaultDestination, setValue]);
 
-  async function reclaim(row: Row, destination: string) {
-    setRowError((e) => ({ ...e, [row.ref]: null }));
-    setPending((p) => ({ ...p, [row.ref]: true }));
+  const total = useMemo(() => {
+    if (rows.length === 0 || rows.some((row) => row.balance === null)) {
+      return null;
+    }
+    return rows.reduce((sum, row) => sum + (row.balance ?? 0n), 0n);
+  }, [rows]);
+
+  if (rows.length === 0 && !success) return null;
+
+  async function reclaim(row: Row, nextDestination: string) {
+    setRowError((errorsByRow) => ({ ...errorsByRow, [row.ref]: null }));
+    setPending((pendingByRow) => ({ ...pendingByRow, [row.ref]: true }));
     try {
-      await reclaimBridge(row.secret, destination);
+      const recovered = await reclaimBridge(row.secret, nextDestination);
       clearPersistedBridge(row.ref);
-      setRows((rs) => rs.filter((r) => r.ref !== row.ref));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Recovery failed.";
-      setRowError((e) => ({ ...e, [row.ref]: msg }));
+      setRows((currentRows) =>
+        currentRows.filter((currentRow) => currentRow.ref !== row.ref),
+      );
+      setSuccess({
+        amount: recovered.amount,
+        destination: nextDestination,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Recovery failed.";
+      setRowError((errorsByRow) => ({
+        ...errorsByRow,
+        [row.ref]: message,
+      }));
     } finally {
-      setPending((p) => ({ ...p, [row.ref]: false }));
+      setPending((pendingByRow) => ({ ...pendingByRow, [row.ref]: false }));
     }
   }
 
   function dismiss(row: Row) {
     clearPersistedBridge(row.ref);
-    setRows((rs) => rs.filter((r) => r.ref !== row.ref));
+    setRows((currentRows) =>
+      currentRows.filter((currentRow) => currentRow.ref !== row.ref),
+    );
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) setSuccess(null);
+  }
+
+  const currentWalletSelected =
+    hasDefaultDestination && destination === defaultDestination;
+
   return (
-    <Card appearance="glass" className="mb-5 gap-4 border-amber-400/30 p-5">
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/30">
-          <AlertTriangle className="size-5" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="font-heading text-lg font-semibold text-white">
-            Recover interrupted cash-outs
-          </h2>
-          <p className="text-sm text-white/65">
-            {rows.length} payout{rows.length === 1 ? "" : "s"} left the shielded
-            pool but never reached their destination. Send them to a Stellar
-            account you control — they claim it as a claimable balance.
-          </p>
-        </div>
-      </div>
+    <>
+      {rows.length > 0 ? (
+        <section
+          aria-label="Interrupted cash-out"
+          className="mb-5 flex flex-col gap-4 rounded-xl border border-amber-300/25 bg-amber-200/10 p-4 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-300/15 text-amber-100 ring-1 ring-amber-300/25">
+              <AlertTriangle className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-heading text-base font-semibold text-white">
+                {total === null
+                  ? "Checking recoverable funds…"
+                  : total > 0n
+                    ? `${formatUsd(total)} USDC needs recovery`
+                    : "Review a previous cash-out"}
+              </p>
+              <p className="mt-0.5 text-sm text-white/65">
+                A previous cash-out didn&apos;t finish. Your funds are safe.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="glass"
+            className="w-full bg-white/14 ring-white/25 sm:w-auto"
+            onClick={() => setOpen(true)}
+          >
+            Recover funds
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </Button>
+        </section>
+      ) : null}
 
-      <div className="grid gap-1.5">
-        <Label htmlFor="recovery-destination" className="text-sm text-white">
-          Destination account
-        </Label>
-        <Input
-          id="recovery-destination"
-          placeholder="G…"
-          spellCheck={false}
-          autoComplete="off"
-          {...register("destination")}
-        />
-        {errors.destination ? (
-          <p className="text-xs text-red-300">{errors.destination.message}</p>
-        ) : null}
-      </div>
-
-      <ul className="grid gap-2">
-        {rows.map((row) => {
-          const isPending = pending[row.ref];
-          const err = rowError[row.ref];
-          const live = row.balance;
-          const empty = live !== null && live === 0n;
-          return (
-            <li
-              key={row.ref}
-              className="grid gap-2 rounded-lg border border-white/12 bg-white/5 p-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-xs text-white/55">
-                  {shortKey(row.publicKey)}
-                </span>
-                <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                  {live === null ? "…" : `${fromBaseUnits(live)} USDC`}
-                </span>
-              </div>
-              {row.destination ? (
-                <p className="text-xs text-white/45">
-                  Was headed to {shortKey(row.destination)}
-                </p>
-              ) : null}
-              {err ? <p className="text-xs text-red-300">{err}</p> : null}
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
+          appearance="glass"
+          className="max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[calc(100dvh-1rem)] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl sm:max-w-[480px]"
+        >
+          {success ? (
+            <div className="grid justify-items-center gap-5 py-4 text-center">
+              <span className="flex size-14 items-center justify-center rounded-full bg-emerald-300/15 text-emerald-100 ring-1 ring-emerald-300/30">
+                <CheckCircle2 className="size-7" aria-hidden="true" />
+              </span>
               <div>
-                {empty ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => dismiss(row)}
-                  >
-                    Already recovered — dismiss
-                  </Button>
+                <DialogTitle className="text-xl text-white">
+                  Funds recovered
+                </DialogTitle>
+                <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-white/65">
+                  {formatUsd(success.amount)} USDC is ready to claim in{" "}
+                  {shortKey(success.destination)}.
+                </DialogDescription>
+              </div>
+              <Button
+                type="button"
+                variant="glass"
+                size="lg"
+                className="w-full bg-white/18 ring-white/30"
+                onClick={() => {
+                  if (rows.length > 0) {
+                    setSuccess(null);
+                  } else {
+                    handleOpenChange(false);
+                  }
+                }}
+              >
+                {rows.length > 0 ? "Recover another" : "Done"}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <DialogHeader className="pr-8">
+                <DialogTitle className="text-xl text-white">
+                  Recover your funds
+                </DialogTitle>
+                <DialogDescription className="leading-5 text-white/65">
+                  Move the USDC from an interrupted cash-out to a Stellar wallet
+                  you control.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="rounded-xl bg-white/8 p-4 ring-1 ring-white/15">
+                <p className="text-xs font-medium tracking-wide text-white/55 uppercase">
+                  Recoverable
+                </p>
+                <p className="mt-1 font-mono text-3xl font-semibold text-white tabular-nums">
+                  {total === null ? "…" : formatUsd(total)}
+                </p>
+                <p className="mt-1 text-xs text-white/50">
+                  {rows.length} interrupted payout
+                  {rows.length === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="text-sm text-white">
+                    Destination wallet
+                  </Label>
+                  {!editingDestination && hasDefaultDestination ? (
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-white/65 underline-offset-4 hover:text-white hover:underline"
+                      onClick={() => setEditingDestination(true)}
+                    >
+                      Use another address
+                    </button>
+                  ) : null}
+                </div>
+
+                {!editingDestination && currentWalletSelected ? (
+                  <div className="flex items-center gap-3 rounded-lg bg-white/8 p-3 ring-1 ring-white/15">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
+                      <Wallet className="size-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">
+                        Current wallet
+                      </p>
+                      <p className="truncate font-mono text-xs text-white/50">
+                        {shortKey(destination)}
+                      </p>
+                    </div>
+                  </div>
                 ) : (
-                  <Button
-                    variant="glass"
-                    size="sm"
-                    disabled={isPending}
-                    onClick={handleSubmit((data) =>
-                      reclaim(row, data.destination),
-                    )}
-                  >
-                    {isPending ? (
-                      <Loader2
-                        className="size-4 motion-safe:animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <ArrowRight className="size-4" aria-hidden="true" />
-                    )}
-                    Reclaim
-                  </Button>
+                  <>
+                    <Input
+                      id="recovery-destination"
+                      appearance="glass"
+                      placeholder="G…"
+                      spellCheck={false}
+                      autoComplete="off"
+                      aria-invalid={!!errors.destination}
+                      {...register("destination")}
+                    />
+                    {errors.destination ? (
+                      <p className="text-xs text-red-300">
+                        {errors.destination.message}
+                      </p>
+                    ) : null}
+                    {hasDefaultDestination ? (
+                      <button
+                        type="button"
+                        className="w-fit text-xs font-semibold text-white/65 underline-offset-4 hover:text-white hover:underline"
+                        onClick={() => {
+                          setValue("destination", defaultDestination, {
+                            shouldValidate: true,
+                          });
+                          setEditingDestination(false);
+                        }}
+                      >
+                        Use current wallet
+                      </button>
+                    ) : null}
+                  </>
                 )}
               </div>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
+
+              <ul className="grid gap-2">
+                {rows.map((row) => {
+                  const isPending = pending[row.ref];
+                  const error = rowError[row.ref];
+                  const empty = row.balance !== null && row.balance === 0n;
+                  const amount =
+                    row.balance === null ? null : formatUsd(row.balance);
+
+                  return (
+                    <li
+                      key={row.ref}
+                      className="grid gap-3 rounded-xl border border-white/12 bg-white/5 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-white/50">
+                            Cash-out amount
+                          </p>
+                          <p className="font-mono text-base font-semibold text-white tabular-nums">
+                            {amount ?? "Checking…"}
+                          </p>
+                        </div>
+                        <span className="text-xs text-white/45">
+                          {empty ? "No funds found" : "Ready to recover"}
+                        </span>
+                      </div>
+
+                      {row.destination ? (
+                        <p className="text-xs text-white/50">
+                          Originally headed to {shortKey(row.destination)}
+                        </p>
+                      ) : null}
+
+                      {error ? (
+                        <p role="alert" className="text-xs text-red-300">
+                          {error}
+                        </p>
+                      ) : null}
+
+                      {empty ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-white/65 hover:bg-white/8 hover:text-white"
+                          onClick={() => dismiss(row)}
+                        >
+                          Remove recovered record
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="glass"
+                          size="lg"
+                          className="w-full bg-white/18 ring-white/30"
+                          disabled={isPending || row.balance === null}
+                          onClick={handleSubmit((data) =>
+                            reclaim(row, data.destination),
+                          )}
+                        >
+                          {isPending ? (
+                            <Loader2
+                              className="size-4 motion-safe:animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <ArrowRight className="size-4" aria-hidden="true" />
+                          )}
+                          {isPending
+                            ? "Recovering…"
+                            : `Recover${amount ? ` ${amount} USDC` : " funds"}`}
+                        </Button>
+                      )}
+
+                      <details className="group text-xs text-white/45">
+                        <summary className="cursor-pointer font-medium text-white/55 hover:text-white/75">
+                          Technical details
+                        </summary>
+                        <p className="mt-2 break-all font-mono">
+                          Bridge account: {row.publicKey}
+                        </p>
+                      </details>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <details className="rounded-lg bg-white/6 px-3 py-2.5 text-xs text-white/55 ring-1 ring-white/10">
+                <summary className="cursor-pointer font-semibold text-white/70">
+                  How recovery works
+                </summary>
+                <p className="mt-2 leading-5">
+                  Recovery creates a claimable USDC balance for the destination
+                  wallet. The wallet can claim it when it is ready to receive
+                  the asset.
+                </p>
+              </details>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

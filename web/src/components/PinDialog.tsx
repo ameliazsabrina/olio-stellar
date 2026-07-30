@@ -56,7 +56,7 @@ export function PinDialog({
     mode === "set"
       ? "This 6-digit PIN encrypts your account key so you can restore your balance on any device. It can't be reset, so keep it safe."
       : mode === "secure"
-        ? "This account was created before PIN recovery. Set a 6-digit PIN to secure it, it re-keys your account so you can restore it on any device."
+        ? "This account predates PIN recovery. First, cash out old payments from your original browser. Then set a 6-digit PIN to re-key your account and restore it on any device."
         : "Enter your 6-digit PIN to restore your account key on this device and reveal your balance.";
   const cta =
     mode === "set"
@@ -102,17 +102,6 @@ export function PinDialog({
         <DialogDescription className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4">
           {description}
         </DialogDescription>
-
-        {mode === "secure" ? (
-          <div
-            className="mt-6 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-50"
-            role="note"
-          >
-            Any payments received before now stay tied to your old key. Cash
-            them out from the original browser first. Re-keying makes them
-            invisible here.
-          </div>
-        ) : null}
 
         <form className="mt-6 grid gap-3" onSubmit={submit}>
           <div className="grid gap-2">

@@ -15,10 +15,12 @@
 
 use soroban_poseidon::poseidon_hash;
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype,
-    crypto::bn254::Bn254Fr,
-    symbol_short, token, vec, Address, Bytes, BytesN, Env, String, U256, Vec,
+    contract, contracterror, contractevent, contractimpl, contractmeta, contracttype,
+    crypto::bn254::Bn254Fr, panic_with_error, symbol_short, token, vec, Address, Bytes, BytesN,
+    Env, String, Vec, U256,
 };
+
+contractmeta!(key = "binver", val = "2.0.0");
 
 mod groth16;
 pub use groth16::{Proof, VerificationKey};
@@ -26,11 +28,11 @@ pub use groth16::{Proof, VerificationKey};
 #[cfg(test)]
 mod fixture;
 #[cfg(test)]
-mod withdraw_fixture;
+mod test;
 #[cfg(test)]
 mod transfer_fixture;
 #[cfg(test)]
-mod test;
+mod withdraw_fixture;
 
 const ROOT_HISTORY_SIZE: u32 = 30;
 const MAX_DEPTH: u32 = 32;
@@ -54,6 +56,9 @@ pub struct Config {
 #[contracttype]
 enum DataKey {
     Config,
+    Admin,
+    PendingAdmin,
+    Paused,
     Vk,
     VkTransfer,
     Zeros,
@@ -76,6 +81,48 @@ pub enum Error {
     DoubleSpend = 7,
     VerifierKeyNotSet = 8,
     InvalidProof = 9,
+    Paused = 10,
+    AdminTransferNotPending = 11,
+}
+
+#[contractevent(topics = ["pause"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PauseEvent {
+    pub admin: Address,
+}
+
+#[contractevent(topics = ["unpause"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnpauseEvent {
+    pub admin: Address,
+}
+
+#[contractevent(topics = ["upgrade"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UpgradeEvent {
+    pub admin: Address,
+    pub new_wasm_hash: BytesN<32>,
+}
+
+#[contractevent(topics = ["admin_proposed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminProposedEvent {
+    pub admin: Address,
+    pub pending_admin: Address,
+}
+
+#[contractevent(topics = ["admin_cancelled"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminCancelledEvent {
+    pub admin: Address,
+    pub pending_admin: Address,
+}
+
+#[contractevent(topics = ["admin_changed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminChangedEvent {
+    pub previous_admin: Address,
+    pub new_admin: Address,
 }
 
 #[contract]
@@ -83,15 +130,11 @@ pub struct PoolContract;
 
 #[contractimpl]
 impl PoolContract {
-    /// One-time setup: pin the pooled asset and build an empty Poseidon tree.
-    pub fn initialize(env: Env, admin: Address, asset: Address, depth: u32) -> Result<(), Error> {
-        admin.require_auth();
+    /// Atomically pin the admin and asset and build the empty Poseidon tree.
+    pub fn __constructor(env: Env, admin: Address, asset: Address, depth: u32) {
         let store = env.storage().instance();
-        if store.has(&DataKey::Config) {
-            return Err(Error::AlreadyInitialized);
-        }
         if depth == 0 || depth > MAX_DEPTH {
-            return Err(Error::InvalidDepth);
+            panic_with_error!(&env, Error::InvalidDepth);
         }
 
         // Empty leaf = field 0; each level doubles up via Poseidon.
@@ -108,34 +151,33 @@ impl PoolContract {
         roots.push_back(to_bytes32(&env, &z));
 
         store.set(&DataKey::Config, &Config { asset, depth });
+        store.set(&DataKey::Admin, &admin);
+        store.set(&DataKey::Paused, &false);
         store.set(&DataKey::Zeros, &zeros);
         store.set(&DataKey::Filled, &filled);
         store.set(&DataKey::NextIndex, &0u32);
         store.set(&DataKey::Roots, &roots);
         store.extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        Ok(())
     }
 
     /// Set / rotate the withdraw Groth16 verification key (admin only).
-    pub fn set_verifier_key(env: Env, admin: Address, vk: VerificationKey) -> Result<(), Error> {
-        admin.require_auth();
-        load_config(&env)?;
+    pub fn set_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
+        require_admin(&env)?;
         env.storage().instance().set(&DataKey::Vk, &vk);
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         Ok(())
     }
 
     /// Set / rotate the transfer Groth16 verification key (admin only). The
     /// transfer circuit is distinct from withdraw, so it needs its own key.
-    pub fn set_transfer_verifier_key(
-        env: Env,
-        admin: Address,
-        vk: VerificationKey,
-    ) -> Result<(), Error> {
-        admin.require_auth();
-        load_config(&env)?;
+    pub fn set_transfer_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
+        require_admin(&env)?;
         env.storage().instance().set(&DataKey::VkTransfer, &vk);
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         Ok(())
     }
 
@@ -151,6 +193,7 @@ impl PoolContract {
         ciphertext: Bytes,
     ) -> Result<u32, Error> {
         from.require_auth();
+        require_not_paused(&env)?;
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
@@ -164,7 +207,9 @@ impl PoolContract {
         let leaf = to_u256(&env, &commitment);
         let leaf_index = insert(&env, &config, &leaf)?;
 
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         env.events().publish(
             (symbol_short!("deposit"),),
             (leaf_index, commitment, ephemeral_pk, ciphertext),
@@ -183,6 +228,7 @@ impl PoolContract {
         nullifier: BytesN<32>,
         proof: Proof,
     ) -> Result<(), Error> {
+        require_not_paused(&env)?;
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
@@ -215,7 +261,11 @@ impl PoolContract {
         }
 
         store.set(&DataKey::Nullifier(nullifier.clone()), &true);
-        store.extend_ttl(&DataKey::Nullifier(nullifier.clone()), TTL_THRESHOLD, TTL_EXTEND);
+        store.extend_ttl(
+            &DataKey::Nullifier(nullifier.clone()),
+            TTL_THRESHOLD,
+            TTL_EXTEND,
+        );
 
         let dest = Address::from_string(&recipient);
         token::Client::new(&env, &config.asset).transfer(
@@ -223,10 +273,11 @@ impl PoolContract {
             &dest,
             &amount,
         );
-        env.events()
-            .publish((symbol_short!("withdraw"),), (nullifier.clone(), dest, amount));
-        env.events()
-            .publish((symbol_short!("spend"),), nullifier);
+        env.events().publish(
+            (symbol_short!("withdraw"),),
+            (nullifier.clone(), dest, amount),
+        );
+        env.events().publish((symbol_short!("spend"),), nullifier);
         Ok(())
     }
 
@@ -256,6 +307,7 @@ impl PoolContract {
         change_ephemeral_pk: BytesN<32>,
         change_ciphertext: Bytes,
     ) -> Result<(u32, u32), Error> {
+        require_not_paused(&env)?;
         let config = load_config(&env)?;
         let vk: VerificationKey = env
             .storage()
@@ -285,7 +337,11 @@ impl PoolContract {
         }
 
         store.set(&DataKey::Nullifier(nullifier.clone()), &true);
-        store.extend_ttl(&DataKey::Nullifier(nullifier.clone()), TTL_THRESHOLD, TTL_EXTEND);
+        store.extend_ttl(
+            &DataKey::Nullifier(nullifier.clone()),
+            TTL_THRESHOLD,
+            TTL_EXTEND,
+        );
 
         // Insert both output notes; value stays in the pool (no token transfer).
         let recipient_leaf = to_u256(&env, &recipient_commitment);
@@ -293,17 +349,28 @@ impl PoolContract {
         let change_leaf = to_u256(&env, &change_commitment);
         let change_index = insert(&env, &config, &change_leaf)?;
 
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         env.events().publish(
             (symbol_short!("deposit"),),
-            (recipient_index, recipient_commitment, recipient_ephemeral_pk, recipient_ciphertext),
+            (
+                recipient_index,
+                recipient_commitment,
+                recipient_ephemeral_pk,
+                recipient_ciphertext,
+            ),
         );
         env.events().publish(
             (symbol_short!("deposit"),),
-            (change_index, change_commitment, change_ephemeral_pk, change_ciphertext),
+            (
+                change_index,
+                change_commitment,
+                change_ephemeral_pk,
+                change_ciphertext,
+            ),
         );
-        env.events()
-            .publish((symbol_short!("spend"),), nullifier);
+        env.events().publish((symbol_short!("spend"),), nullifier);
         Ok((recipient_index, change_index))
     }
 
@@ -320,11 +387,16 @@ impl PoolContract {
     }
 
     pub fn leaf_count(env: Env) -> u32 {
-        env.storage().instance().get(&DataKey::NextIndex).unwrap_or(0)
+        env.storage()
+            .instance()
+            .get(&DataKey::NextIndex)
+            .unwrap_or(0)
     }
 
     pub fn is_spent(env: Env, nullifier: BytesN<32>) -> bool {
-        env.storage().persistent().has(&DataKey::Nullifier(nullifier))
+        env.storage()
+            .persistent()
+            .has(&DataKey::Nullifier(nullifier))
     }
 
     pub fn has_verifier_key(env: Env) -> bool {
@@ -333,6 +405,126 @@ impl PoolContract {
 
     pub fn has_transfer_verifier_key(env: Env) -> bool {
         env.storage().instance().has(&DataKey::VkTransfer)
+    }
+
+    pub fn is_paused(env: Env) -> bool {
+        env.storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false)
+    }
+
+    pub fn admin(env: Env) -> Result<Address, Error> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)
+    }
+
+    pub fn pending_admin(env: Env) -> Option<Address> {
+        env.storage().instance().get(&DataKey::PendingAdmin)
+    }
+
+    // ---- admin ---------------------------------------------------------------
+
+    /// Freeze deposit / withdraw / transfer (admin only).
+    pub fn pause(env: Env) -> Result<(), Error> {
+        let admin = require_admin(&env)?;
+        env.storage().instance().set(&DataKey::Paused, &true);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        PauseEvent { admin }.publish(&env);
+        Ok(())
+    }
+
+    /// Lift the freeze (admin only).
+    pub fn unpause(env: Env) -> Result<(), Error> {
+        let admin = require_admin(&env)?;
+        env.storage().instance().set(&DataKey::Paused, &false);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        UnpauseEvent { admin }.publish(&env);
+        Ok(())
+    }
+
+    /// Swap the contract's WASM to `new_wasm_hash` (admin only). Upload the new
+    /// WASM first (`stellar contract upload`) and pass its hash.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        let admin = require_admin(&env)?;
+        UpgradeEvent {
+            admin,
+            new_wasm_hash: new_wasm_hash.clone(),
+        }
+        .publish(&env);
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        Ok(())
+    }
+
+    /// Start a two-step admin handoff (current admin only).
+    pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
+        let admin = require_admin(&env)?;
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingAdmin, &new_admin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        AdminProposedEvent {
+            admin,
+            pending_admin: new_admin,
+        }
+        .publish(&env);
+        Ok(())
+    }
+
+    /// Accept a pending handoff (pending admin only).
+    pub fn accept_admin(env: Env) -> Result<(), Error> {
+        let pending_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdmin)
+            .ok_or(Error::AdminTransferNotPending)?;
+        pending_admin.require_auth();
+        let previous_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(Error::NotInitialized)?;
+        env.storage()
+            .instance()
+            .set(&DataKey::Admin, &pending_admin);
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        AdminChangedEvent {
+            previous_admin,
+            new_admin: pending_admin,
+        }
+        .publish(&env);
+        Ok(())
+    }
+
+    /// Cancel a pending handoff (current admin only).
+    pub fn cancel_admin_transfer(env: Env) -> Result<(), Error> {
+        let admin = require_admin(&env)?;
+        let pending_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdmin)
+            .ok_or(Error::AdminTransferNotPending)?;
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        AdminCancelledEvent {
+            admin,
+            pending_admin,
+        }
+        .publish(&env);
+        Ok(())
     }
 }
 
@@ -343,6 +535,29 @@ fn load_config(env: &Env) -> Result<Config, Error> {
         .instance()
         .get(&DataKey::Config)
         .ok_or(Error::NotInitialized)
+}
+
+/// Require the stored admin's authorization.
+fn require_admin(env: &Env) -> Result<Address, Error> {
+    let admin: Address = env
+        .storage()
+        .instance()
+        .get(&DataKey::Admin)
+        .ok_or(Error::NotInitialized)?;
+    admin.require_auth();
+    Ok(admin)
+}
+
+fn require_not_paused(env: &Env) -> Result<(), Error> {
+    if env
+        .storage()
+        .instance()
+        .get(&DataKey::Paused)
+        .unwrap_or(false)
+    {
+        return Err(Error::Paused);
+    }
+    Ok(())
 }
 
 /// Poseidon(2) node hash — matches circomlib / soroban-poseidon.
@@ -365,7 +580,8 @@ fn to_bytes32(env: &Env, u: &U256) -> BytesN<32> {
 fn recipient_to_field(env: &Env, recipient: &String) -> U256 {
     let hash = env.crypto().keccak256(&recipient.to_bytes());
     let order = U256::from_be_bytes(env, &Bytes::from_array(env, &BN254_FR_ORDER));
-    U256::from_be_bytes(env, &Bytes::from_array(env, &hash.to_bytes().to_array())).rem_euclid(&order)
+    U256::from_be_bytes(env, &Bytes::from_array(env, &hash.to_bytes().to_array()))
+        .rem_euclid(&order)
 }
 
 fn root_is_known(env: &Env, root: &BytesN<32>) -> bool {

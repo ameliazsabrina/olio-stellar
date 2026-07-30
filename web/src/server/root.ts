@@ -1,4 +1,6 @@
 import type { inferRouterOutputs } from "@trpc/server";
+import { anchorRouter } from "./modules/anchor/anchor.router";
+import { bridgeRouter } from "./modules/bridge/bridge.router";
 import { cctpRouter } from "./modules/cctp/cctp.router";
 import { depositsRouter } from "./modules/deposits/deposits.router";
 import { passkeyRouter } from "./modules/passkey/passkey.router";
@@ -12,6 +14,8 @@ export const appRouter = createTRPCRouter({
   usernames: usernamesRouter,
   paymentLinks: paymentLinksRouter,
   cctp: cctpRouter,
+  bridge: bridgeRouter,
+  anchor: anchorRouter,
 });
 
 export type AppRouter = typeof appRouter;

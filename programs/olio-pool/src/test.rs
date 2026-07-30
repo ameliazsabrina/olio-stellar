@@ -4,8 +4,10 @@ use super::fixture::*;
 use super::groth16::{verify, Proof, VerificationKey};
 use super::{Error, PoolContract, PoolContractClient};
 use soroban_sdk::{
-    crypto::bn254::Bn254Fr, symbol_short, testutils::{Address as _, Events as _}, token, Address,
-    Bytes, BytesN, Env, IntoVal, String, U256, Vec,
+    crypto::bn254::Bn254Fr,
+    symbol_short,
+    testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke},
+    token, Address, Bytes, BytesN, Env, IntoVal, String, Vec, U256,
 };
 
 // Fixture note (from circuits/build/gen_input.mjs): ownerSecret=111111111111,
@@ -68,7 +70,10 @@ fn transfer_vk(env: &Env) -> VerificationKey {
 fn fixture_signals(env: &Env) -> Vec<Bn254Fr> {
     let mut v = Vec::new(env);
     for s in PUB_SIGNALS {
-        let u = U256::from_be_bytes(env, &Bytes::from_array(env, &decode::<32>(env, s).to_array()));
+        let u = U256::from_be_bytes(
+            env,
+            &Bytes::from_array(env, &decode::<32>(env, s).to_array()),
+        );
         v.push_back(Bn254Fr::from_u256(u));
     }
     v
@@ -79,7 +84,12 @@ fn fixture_signals(env: &Env) -> Vec<Bn254Fr> {
 #[test]
 fn groth16_verifies_real_proof() {
     let env = Env::default();
-    assert!(verify(&env, &fixture_vk(&env), &fixture_proof(&env), &fixture_signals(&env)));
+    assert!(verify(
+        &env,
+        &fixture_vk(&env),
+        &fixture_proof(&env),
+        &fixture_signals(&env)
+    ));
 }
 
 #[test]
@@ -88,7 +98,12 @@ fn groth16_rejects_tampered_signal() {
     let mut signals = fixture_signals(&env);
     // Flip the amount public signal.
     signals.set(3, Bn254Fr::from_u256(U256::from_u32(&env, 999)));
-    assert!(!verify(&env, &fixture_vk(&env), &fixture_proof(&env), &signals));
+    assert!(!verify(
+        &env,
+        &fixture_vk(&env),
+        &fixture_proof(&env),
+        &signals
+    ));
 }
 
 // --- contract tree parity: contract Poseidon root == circuit root -------------
@@ -109,14 +124,33 @@ fn setup<'a>() -> Fx<'a> {
     let asset = sac.address();
     let payer = Address::generate(&env);
     token::StellarAssetClient::new(&env, &asset).mint(&payer, &1_000_0000000);
-    let id = env.register(PoolContract, ());
+    let id = env.register(PoolContract, (admin.clone(), asset.clone(), 20u32));
     let pool = PoolContractClient::new(&env, &id);
-    pool.initialize(&admin, &asset, &20);
-    Fx { env, pool, payer, admin, asset }
+    Fx {
+        env,
+        pool,
+        payer,
+        admin,
+        asset,
+    }
+}
+
+#[test]
+#[should_panic]
+fn invalid_constructor_depth_rejected() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let asset = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    env.register(PoolContract, (admin, asset, 0u32));
 }
 
 fn dummy_bytes(env: &Env) -> (BytesN<32>, Bytes) {
-    (BytesN::from_array(env, &[0u8; 32]), Bytes::from_array(env, &[1u8, 2, 3]))
+    (
+        BytesN::from_array(env, &[0u8; 32]),
+        Bytes::from_array(env, &[1u8, 2, 3]),
+    )
 }
 
 #[test]
@@ -126,7 +160,9 @@ fn deposit_tree_root_matches_circuit() {
     let commitment = decode::<32>(&f.env, FIX_COMMITMENT);
 
     let token = token::Client::new(&f.env, &f.asset);
-    let idx = f.pool.deposit(&f.payer, &commitment, &50_000_000, &eph, &ct);
+    let idx = f
+        .pool
+        .deposit(&f.payer, &commitment, &50_000_000, &eph, &ct);
     assert_eq!(idx, 0);
     assert_eq!(f.pool.leaf_count(), 1);
     assert_eq!(token.balance(&f.pool.address), 50_000_000);
@@ -135,22 +171,27 @@ fn deposit_tree_root_matches_circuit() {
 }
 
 #[test]
-fn double_initialize_rejected() {
-    let f = setup();
-    let err = f.pool.try_initialize(&f.admin, &f.asset, &20).err().unwrap();
-    assert_eq!(err, Ok(Error::AlreadyInitialized));
-}
-
-#[test]
 fn withdraw_requires_verifier_key() {
     let f = setup();
     let (eph, ct) = dummy_bytes(&f.env);
-    f.pool.deposit(&f.payer, &decode::<32>(&f.env, FIX_COMMITMENT), &50_000_000, &eph, &ct);
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, FIX_COMMITMENT),
+        &50_000_000,
+        &eph,
+        &ct,
+    );
     let root = f.pool.current_root();
     let recipient = String::from_str(&f.env, "GDUMMY");
     let err = f
         .pool
-        .try_withdraw(&recipient, &50_000_000, &root, &decode::<32>(&f.env, FIX_ROOT), &fixture_proof(&f.env))
+        .try_withdraw(
+            &recipient,
+            &50_000_000,
+            &root,
+            &decode::<32>(&f.env, FIX_ROOT),
+            &fixture_proof(&f.env),
+        )
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::VerifierKeyNotSet));
@@ -165,10 +206,16 @@ fn withdraw_full_flow() {
     let (eph, ct) = dummy_bytes(&f.env);
     let token = token::Client::new(&f.env, &f.asset);
 
-    f.pool.deposit(&f.payer, &decode::<32>(&f.env, WD_COMMITMENT), &WD_AMOUNT, &eph, &ct);
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, WD_COMMITMENT),
+        &WD_AMOUNT,
+        &eph,
+        &ct,
+    );
     // Contract Poseidon tree matches the circuit's proved root.
     assert_eq!(f.pool.current_root(), decode::<32>(&f.env, WD_ROOT));
-    f.pool.set_verifier_key(&f.admin, &fixture_vk(&f.env));
+    f.pool.set_verifier_key(&fixture_vk(&f.env));
     assert_eq!(token.balance(&f.pool.address), WD_AMOUNT);
 
     // Fixture proof is bound to a contract address (SAC transfers to contracts
@@ -184,7 +231,8 @@ fn withdraw_full_flow() {
         c: decode::<64>(&f.env, WD_PROOF_C),
     };
 
-    f.pool.withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof);
+    f.pool
+        .withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof);
     assert_eq!(
         f.env.events().all().filter_by_contract(&f.pool.address),
         soroban_sdk::vec![
@@ -225,11 +273,17 @@ fn transfer_full_flow() {
     let token = token::Client::new(&f.env, &f.asset);
 
     // Deposit the input note at leaf 0; contract tree lands on the proved root.
-    f.pool.deposit(&f.payer, &decode::<32>(&f.env, TR_IN_COMMITMENT), &TR_IN_AMOUNT, &eph, &ct);
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, TR_IN_COMMITMENT),
+        &TR_IN_AMOUNT,
+        &eph,
+        &ct,
+    );
     assert_eq!(f.pool.current_root(), decode::<32>(&f.env, TR_ROOT));
     assert_eq!(token.balance(&f.pool.address), TR_IN_AMOUNT);
 
-    f.pool.set_transfer_verifier_key(&f.admin, &transfer_vk(&f.env));
+    f.pool.set_transfer_verifier_key(&transfer_vk(&f.env));
     assert!(f.pool.has_transfer_verifier_key());
 
     let root = decode::<32>(&f.env, TR_ROOT);
@@ -243,7 +297,15 @@ fn transfer_full_flow() {
     let change_com = decode::<32>(&f.env, TR_CHANGE_COMMITMENT);
 
     let (recipient_index, change_index) = f.pool.transfer(
-        &root, &nullifier, &proof, &recipient_com, &eph, &ct, &change_com, &eph, &ct,
+        &root,
+        &nullifier,
+        &proof,
+        &recipient_com,
+        &eph,
+        &ct,
+        &change_com,
+        &eph,
+        &ct,
     );
     assert_eq!(
         f.env.events().all().filter_by_contract(&f.pool.address),
@@ -276,7 +338,17 @@ fn transfer_full_flow() {
     // Replay is rejected by the nullifier.
     let err = f
         .pool
-        .try_transfer(&root, &nullifier, &proof, &recipient_com, &eph, &ct, &change_com, &eph, &ct)
+        .try_transfer(
+            &root,
+            &nullifier,
+            &proof,
+            &recipient_com,
+            &eph,
+            &ct,
+            &change_com,
+            &eph,
+            &ct,
+        )
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::DoubleSpend));
@@ -287,7 +359,13 @@ fn transfer_requires_verifier_key() {
     use super::transfer_fixture::*;
     let f = setup();
     let (eph, ct) = dummy_bytes(&f.env);
-    f.pool.deposit(&f.payer, &decode::<32>(&f.env, TR_IN_COMMITMENT), &TR_IN_AMOUNT, &eph, &ct);
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, TR_IN_COMMITMENT),
+        &TR_IN_AMOUNT,
+        &eph,
+        &ct,
+    );
     let root = f.pool.current_root();
     let proof = Proof {
         a: decode::<64>(&f.env, TR_PROOF_A),
@@ -317,13 +395,189 @@ fn transfer_requires_verifier_key() {
 #[test]
 fn withdraw_unknown_root_rejected() {
     let f = setup();
-    f.pool.set_verifier_key(&f.admin, &fixture_vk(&f.env));
+    f.pool.set_verifier_key(&fixture_vk(&f.env));
     let bogus_root = BytesN::from_array(&f.env, &[9u8; 32]);
     let recipient = String::from_str(&f.env, "GDUMMY");
     let err = f
         .pool
-        .try_withdraw(&recipient, &50_000_000, &bogus_root, &decode::<32>(&f.env, FIX_ROOT), &fixture_proof(&f.env))
+        .try_withdraw(
+            &recipient,
+            &50_000_000,
+            &bogus_root,
+            &decode::<32>(&f.env, FIX_ROOT),
+            &fixture_proof(&f.env),
+        )
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::UnknownRoot));
+}
+
+// --- pause / admin / upgrade --------------------------------------------------
+
+// Once paused, deposit/withdraw/transfer all reject with Error::Paused; after
+// unpause the (real-proof) withdraw settles and a fresh deposit is accepted.
+#[test]
+fn pause_blocks_deposit_withdraw_transfer() {
+    use super::withdraw_fixture::*;
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+
+    // Seed a spendable note + verifier key while still unpaused.
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, WD_COMMITMENT),
+        &WD_AMOUNT,
+        &eph,
+        &ct,
+    );
+    f.pool.set_verifier_key(&fixture_vk(&f.env));
+    let recipient = String::from_str(&f.env, WD_RECIPIENT);
+    let root = decode::<32>(&f.env, WD_ROOT);
+    let nullifier = decode::<32>(&f.env, WD_NULLIFIER);
+    let proof = Proof {
+        a: decode::<64>(&f.env, WD_PROOF_A),
+        b: decode::<128>(&f.env, WD_PROOF_B),
+        c: decode::<64>(&f.env, WD_PROOF_C),
+    };
+
+    f.pool.pause();
+    assert!(f.pool.is_paused());
+
+    // All three mutating entrypoints are frozen (Paused is checked first, so the
+    // exact args below never matter).
+    assert_eq!(
+        f.pool
+            .try_deposit(&f.payer, &nullifier, &1, &nullifier, &ct)
+            .err()
+            .unwrap(),
+        Ok(Error::Paused)
+    );
+    assert_eq!(
+        f.pool
+            .try_withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof)
+            .err()
+            .unwrap(),
+        Ok(Error::Paused)
+    );
+    assert_eq!(
+        f.pool
+            .try_transfer(
+                &root, &nullifier, &proof, &nullifier, &nullifier, &ct, &nullifier, &nullifier, &ct
+            )
+            .err()
+            .unwrap(),
+        Ok(Error::Paused)
+    );
+
+    // Unpause and confirm the paths work again.
+    f.pool.unpause();
+    assert!(!f.pool.is_paused());
+    let token = token::Client::new(&f.env, &f.asset);
+    f.pool
+        .withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof);
+    assert_eq!(token.balance(&Address::from_string(&recipient)), WD_AMOUNT);
+    f.pool.deposit(
+        &f.payer,
+        &decode::<32>(&f.env, FIX_COMMITMENT),
+        &50_000_000,
+        &eph,
+        &ct,
+    );
+}
+
+// A caller without the admin's auth cannot pause.
+#[test]
+fn only_admin_can_pause() {
+    let f = setup();
+    f.env.set_auths(&[]);
+    assert!(f.pool.try_pause().is_err());
+}
+
+// A caller without the admin's auth cannot upgrade.
+#[test]
+fn only_admin_can_upgrade() {
+    let f = setup();
+    f.env.set_auths(&[]);
+    let hash = BytesN::from_array(&f.env, &[0u8; 32]);
+    assert!(f.pool.try_upgrade(&hash).is_err());
+}
+
+// A caller without the admin's auth cannot rotate the verifier key.
+#[test]
+fn only_admin_can_set_verifier_key() {
+    let f = setup();
+    f.env.set_auths(&[]);
+    assert!(f.pool.try_set_verifier_key(&fixture_vk(&f.env)).is_err());
+}
+
+// After a two-step handoff the new admin controls pause and the old admin is locked out.
+#[test]
+fn admin_handoff_transfers_control() {
+    let f = setup();
+    let new_admin = Address::generate(&f.env);
+    f.pool.propose_admin(&new_admin);
+    assert_eq!(f.pool.pending_admin(), Some(new_admin.clone()));
+    f.pool.accept_admin();
+    assert_eq!(f.pool.admin(), new_admin);
+    assert_eq!(f.pool.pending_admin(), None);
+
+    // Old admin's signature no longer satisfies the admin gate.
+    f.env.mock_auths(&[MockAuth {
+        address: &f.admin,
+        invoke: &MockAuthInvoke {
+            contract: &f.pool.address,
+            fn_name: "pause",
+            args: ().into_val(&f.env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(f.pool.try_pause().is_err());
+
+    // New admin can pause.
+    f.env.mock_auths(&[MockAuth {
+        address: &new_admin,
+        invoke: &MockAuthInvoke {
+            contract: &f.pool.address,
+            fn_name: "pause",
+            args: ().into_val(&f.env),
+            sub_invokes: &[],
+        },
+    }]);
+    f.pool.pause();
+    assert!(f.pool.is_paused());
+}
+
+#[test]
+fn admin_can_cancel_handoff() {
+    let f = setup();
+    let new_admin = Address::generate(&f.env);
+    f.pool.propose_admin(&new_admin);
+    f.pool.cancel_admin_transfer();
+    assert_eq!(f.pool.pending_admin(), None);
+    assert_eq!(f.pool.admin(), f.admin);
+    assert_eq!(
+        f.pool.try_accept_admin().err().unwrap(),
+        Ok(Error::AdminTransferNotPending)
+    );
+}
+
+#[test]
+fn only_pending_admin_can_accept_handoff() {
+    let f = setup();
+    let new_admin = Address::generate(&f.env);
+    let wrong_admin = Address::generate(&f.env);
+    f.pool.propose_admin(&new_admin);
+
+    f.env.mock_auths(&[MockAuth {
+        address: &wrong_admin,
+        invoke: &MockAuthInvoke {
+            contract: &f.pool.address,
+            fn_name: "accept_admin",
+            args: ().into_val(&f.env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(f.pool.try_accept_admin().is_err());
+    assert_eq!(f.pool.admin(), f.admin);
+    assert_eq!(f.pool.pending_admin(), Some(new_admin));
 }

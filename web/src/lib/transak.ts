@@ -1,8 +1,8 @@
 "use client";
 
-import { type Memo, Networks } from "@stellar/stellar-sdk";
+import type { Memo } from "@stellar/stellar-sdk";
 import { buildMemoFrom } from "./anchor";
-import { networkPassphrase } from "./stellar";
+import { isMainnet } from "./stellar";
 
 export const transakApiKey = process.env.NEXT_PUBLIC_TRANSAK_API_KEY || "";
 
@@ -14,8 +14,6 @@ export const transakEnvironment: "STAGING" | "PRODUCTION" =
 
 export const transakFiatCurrency =
   process.env.NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY || "";
-
-export const isMainnet = networkPassphrase === Networks.PUBLIC;
 
 export const transakEnabled = Boolean(transakApiKey) && isMainnet;
 

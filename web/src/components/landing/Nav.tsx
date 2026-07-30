@@ -65,7 +65,9 @@ export function EditionsTopNav() {
               title={address}
             >
               <span className="max-w-24 truncate sm:max-w-40">
-                {`@${username}`}
+                {username
+                  ? `@${username}`
+                  : `${address.slice(0, 4)}…${address.slice(-4)}`}
               </span>
               <ChevronDown
                 aria-hidden="true"

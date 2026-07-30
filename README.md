@@ -338,7 +338,8 @@ This repo is testnet-stage. Before mainnet, Olio still needs:
 - A real multi-party trusted setup ceremony for production circuits.
 - Independent security review of the contracts, circuits, relay, and web flows.
 - Mainnet CCTP, SEP-24, and passkey operational hardening.
-- Sponsored-account strategy for bridge accounts instead of friendbot funding.
-- Monitoring, alerting, and runbooks for relay and indexer operations.
+- Mainnet pool deployment under the rehearsed multisig admin process.
+- Monitoring and alerting for the bridge sponsor, relay, and indexer.
+- An account-merge sweep to recover residual XLM from cash-out bridges.
 - Clear compliance policy for supported anchors, disclosure, abuse handling, and
   jurisdiction-specific requirements.

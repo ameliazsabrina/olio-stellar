@@ -10,26 +10,44 @@ import {
   TransactionBuilder,
   WebAuth,
 } from "@stellar/stellar-sdk";
-import { networkPassphrase } from "./stellar";
+import { api } from "../trpc/client";
+import { isMainnet, networkPassphrase } from "./stellar";
 
 // --- config -----------------------------------------------------------------
 // The off-ramp is anchor-agnostic: everything is discovered from the anchor's
 // SEP-1 stellar.toml at the configured home domain. Testnet defaults point at
 // the SDF reference anchor, whose USDC issuer happens to match our pool asset
 // (see NEXT_PUBLIC_USDC_ISSUER), so a withdrawal settles end-to-end on testnet.
+const configuredAnchorUrl = process.env.NEXT_PUBLIC_SEP24_ANCHOR_URL;
 export const anchorHomeDomain = (
-  process.env.NEXT_PUBLIC_SEP24_ANCHOR_URL || "https://testanchor.stellar.org"
+  configuredAnchorUrl === undefined
+    ? isMainnet
+      ? ""
+      : "https://testanchor.stellar.org"
+    : configuredAnchorUrl
 ).replace(/\/+$/, "");
 export const offRampAssetCode =
   process.env.NEXT_PUBLIC_SEP24_ASSET_CODE || "USDC";
 export const offRampAssetIssuer = process.env.NEXT_PUBLIC_USDC_ISSUER || "";
+export const sep10ClientDomain = (
+  process.env.NEXT_PUBLIC_SEP10_CLIENT_DOMAIN || ""
+)
+  .replace(/^https?:\/\//, "")
+  .replace(/\/+$/, "");
 export const horizonUrl =
   process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
   "https://horizon-testnet.stellar.org";
+const configuredFriendbotUrl = process.env.NEXT_PUBLIC_FRIENDBOT_URL;
 export const friendbotUrl =
-  process.env.NEXT_PUBLIC_FRIENDBOT_URL || "https://friendbot.stellar.org";
+  configuredFriendbotUrl === undefined
+    ? isMainnet
+      ? ""
+      : "https://friendbot.stellar.org"
+    : configuredFriendbotUrl;
 
-export const offRampEnabled = Boolean(anchorHomeDomain && offRampAssetIssuer);
+export const offRampEnabled = Boolean(
+  anchorHomeDomain && offRampAssetIssuer && (!isMainnet || sep10ClientDomain),
+);
 
 export const horizon = new Horizon.Server(horizonUrl, {
   allowHttp: horizonUrl.startsWith("http://"),
@@ -72,6 +90,26 @@ export async function fetchAnchorInfo(
   ) {
     throw new Error("Anchor is on a different Stellar network.");
   }
+  if (isMainnet) {
+    const endpoints = [webAuthEndpoint, transferServer];
+    if (
+      !homeDomain.startsWith("https://") ||
+      endpoints.some((endpoint) => !endpoint.startsWith("https://"))
+    ) {
+      throw new Error("Mainnet anchor endpoints must use HTTPS.");
+    }
+  }
+  const supportsAsset = toml.CURRENCIES?.some(
+    (currency) =>
+      currency.code === offRampAssetCode &&
+      currency.issuer === offRampAssetIssuer &&
+      currency.status !== "dead",
+  );
+  if (!supportsAsset) {
+    throw new Error(
+      `Anchor does not advertise the configured ${offRampAssetCode} asset.`,
+    );
+  }
   return {
     homeDomain: domain,
     webAuthEndpoint: webAuthEndpoint.replace(/\/+$/, ""),
@@ -92,6 +130,9 @@ export async function authenticate(
   const url = new URL(info.webAuthEndpoint);
   url.searchParams.set("account", account.publicKey());
   url.searchParams.set("home_domain", info.homeDomain);
+  if (sep10ClientDomain) {
+    url.searchParams.set("client_domain", sep10ClientDomain);
+  }
 
   const challengeRes = await fetch(url.toString());
   if (!challengeRes.ok) {
@@ -118,11 +159,19 @@ export async function authenticate(
   }
 
   tx.sign(account);
+  const signedTransaction = sep10ClientDomain
+    ? (
+        await api.anchor.signClientChallenge.mutate({
+          transactionXdr: tx.toXDR(),
+          bridgePublicKey: account.publicKey(),
+        })
+      ).signedTransactionXdr
+    : tx.toXDR();
 
   const tokenRes = await fetch(info.webAuthEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transaction: tx.toXDR() }),
+    body: JSON.stringify({ transaction: signedTransaction }),
   });
   if (!tokenRes.ok) {
     throw new Error(`SEP-10 token exchange failed (${tokenRes.status}).`);
@@ -159,15 +208,37 @@ export async function fetchWithdrawLimits(
 
 // --- SEP-24: interactive withdraw -------------------------------------------
 
+export type Sep24Status =
+  | "incomplete"
+  | "pending_user_transfer_start"
+  | "pending_user_transfer_complete"
+  | "pending_external"
+  | "pending_anchor"
+  | "pending_stellar"
+  | "pending_trust"
+  | "pending_user"
+  | "pending_transaction_info_update"
+  | "pending_customer_info_update"
+  | "pending_receiver"
+  | "completed"
+  | "refunded"
+  | "expired"
+  | "no_market"
+  | "too_small"
+  | "too_large"
+  | "error";
+
 export type Sep24Transaction = {
   id: string;
-  status: string;
+  status: Sep24Status;
   amount_in?: string;
   amount_out?: string;
   amount_fee?: string;
   withdraw_anchor_account?: string;
   withdraw_memo?: string;
   withdraw_memo_type?: "text" | "id" | "hash";
+  external_transaction_id?: string;
+  stellar_transaction_id?: string;
   more_info_url?: string;
   message?: string;
 };
@@ -195,6 +266,10 @@ export async function startInteractiveWithdraw(
         asset_code: offRampAssetCode,
         account,
         amount,
+        lang: "en",
+        wallet_name: "Olio",
+        wallet_url:
+          typeof window === "undefined" ? undefined : window.location.origin,
       }),
     },
   );
@@ -237,6 +312,25 @@ export async function getSep24Transaction(
   return transaction;
 }
 
+const SEP24_FAILURE_STATUSES = new Set<Sep24Status>([
+  "error",
+  "expired",
+  "no_market",
+  "too_small",
+  "too_large",
+  "refunded",
+]);
+
+export class Sep24PollTimeoutError extends Error {
+  constructor(
+    message: string,
+    public readonly lastTransaction: Sep24Transaction,
+  ) {
+    super(message);
+    this.name = "Sep24PollTimeoutError";
+  }
+}
+
 /// Poll until the transaction reaches one of `until` statuses (or a terminal
 /// error/expiry). Returns the last observed transaction.
 export async function pollSep24Until(
@@ -248,9 +342,17 @@ export async function pollSep24Until(
 ): Promise<Sep24Transaction> {
   const deadline = Date.now() + timeoutMs;
   let tx = await getSep24Transaction(info, token, id);
-  while (!until(tx) && Date.now() < deadline) {
-    if (tx.status === "error" || tx.status === "expired") {
-      throw new Error(tx.message || `Withdrawal ${tx.status}.`);
+  while (!until(tx)) {
+    if (SEP24_FAILURE_STATUSES.has(tx.status)) {
+      throw new Error(
+        tx.message || `Withdrawal cannot continue (${tx.status}).`,
+      );
+    }
+    if (Date.now() >= deadline) {
+      throw new Sep24PollTimeoutError(
+        "Timed out waiting for the anchor. Reopen the withdrawal and check its status.",
+        tx,
+      );
     }
     await sleep(intervalMs);
     tx = await getSep24Transaction(info, token, id);

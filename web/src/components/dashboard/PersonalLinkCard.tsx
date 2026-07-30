@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { PaymentQrDialog } from "./PaymentQrDialog";
+import { ShareLinkDialog, ShareLinkSketchIcon } from "./ShareLinkDialog";
 
 export function PersonalLinkCard({
   payLink,
@@ -14,7 +15,9 @@ export function PersonalLinkCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const qrTriggerRef = useRef<HTMLButtonElement>(null);
+  const shareTriggerRef = useRef<HTMLButtonElement>(null);
   const displayLink = payLink.replace(/^https?:\/\//, "");
 
   async function handleCopy() {
@@ -29,12 +32,26 @@ export function PersonalLinkCard({
       appearance="glass"
       className="relative justify-between gap-4 p-5 sm:p-6"
     >
-      <div>
+      <div className="pr-12">
         <h2 className="font-heading text-lg font-semibold text-white">
           Personal pay link
         </h2>
         <p className="text-sm text-white/55">Share to get paid</p>
       </div>
+
+      <Button
+        ref={shareTriggerRef}
+        size="icon"
+        variant="glass"
+        className="absolute right-4 top-4 size-10"
+        onClick={() => setShareOpen(true)}
+        disabled={!payLink}
+        aria-label="Share personal payment link"
+        aria-expanded={shareOpen}
+        title="Share link"
+      >
+        <ShareLinkSketchIcon />
+      </Button>
 
       <div className="grid min-h-0 gap-3">
         <div className="flex items-center gap-3 rounded-lg bg-white/7 p-3 ring-1 ring-white/12 backdrop-blur-md">
@@ -91,12 +108,20 @@ export function PersonalLinkCard({
       </div>
 
       {payLink ? (
-        <PaymentQrDialog
-          open={qrOpen}
-          onOpenChange={setQrOpen}
-          url={payLink}
-          triggerRef={qrTriggerRef}
-        />
+        <>
+          <PaymentQrDialog
+            open={qrOpen}
+            onOpenChange={setQrOpen}
+            url={payLink}
+            triggerRef={qrTriggerRef}
+          />
+          <ShareLinkDialog
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            url={payLink}
+            triggerRef={shareTriggerRef}
+          />
+        </>
       ) : null}
     </Card>
   );

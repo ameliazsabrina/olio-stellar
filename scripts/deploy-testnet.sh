@@ -56,21 +56,14 @@ log "Deploying olio-pool"
 POOL_ID=$(stellar contract deploy \
   --wasm "${POOL_WASM}" \
   --source "${SOURCE_ACCOUNT}" \
-  --network "${NETWORK}")
-log "Pool: ${POOL_ID}"
-
-# 5. Initialize the pool with the USDC SAC.
-log "Initializing pool (asset=USDC, depth=${POOL_DEPTH})"
-stellar contract invoke \
-  --id "${POOL_ID}" \
-  --source "${SOURCE_ACCOUNT}" \
   --network "${NETWORK}" \
-  -- initialize \
+  -- \
   --admin "${ADMIN_ADDR}" \
   --asset "${USDC_SAC}" \
-  --depth "${POOL_DEPTH}"
+  --depth "${POOL_DEPTH}")
+log "Pool: ${POOL_ID}"
 
-# 6. Register the Groth16 verification key (from the circuit build).
+# 5. Register the Groth16 verification key (from the circuit build).
 VK_FILE="circuits/build/vk_soroban.json"
 if [ ! -f "${VK_FILE}" ]; then
   echo "Missing ${VK_FILE}. Run circuits/build.sh first." >&2
@@ -82,10 +75,9 @@ stellar contract invoke \
   --source "${SOURCE_ACCOUNT}" \
   --network "${NETWORK}" \
   -- set_verifier_key \
-  --admin "${ADMIN_ADDR}" \
   --vk "$(cat "${VK_FILE}")"
 
-# 6a. Register the transfer (shielded send) Groth16 verification key.
+# 5a. Register the transfer (shielded send) Groth16 verification key.
 VK_TRANSFER_FILE="circuits/build/vk_transfer_soroban.json"
 if [ ! -f "${VK_TRANSFER_FILE}" ]; then
   echo "Missing ${VK_TRANSFER_FILE}. Run circuits/build.sh first." >&2
@@ -97,10 +89,9 @@ stellar contract invoke \
   --source "${SOURCE_ACCOUNT}" \
   --network "${NETWORK}" \
   -- set_transfer_verifier_key \
-  --admin "${ADMIN_ADDR}" \
   --vk "$(cat "${VK_TRANSFER_FILE}")"
 
-# 6b. Build + upload the vendored passkey smart-wallet WASM. It lives in its own
+# 5b. Build + upload the vendored passkey smart-wallet WASM. It lives in its own
 # workspace (soroban-sdk 23, excluded from the root) and is uploaded, not
 # instantiated — clients deploy a per-user smart-wallet instance from this hash
 # (no factory contract).
@@ -112,7 +103,7 @@ SMART_WALLET_WASM_HASH=$(stellar contract upload \
   --network "${NETWORK}")
 log "Smart-wallet WASM hash: ${SMART_WALLET_WASM_HASH}"
 
-# 6c. CCTP intake/forwarder contract + relay operator.
+# 5c. CCTP intake/forwarder contract + relay operator.
 #
 # Circle's Stellar CCTP minter always mints to a *contract* address, so the
 # intake is a Soroban contract (not a G-account). The dedicated operator account

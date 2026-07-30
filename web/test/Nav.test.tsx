@@ -14,6 +14,9 @@ vi.mock("../src/components/landing/StellarWalletModal", () => ({
   StellarWalletModal: () => null,
 }));
 vi.mock("next/image", () => ({ default: () => null }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 import { EditionsTopNav } from "../src/components/landing/Nav";
 

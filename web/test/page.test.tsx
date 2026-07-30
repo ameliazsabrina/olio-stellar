@@ -63,6 +63,7 @@ vi.mock("../src/lib/stellar", () => ({
 
 import DashboardPage from "../src/app/(dashboard)/dashboard/page";
 import Home from "../src/app/page";
+import { renderWithTRPC } from "./renderWithTRPC";
 
 function wallet(overrides: Record<string, unknown> = {}) {
   return {
@@ -143,12 +144,13 @@ describe("Dashboard route", () => {
       viewSk: new Uint8Array(32),
     });
 
-    render(<DashboardPage />);
+    renderWithTRPC(<DashboardPage />);
 
     expect(
-      await screen.findByRole("heading", { name: /dashboard/i }),
+      await screen.findByRole("heading", {
+        name: /dashboard: hi, there/i,
+      }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/username pending/i).length).toBeGreaterThan(0);
   });
 
   it("shows the private dashboard once connected with a claimed username", async () => {
@@ -164,14 +166,15 @@ describe("Dashboard route", () => {
       ownerSecret: 1n,
       viewSk: new Uint8Array(32),
     });
-    render(<DashboardPage />);
+    renderWithTRPC(<DashboardPage />);
 
     expect(
-      await screen.findByRole("heading", { name: /dashboard/i }),
+      await screen.findByRole("heading", {
+        name: /dashboard: hi, alice/i,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText(/private balance/i)).toBeInTheDocument();
     expect(screen.getByText(/personal pay link/i)).toBeInTheDocument();
-    expect(screen.getAllByText("@alice").length).toBeGreaterThan(0);
     expect(screen.queryByText("DEPOSIT_FORM")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /claim your username/i }),

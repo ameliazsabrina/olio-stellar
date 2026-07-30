@@ -17,6 +17,7 @@ import {
   fetchAnchorInfo,
   fetchWithdrawLimits,
   pollSep24Until,
+  Sep24PollTimeoutError,
   type Sep24Transaction,
   sendWithdrawalPayment,
   startInteractiveWithdraw,
@@ -189,20 +190,23 @@ export function OffRampContent({
     // is the whole point of the ordering below.
     const bridge: Bridge = createBridge();
     let released = false;
+    let paymentSent = false;
     try {
       const acct = getAccount();
       if (!acct) throw new Error("No local account found on this device.");
       const amount = fromBaseUnits(selected.amount);
 
-      // 1 · one-time bridge account (XLM + trustline). No funds move yet.
+      // 1 · verify the configured anchor before spending sponsor XLM.
+      const info = await fetchAnchorInfo();
+
+      // 2 · one-time bridge account (XLM + trustline). No USDC moves yet.
       setPrepPhase("fund");
       await provisionBridge(bridge);
 
-      // 2 · SEP-10 auth + open the interactive withdrawal, then redirect the
+      // 3 · SEP-10 auth + open the interactive withdrawal, then redirect the
       // user to the anchor — all BEFORE spending the note, so a failure or an
       // abandoned KYC never strands funds.
       setPrepPhase("auth");
-      const info = await fetchAnchorInfo();
       const token = await authenticate(info, bridge.keypair);
       setPrepPhase("init");
       const { id, url } = await startInteractiveWithdraw(
@@ -216,7 +220,7 @@ export function OffRampContent({
       setInteractive({ info, token, id, url });
       setStep("interactive");
 
-      // 3 · wait for the user to finish KYC/bank details in the anchor window.
+      // 4 · wait for the user to finish KYC/pickup details in the anchor window.
       const ready = await pollSep24Until(
         info,
         token,
@@ -226,10 +230,18 @@ export function OffRampContent({
           tx.status === "completed",
       );
 
-      // 4 · only NOW, once the anchor is ready for the payment, release the note
+      // 5 · only NOW, once the anchor is ready for the payment, release the note
       // into the bridge and settle. Re-scan for the freshest Merkle root (the
       // pool keeps a 30-root history, so the KYC wait can't stale the proof).
       if (ready.status !== "completed") {
+        if (
+          !ready.amount_in ||
+          toBaseUnits(ready.amount_in) !== selected.amount
+        ) {
+          throw new Error(
+            "Anchor payment instructions do not match the selected amount.",
+          );
+        }
         setStep("settling");
         const scan = await scanMyNotes(acct);
         const note = scan.notes.find(
@@ -248,15 +260,31 @@ export function OffRampContent({
         });
         released = true;
         await sendWithdrawalPayment(bridge.keypair, ready);
+        paymentSent = true;
       }
 
-      const final = await pollSep24Until(
-        info,
-        token,
-        id,
-        (tx) => tx.status === "completed",
-      );
-      // Settled end-to-end — the bridge is drained, drop the recovery record.
+      let final: Sep24Transaction;
+      try {
+        final = await pollSep24Until(
+          info,
+          token,
+          id,
+          (tx) =>
+            tx.status === "pending_user_transfer_complete" ||
+            tx.status === "completed",
+        );
+      } catch (pollError) {
+        // The on-chain payment is final even if the anchor takes longer to
+        // publish a pickup reference. Show a submitted state without pretending
+        // the cash pickup has completed.
+        if (paymentSent && pollError instanceof Sep24PollTimeoutError) {
+          final = pollError.lastTransaction;
+        } else {
+          throw pollError;
+        }
+      }
+      // The bridge was drained by the successful anchor payment. A later cash
+      // pickup is tracked by the SEP-24 transaction, not by the bridge secret.
       clearPersistedBridge(id);
       setSettled(final);
       setStep("done");
@@ -269,7 +297,9 @@ export function OffRampContent({
       // account — say so rather than implying the money is simply gone.
       setError(
         released
-          ? `${msg} Your USDC is safe on a recovery account and can be reclaimed — it has not been lost.`
+          ? paymentSent
+            ? `${msg} The Stellar payment was already sent to the anchor; reopen the anchor window and check the withdrawal status.`
+            : `${msg} Your USDC is safe on a recovery account and can be reclaimed — it has not been lost.`
           : msg,
       );
       setStep("select");
@@ -291,9 +321,9 @@ export function OffRampContent({
         <div className="flex items-start gap-2 rounded-lg bg-white/8 px-3 py-2.5 text-xs text-white/70 ring-1 ring-white/12">
           <Landmark className="mt-0.5 size-4 shrink-0 text-white/70" />
           <span>
-            Cash out to your bank through{" "}
+            Cash out as local currency through{" "}
             <b className="font-semibold text-white">{anchorLabel()}</b>.
-            Identity and bank details are handled by the anchor — they never
+            Identity and pickup details are handled by the anchor — they never
             touch Olio.
           </span>
         </div>
@@ -352,7 +382,7 @@ export function OffRampContent({
 
         <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
           <Banknote className="size-4" aria-hidden="true" />
-          Continue to bank
+          Continue to cash-out
         </Button>
       </div>
     );
@@ -389,7 +419,7 @@ export function OffRampContent({
         </div>
         <p className="text-sm text-white/65">
           Finish in the secure {anchorLabel()} window: verify your identity and
-          enter where the cash should land. This screen updates automatically
+          choose where to collect your cash. This screen updates automatically
           once you're done.
         </p>
         <Button
@@ -447,11 +477,28 @@ export function OffRampContent({
             Cash-out submitted
           </h2>
           <p className="max-w-md text-sm text-white/65">
-            {settled?.amount_out
-              ? `${settled.amount_out} on its way to your bank via ${anchorLabel()}.`
-              : `Your withdrawal is being processed by ${anchorLabel()}.`}{" "}
-            Track it in the anchor window.
+            {settled?.status === "completed"
+              ? `Your withdrawal through ${anchorLabel()} is complete.`
+              : settled?.external_transaction_id
+                ? `Show reference ${settled.external_transaction_id} when collecting your cash.`
+                : `Your Stellar payment was submitted to ${anchorLabel()}. Open the anchor status page for pickup details.`}
           </p>
+          {settled?.more_info_url ? (
+            <Button
+              variant="glass"
+              nativeButton={false}
+              render={
+                <a
+                  href={settled.more_info_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <ExternalLink className="size-4" aria-hidden="true" />
+              View cash-out status
+            </Button>
+          ) : null}
         </div>
       </div>
     );
