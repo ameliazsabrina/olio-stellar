@@ -91,9 +91,7 @@ describe("EditionsTopNav", () => {
     await userEvent.click(cta);
     expect(mocks.openUsernameModal).toHaveBeenCalledTimes(1);
 
-    // The shortened-address disconnect pill is still shown.
-    expect(
-      screen.getByRole("button", { name: /GCAB…5678/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
+    expect(screen.queryByText(/GCAB|5678/)).not.toBeInTheDocument();
   });
 });

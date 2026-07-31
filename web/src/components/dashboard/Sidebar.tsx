@@ -50,7 +50,7 @@ const NAV_ITEMS = [
     icon: ArrowDownToLine,
   },
   { label: "History", href: HISTORY_PATH, icon: History },
-  { label: "Settings", href: "/dashboard#settings", icon: Settings },
+  // { label: "Settings", href: "/dashboard#settings", icon: Settings },
 ] as const;
 
 function IdentityChip() {

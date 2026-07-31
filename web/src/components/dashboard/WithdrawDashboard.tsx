@@ -10,9 +10,10 @@ import {
   LockKeyhole,
   ShieldCheck,
   Wallet,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -35,6 +36,7 @@ import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -79,6 +81,15 @@ function formatUsd(units: bigint): string {
   });
 }
 
+function formatWithdrawalUsd(units: bigint): string {
+  return Number(fromBaseUnits(units)).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
 function targetTotal(target: WithdrawalTarget | null): bigint {
   if (!target) return 0n;
   if (target.kind === "one") return target.note.amount;
@@ -99,6 +110,7 @@ export function WithdrawDashboard() {
   const [walletStep, setWalletStep] = useState<WalletStep>("form");
   const [bankBusy, setBankBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const withdrawalRunIdRef = useRef(0);
   const {
     register,
     handleSubmit,
@@ -123,6 +135,7 @@ export function WithdrawDashboard() {
       (dialogView === "wallet" && walletStep === "form"));
 
   function openWithdrawal(nextTarget: WithdrawalTarget) {
+    withdrawalRunIdRef.current += 1;
     setTarget(nextTarget);
     setDialogView("method");
     setWalletStep("form");
@@ -132,7 +145,8 @@ export function WithdrawDashboard() {
   }
 
   function closeWithdrawal() {
-    if (dialogBusy) return;
+    if (bankBusy) return;
+    withdrawalRunIdRef.current += 1;
     setTarget(null);
     setDialogView("method");
     setWalletStep("form");
@@ -157,6 +171,10 @@ export function WithdrawDashboard() {
 
   async function confirm() {
     if (!target) return;
+    const runId = withdrawalRunIdRef.current + 1;
+    withdrawalRunIdRef.current = runId;
+    const isCurrentRun = () => withdrawalRunIdRef.current === runId;
+
     setSubmitError(null);
     setWalletStep("proving");
     try {
@@ -197,9 +215,11 @@ export function WithdrawDashboard() {
           );
         }
         await refresh();
-        setBankBusy(false);
-        setWalletStep("form");
-        setTarget(null);
+        if (isCurrentRun()) {
+          setBankBusy(false);
+          setWalletStep("form");
+          setTarget(null);
+        }
         return;
       }
 
@@ -223,21 +243,32 @@ export function WithdrawDashboard() {
         id: "wallet-withdrawal-success",
       });
       await refresh();
-      setBankBusy(false);
-      setWalletStep("form");
-      setTarget(null);
-    } catch (error) {
-      if (isAlreadyCashedOut(error)) {
-        setSubmitError("This payment was already cashed out.");
-        refresh();
-      } else {
-        setSubmitError(
-          error instanceof Error
-            ? error.message
-            : "Withdrawal failed. Try again.",
-        );
+      if (isCurrentRun()) {
+        setBankBusy(false);
+        setWalletStep("form");
+        setTarget(null);
       }
-      setWalletStep("review");
+    } catch (error) {
+      const alreadyCashedOut = isAlreadyCashedOut(error);
+      const message = alreadyCashedOut
+        ? "This payment was already cashed out."
+        : error instanceof Error
+          ? error.message
+          : "Withdrawal failed. Try again.";
+
+      if (alreadyCashedOut) {
+        refresh();
+      }
+
+      if (isCurrentRun()) {
+        setSubmitError(message);
+        setWalletStep("review");
+      } else {
+        toast.error("Withdrawal failed", {
+          description: message,
+          id: "wallet-withdrawal-background-error",
+        });
+      }
     }
   }
 
@@ -347,44 +378,63 @@ export function WithdrawDashboard() {
         <DialogContent
           appearance="glass"
           className="max-w-[560px] gap-0 p-0"
-          showCloseButton={!dialogBusy}
+          showCloseButton={false}
         >
-          {target && showMethodBack ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="absolute left-2 top-2 z-10 text-white/60 hover:bg-white/10 hover:text-white"
-              onClick={returnToMethods}
-              aria-label="Back to withdrawal methods"
-              title="Back to withdrawal methods"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-            </Button>
-          ) : null}
-
-          <div
-            className={`border-b border-white/12 p-5 pr-12 sm:p-6 sm:pr-14 ${
-              showMethodBack ? "pl-12 sm:pl-14" : ""
-            }`}
-          >
-            <DialogTitle className="text-xl text-white">
-              {target?.kind === "all"
-                ? "Withdraw all payments"
-                : "Withdraw payment"}
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-white/60">
-              {target ? (
-                <>
-                  <span className="font-mono font-semibold text-white tabular-nums">
-                    {fromBaseUnits(selectedTotal)} USDC
-                  </span>
-                  {target.kind === "all"
-                    ? ` across ${target.notes.length} private payments`
-                    : " from one private payment"}
-                </>
+          <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-start gap-3 border-b border-white/12 p-5 sm:p-6">
+            <div className="size-9">
+              {target && showMethodBack ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-white/60 hover:bg-white/10 hover:text-white"
+                  onClick={returnToMethods}
+                  aria-label="Back to withdrawal methods"
+                  title="Back to withdrawal methods"
+                >
+                  <ArrowLeft className="size-5" aria-hidden="true" />
+                </Button>
               ) : null}
-            </DialogDescription>
+            </div>
+
+            <div className="min-w-0 pt-1 text-center">
+              <DialogTitle className="text-xl leading-7 text-white">
+                {target?.kind === "all"
+                  ? "Withdraw all payments"
+                  : "Withdraw payment"}
+              </DialogTitle>
+              <DialogDescription className="mt-6">
+                {target ? (
+                  <>
+                    <span className="block text-6xl font-medium tracking-tight text-white tabular-nums">
+                      {formatWithdrawalUsd(selectedTotal)}
+                    </span>
+                    <span className="mt-4 block text-xs text-white/60">
+                      {target.kind === "all"
+                        ? `across ${target.notes.length} private payments`
+                        : "from one private payment"}
+                    </span>
+                  </>
+                ) : null}
+              </DialogDescription>
+            </div>
+
+            <div className="size-9">
+              {!bankBusy ? (
+                <DialogClose
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-white/60 hover:bg-white/10 hover:text-white"
+                    />
+                  }
+                >
+                  <X className="size-5" aria-hidden="true" />
+                  <span className="sr-only">Close</span>
+                </DialogClose>
+              ) : null}
+            </div>
           </div>
 
           <div className="p-5 sm:p-6">
@@ -455,7 +505,7 @@ function PaymentCard({
               Private payment
             </p>
             <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
-              {fromBaseUnits(note.amount)}
+              ${fromBaseUnits(note.amount)}
             </p>
             <p className="mt-1 text-sm font-medium text-white/60">USDC</p>
           </div>
@@ -509,7 +559,7 @@ function AllPaymentsCard({
             All payments
           </p>
           <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
-            {fromBaseUnits(total)}
+            ${fromBaseUnits(total)}
           </p>
           <p className="mt-1 text-sm font-medium text-white/60">
             USDC · {notes.length} payments
@@ -697,21 +747,6 @@ function WalletWithdrawal({
   if (step === "form") {
     return (
       <form className="grid gap-5" onSubmit={onReview} noValidate>
-        <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm text-white/60">Sending</span>
-            <span className="font-mono text-xl font-semibold text-white tabular-nums">
-              {fromBaseUnits(amount)} USDC
-            </span>
-          </div>
-          {paymentCount ? (
-            <p className="mt-2 border-t border-white/12 pt-3 text-xs text-white/55">
-              {paymentCount} payments released as {paymentCount} separate
-              zero-knowledge proofs.
-            </p>
-          ) : null}
-        </div>
-
         <div className="grid gap-2">
           <Label className="text-white" htmlFor="withdraw-destination">
             Destination wallet
@@ -747,7 +782,6 @@ function WalletWithdrawal({
 
         <Button type="submit" variant="glass" size="lg" className="w-full">
           Review withdrawal
-          <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
       </form>
     );
@@ -800,7 +834,7 @@ function WalletWithdrawal({
     >
       <div className="flex items-center justify-center gap-3">
         <Loader
-          className="size-8 motion-safe:animate-spin"
+          className="size-4 motion-safe:animate-spin"
           aria-hidden="true"
         />
         <div className="text-sm font-semibold text-white">

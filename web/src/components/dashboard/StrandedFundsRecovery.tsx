@@ -182,14 +182,14 @@ export function StrandedFundsRecovery({
             <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
               {formatUsd(total)}
             </p>
-            <p className="mt-1 text-sm font-medium text-amber-50/65 max-w-[15ch]">
+            {/* <p className="mt-1 text-sm font-medium text-amber-50/65 max-w-[15ch]">
               USDC from an interrupted cash-out
-            </p>
+            </p> */}
           </div>
 
           <RecoverySketch />
 
-          <p className="relative z-10 max-w-[30ch] text-sm leading-5 text-white/65">
+          <p className="relative z-10 max-w-[20ch] text-sm leading-5 text-white/65">
             The payout didn&apos;t finish, but your funds are safe on a recovery
             account.
           </p>

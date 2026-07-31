@@ -214,9 +214,9 @@ function DashboardNavigation() {
           sideOffset={8}
           className="min-w-48"
         >
-          <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
+          {/* <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
             <Settings aria-hidden="true" /> Settings
-          </DropdownMenuItem>
+          </DropdownMenuItem> */}
           <DropdownMenuItem variant="destructive" onClick={disconnect}>
             <LogOut aria-hidden="true" /> Sign out
           </DropdownMenuItem>
