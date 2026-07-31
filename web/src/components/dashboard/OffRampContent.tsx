@@ -4,7 +4,7 @@ import {
   Banknote,
   ExternalLink,
   Landmark,
-  Loader2,
+  Loader,
   ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -325,12 +325,14 @@ export function OffRampContent({
   if (step === "preparing") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2
-          className="size-8 motion-safe:animate-spin"
-          aria-hidden="true"
-        />
-        <div className="text-sm font-semibold text-white">
-          {PREP_LABEL[prepPhase] ?? "Preparing…"}
+        <div className="flex items-center justify-center gap-3">
+          <Loader
+            className="size-8 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <div className="text-sm font-semibold text-white">
+            {PREP_LABEL[prepPhase] ?? "Preparing…"}
+          </div>
         </div>
         <div className="max-w-sm text-sm text-white/65">
           A zero-knowledge proof is generated in your browser before any funds
@@ -373,7 +375,7 @@ export function OffRampContent({
           Open secure {anchorLabel()} window
         </Button>
         <div className="flex items-center justify-center gap-2 text-xs text-white/60">
-          <Loader2
+          <Loader
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
           />
@@ -386,12 +388,14 @@ export function OffRampContent({
   if (step === "settling") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2
-          className="size-8 motion-safe:animate-spin"
-          aria-hidden="true"
-        />
-        <div className="text-sm font-semibold text-white">
-          Sending your payout to the anchor…
+        <div className="flex items-center justify-center gap-3">
+          <Loader
+            className="size-8 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <div className="text-sm font-semibold text-white">
+            Sending your payout to the anchor…
+          </div>
         </div>
         <div className="max-w-sm text-sm text-white/65">
           Completing the on-chain transfer. Hang tight.

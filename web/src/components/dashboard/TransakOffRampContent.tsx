@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Check, Loader2, ShieldCheck } from "lucide-react";
+import { Building2, Check, Loader, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { sendUsdcPayment } from "../../lib/anchor";
 import { fromBaseUnits } from "../../lib/crypto";
@@ -221,12 +221,14 @@ export function TransakOffRampContent({
   if (step === "preparing") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2
-          className="size-8 motion-safe:animate-spin"
-          aria-hidden="true"
-        />
-        <div className="text-sm font-semibold text-white">
-          {PREP_LABEL[prepPhase] ?? "Preparing…"}
+        <div className="flex items-center justify-center gap-3">
+          <Loader
+            className="size-8 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <div className="text-sm font-semibold text-white">
+            {PREP_LABEL[prepPhase] ?? "Preparing…"}
+          </div>
         </div>
         <div className="max-w-sm text-sm text-white/65">
           A one-time payout account is prepared before any funds move. This can
@@ -253,7 +255,7 @@ export function TransakOffRampContent({
           Transak is ready.
         </p>
         <div className="flex items-center justify-center gap-2 text-xs text-white/60">
-          <Loader2
+          <Loader
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
           />
@@ -266,12 +268,14 @@ export function TransakOffRampContent({
   if (step === "settling") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <Loader2
-          className="size-8 motion-safe:animate-spin"
-          aria-hidden="true"
-        />
-        <div className="text-sm font-semibold text-white">
-          Sending your payout to Transak…
+        <div className="flex items-center justify-center gap-3">
+          <Loader
+            className="size-8 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <div className="text-sm font-semibold text-white">
+            Sending your payout to Transak…
+          </div>
         </div>
         <div className="max-w-sm text-sm text-white/65">
           Completing the on-chain transfer. Hang tight.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileCheck, Loader2, ShieldCheck } from "lucide-react";
+import { Download, FileCheck, Loader, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { fromBaseUnits } from "../../lib/crypto";
 import {
@@ -73,8 +73,8 @@ export function DiscloseDialog({
         </DialogTitle>
 
         {step === "building" && (
-          <div className="grid place-items-center gap-3 py-8 text-center">
-            <Loader2
+          <div className="flex items-center justify-center gap-3 py-8 text-center">
+            <Loader
               className="size-8 motion-safe:animate-spin text-olive"
               aria-hidden="true"
             />

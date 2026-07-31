@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Loader, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -100,10 +100,16 @@ export function EditionsTopNav() {
         ) : (
           <button
             type="button"
-            className="inline-flex min-h-[42px] items-center rounded-lg border border-ed-cream bg-ed-cream px-4 text-sm font-semibold text-ed-dark transition-colors hover:bg-white disabled:cursor-default disabled:opacity-55 sm:min-h-[38px] sm:px-[18px] sm:text-base"
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-ed-cream bg-ed-cream px-4 text-sm font-semibold text-ed-dark transition-colors hover:bg-white disabled:cursor-default disabled:opacity-55 sm:min-h-[38px] sm:px-[18px] sm:text-base"
             onClick={() => setWalletModalOpen(true)}
             disabled={connecting}
           >
+            {connecting && (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            )}
             {connecting ? "Signing in…" : "Sign in"}
           </button>
         )}

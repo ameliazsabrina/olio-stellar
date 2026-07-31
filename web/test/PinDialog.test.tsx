@@ -25,6 +25,16 @@ function setup(props: Partial<React.ComponentProps<typeof PinDialog>> = {}) {
 }
 
 describe("PinDialog — unlock mode", () => {
+  it("shows the loader before the pending label", () => {
+    setup({ submitting: true });
+
+    const button = screen.getByRole("button", { name: "Working…" });
+    expect(button.firstElementChild).toHaveClass(
+      "lucide-loader",
+      "motion-safe:animate-spin",
+    );
+  });
+
   it("submits a valid 6-digit PIN", async () => {
     const { onSubmit } = setup({ mode: "unlock" });
     await userEvent.type(screen.getByLabelText("PIN"), "123456");

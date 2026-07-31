@@ -7,6 +7,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Loader,
   Pencil,
   Plus,
   QrCode,
@@ -108,7 +109,13 @@ export function LinksDashboard({
             <h2 className="font-heading text-xl font-semibold text-white">
               Payment links
             </h2>
-            <span className="text-sm text-white/60">
+            <span className="flex items-center gap-2 text-sm text-white/60">
+              {loading && (
+                <Loader
+                  className="size-3.5 motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
+              )}
               {loading ? "Loading..." : `${links.length + 1} total`}
             </span>
           </div>
@@ -544,6 +551,12 @@ function LinkEditorDialog({
             type="submit"
             disabled={isSubmitting}
           >
+            {isSubmitting && (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            )}
             {isSubmitting
               ? "Saving..."
               : mode === "create"

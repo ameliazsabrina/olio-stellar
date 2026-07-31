@@ -6,7 +6,7 @@ import {
   ArrowRight,
   Banknote,
   Landmark,
-  Loader2,
+  Loader,
   LockKeyhole,
   ShieldCheck,
   Wallet,
@@ -798,9 +798,14 @@ function WalletWithdrawal({
       role="status"
       aria-live="polite"
     >
-      <Loader2 className="size-8 motion-safe:animate-spin" aria-hidden="true" />
-      <div className="text-sm font-semibold text-white">
-        Generating proof and releasing funds…
+      <div className="flex items-center justify-center gap-3">
+        <Loader
+          className="size-8 motion-safe:animate-spin"
+          aria-hidden="true"
+        />
+        <div className="text-sm font-semibold text-white">
+          Generating proof and releasing funds…
+        </div>
       </div>
       <div className="max-w-sm text-sm text-white/65">
         The zero-knowledge proof is built in your browser. This can take a few

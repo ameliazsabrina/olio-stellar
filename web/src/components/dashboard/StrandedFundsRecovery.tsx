@@ -6,7 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronRight,
-  Loader2,
+  Loader,
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -348,7 +348,13 @@ export function StrandedFundsRecovery({
                           <p className="text-xs text-white/50">
                             Cash-out amount
                           </p>
-                          <p className="font-mono text-base font-semibold text-white tabular-nums">
+                          <p className="flex items-center gap-2 font-mono text-base font-semibold text-white tabular-nums">
+                            {amount === null && (
+                              <Loader
+                                className="size-4 motion-safe:animate-spin"
+                                aria-hidden="true"
+                              />
+                            )}
                             {amount ?? "Checking…"}
                           </p>
                         </div>
@@ -391,7 +397,7 @@ export function StrandedFundsRecovery({
                           )}
                         >
                           {isPending ? (
-                            <Loader2
+                            <Loader
                               className="size-4 motion-safe:animate-spin"
                               aria-hidden="true"
                             />

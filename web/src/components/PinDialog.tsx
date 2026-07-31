@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "./ui/button";
 import {
@@ -161,6 +162,12 @@ export function PinDialog({
             disabled={submitting}
             aria-busy={submitting}
           >
+            {submitting && (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            )}
             {submitting ? "Working…" : cta}
           </Button>
         </form>

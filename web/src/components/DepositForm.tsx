@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -107,6 +108,12 @@ export function DepositForm() {
             {...register("amount")}
           />
           <Button className="min-h-11" type="submit" disabled={isSubmitting}>
+            {isSubmitting && (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            )}
             {isSubmitting ? "Depositing…" : "Deposit"}
           </Button>
         </div>

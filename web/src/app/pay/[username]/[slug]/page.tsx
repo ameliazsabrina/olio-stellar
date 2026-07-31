@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "../../../../components/ui/card";
@@ -30,7 +30,7 @@ export default function SlugPayPage() {
         role="status"
         aria-label="Loading payment page"
       >
-        <Loader2
+        <Loader
           className="size-8 text-white motion-safe:animate-spin"
           aria-hidden="true"
         />

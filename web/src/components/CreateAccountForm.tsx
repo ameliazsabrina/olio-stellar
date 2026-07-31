@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { accountPubkeys, getAccount, setStoredUsername } from "../lib/notes";
@@ -102,6 +103,12 @@ export function CreateAccountForm({
             disabled={isSubmitting}
             aria-busy={isSubmitting}
           >
+            {isSubmitting && (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            )}
             {isSubmitting ? "Working…" : "Claim"}
           </Button>
 

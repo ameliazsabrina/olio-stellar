@@ -1,7 +1,7 @@
 "use client";
 
-import { Fingerprint, LogIn } from "lucide-react";
-import { useLayoutEffect } from "react";
+import { Fingerprint, Loader, LogIn } from "lucide-react";
+import { useLayoutEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { ToastFeedback } from "../ui/toast-feedback";
@@ -17,6 +17,21 @@ export function StellarWalletModal({
   const { address, connecting, error, createPasskey, connectPasskey } =
     useWallet();
   const connected = Boolean(address);
+  const [pendingAction, setPendingAction] = useState<
+    "create" | "connect" | null
+  >(null);
+
+  const runAction = async (
+    action: "create" | "connect",
+    callback: () => Promise<void>,
+  ) => {
+    setPendingAction(action);
+    try {
+      await callback();
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   useLayoutEffect(() => {
     if (open && connected) onClose();
@@ -37,24 +52,40 @@ export function StellarWalletModal({
           <Button
             variant="glass"
             className="min-h-11 w-full gap-2.5"
-            onClick={createPasskey}
+            onClick={() => runAction("create", createPasskey)}
             disabled={connecting}
             aria-busy={connecting}
             type="button"
           >
-            <Fingerprint className="size-4" aria-hidden="true" />
-            {connecting ? "Working…" : "Create a passkey"}
+            {pendingAction === "create" ? (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <Fingerprint className="size-4" aria-hidden="true" />
+            )}
+            {pendingAction === "create" ? "Working…" : "Create a passkey"}
           </Button>
           <Button
             variant="glass"
             className="min-h-11 w-full gap-2.5 disabled:opacity-55"
-            onClick={connectPasskey}
+            onClick={() => runAction("connect", connectPasskey)}
             disabled={connecting}
             aria-busy={connecting}
             type="button"
           >
-            <LogIn className="size-4" aria-hidden="true" />
-            Sign in with an existing passkey
+            {pendingAction === "connect" ? (
+              <Loader
+                className="size-4 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <LogIn className="size-4" aria-hidden="true" />
+            )}
+            {pendingAction === "connect"
+              ? "Working…"
+              : "Sign in with an existing passkey"}
           </Button>
         </div>
 

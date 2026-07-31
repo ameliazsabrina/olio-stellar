@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Loader } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -259,6 +259,12 @@ export function PayForm({
                 type="submit"
                 disabled={isSubmitting}
               >
+                {isSubmitting && (
+                  <Loader
+                    className="size-4 motion-safe:animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
                 {isSubmitting ? "Paying…" : "Pay"}
               </Button>
             ) : (
@@ -269,6 +275,12 @@ export function PayForm({
                 onClick={connect}
                 disabled={connecting}
               >
+                {connecting && (
+                  <Loader
+                    className="size-4 motion-safe:animate-spin"
+                    aria-hidden="true"
+                  />
+                )}
                 {connecting ? "Connecting…" : "Connect wallet"}
               </Button>
             )}

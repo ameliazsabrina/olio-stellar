@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { type AccountStatus, accountStatus } from "../lib/stellar";
 import { Badge } from "./ui/badge";
@@ -70,6 +71,12 @@ export function WalletStatus() {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={refresh} disabled={busy}>
+          {busy && (
+            <Loader
+              className="size-4 motion-safe:animate-spin"
+              aria-hidden="true"
+            />
+          )}
           {busy ? "Checking…" : "Refresh"}
         </Button>
       </div>

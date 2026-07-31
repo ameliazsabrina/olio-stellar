@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, AtSign, Check, Copy, Link2, Loader2 } from "lucide-react";
+import { ArrowLeft, AtSign, Check, Copy, Link2, Loader } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -249,8 +249,11 @@ export function ReceiveDialog({
         )}
 
         {step === "creating" && (
-          <div className="grid place-items-center gap-3 py-8 text-center">
-            <Loader2 className="size-8 animate-spin text-olive" />
+          <div className="flex items-center justify-center gap-3 py-8 text-center">
+            <Loader
+              className="size-8 motion-safe:animate-spin text-olive"
+              aria-hidden="true"
+            />
             <div className="text-sm font-medium text-ink">Creating link…</div>
           </div>
         )}

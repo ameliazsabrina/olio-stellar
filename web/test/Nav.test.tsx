@@ -51,6 +51,17 @@ describe("EditionsTopNav", () => {
     expect(nav?.className).not.toContain("data-[scrolled=true]:from-ed-dark-2");
   });
 
+  it("shows the loader before the sign-in label while connecting", () => {
+    mocks.useWallet.mockReturnValue(wallet({ connecting: true }));
+    render(<EditionsTopNav />);
+
+    const button = screen.getByRole("button", { name: "Signing in…" });
+    expect(button.firstElementChild).toHaveClass(
+      "lucide-loader",
+      "motion-safe:animate-spin",
+    );
+  });
+
   it("shows @username when connected with a username", () => {
     mocks.useWallet.mockReturnValue(
       wallet({
