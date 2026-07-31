@@ -19,6 +19,10 @@ import { z } from "zod";
 import { offRampEnabled } from "../../lib/anchor";
 import { LINKS_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
+import {
+  moneyGramCashOutStatusEnabled,
+  moneyGramRampStatus,
+} from "../../lib/moneygram-status";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   claimableNotes,
@@ -410,11 +414,13 @@ export function WithdrawDashboard() {
             ) : null}
 
             {target && dialogView === "anchor" && selectedNote ? (
-              <OffRampContent
-                note={selectedNote}
-                onBusyChange={setBankBusy}
-                onComplete={refresh}
-              />
+              moneyGramCashOutStatusEnabled && offRampEnabled ? (
+                <OffRampContent
+                  note={selectedNote}
+                  onBusyChange={setBankBusy}
+                  onComplete={refresh}
+                />
+              ) : null
             ) : null}
           </div>
         </DialogContent>
@@ -601,6 +607,9 @@ function WithdrawalMethodPicker({
   onWallet: () => void;
   onAnchor: () => void;
 }) {
+  const moneyGramCashOutEnabled =
+    moneyGramCashOutStatusEnabled && offRampEnabled;
+
   return (
     <fieldset className="grid gap-3">
       <legend className="mb-1 text-sm font-semibold text-white">
@@ -629,20 +638,24 @@ function WithdrawalMethodPicker({
       <button
         type="button"
         onClick={onAnchor}
-        disabled={bulk || !offRampEnabled}
+        disabled={bulk || !moneyGramCashOutEnabled}
         className="flex min-h-20 items-center gap-4 rounded-lg border border-white/18 bg-white/8 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-white/18 disabled:hover:bg-white/8"
       >
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
           <Landmark className="size-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-white">Cash anchor</span>
+          <span className="block font-semibold text-white">
+            MoneyGram cash pickup
+          </span>
           <span className="mt-1 block text-xs leading-5 text-white/60">
             {bulk
               ? "Cash anchors process one private payment at a time."
-              : offRampEnabled
-                ? "Cash out as local currency. Identity and payout details stay with the anchor."
-                : "Cash-anchor withdrawals are unavailable in this environment."}
+              : moneyGramRampStatus === "whitelisting"
+                ? "Sandbox access pending. We’re completing MoneyGram integration and will enable cash pickup after approval."
+                : moneyGramCashOutEnabled
+                  ? "Cash out as local currency. Identity and payout details stay with the anchor."
+                  : "MoneyGram cash pickup is unavailable on this network."}
           </span>
         </span>
         <ArrowRight

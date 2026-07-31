@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { isDashboardRoute } from "../lib/auth-routes";
+import { isProtectedRoute } from "../lib/auth-routes";
+import { moneyGramBannerCopy } from "../lib/moneygram-status";
 import { DashboardBackground } from "./dashboard/DashboardBackground";
 import { DashboardShell } from "./dashboard/DashboardShell";
 import { PinDialog } from "./PinDialog";
 import { UsernameModal } from "./UsernameModal";
+import { StickyBanner } from "./ui/sticky-banner";
 import { useWallet } from "./WalletProvider";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -24,6 +26,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   } = useWallet();
   const pathname = usePathname();
   const isPay = pathname.startsWith("/pay");
+  const protectedRoute = isProtectedRoute(pathname);
+
+  const moneyGramBanner =
+    protectedRoute && moneyGramBannerCopy ? (
+      <StickyBanner
+        className="z-[80] min-h-10 border-b border-ed-gold/30 bg-ed-dark-2 px-12 py-2 text-center text-sm font-medium text-ed-cream"
+        hideOnScroll={false}
+      >
+        <p role="status" aria-label="MoneyGram integration status">
+          {moneyGramBannerCopy}{" "}
+          <a
+            href="https://www.moneygram.com/us/en/ramps"
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-ed-cream underline decoration-ed-cream/70 underline-offset-2 transition-colors hover:text-ed-gold"
+          >
+            Get to know about MoneyGram
+          </a>
+        </p>
+      </StickyBanner>
+    ) : null;
 
   const usernameModal = (
     <UsernameModal open={usernameModalOpen} onClose={closeUsernameModal} />
@@ -39,9 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     />
   );
 
-  if (pathname === "/" || isDashboardRoute(pathname)) {
+  if (pathname === "/" || protectedRoute) {
     return (
       <>
+        {moneyGramBanner}
         <main className="block w-full m-0 p-0">{children}</main>
         {usernameModal}
         {pinModal}

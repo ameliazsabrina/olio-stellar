@@ -5,7 +5,6 @@ import { useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { PaymentQrDialog } from "./PaymentQrDialog";
-import { ShareLinkDialog, ShareLinkSketchIcon } from "./ShareLinkDialog";
 
 export function PersonalLinkCard({
   payLink,
@@ -38,20 +37,6 @@ export function PersonalLinkCard({
         </h2>
         <p className="text-sm text-white/55">Share to get paid</p>
       </div>
-
-      <Button
-        ref={shareTriggerRef}
-        size="icon"
-        variant="glass"
-        className="absolute right-4 top-4 size-10"
-        onClick={() => setShareOpen(true)}
-        disabled={!payLink}
-        aria-label="Share personal payment link"
-        aria-expanded={shareOpen}
-        title="Share link"
-      >
-        <ShareLinkSketchIcon />
-      </Button>
 
       <div className="grid min-h-0 gap-3">
         <div className="flex items-center gap-3 rounded-lg bg-white/7 p-3 ring-1 ring-white/12 backdrop-blur-md">
@@ -114,12 +99,6 @@ export function PersonalLinkCard({
             onOpenChange={setQrOpen}
             url={payLink}
             triggerRef={qrTriggerRef}
-          />
-          <ShareLinkDialog
-            open={shareOpen}
-            onOpenChange={setShareOpen}
-            url={payLink}
-            triggerRef={shareTriggerRef}
           />
         </>
       ) : null}

@@ -34,7 +34,6 @@ import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 import { PersonalLinkCard } from "./PersonalLinkCard";
-import { ShareLinkDialog, ShareLinkSketchIcon } from "./ShareLinkDialog";
 
 type LinkFormInput = z.input<typeof createLinkFormInput>;
 type LinkFormOutput = z.output<typeof createLinkFormInput>;
@@ -248,19 +247,6 @@ function GeneratedLinkCard({
           </p>
         </div>
 
-        <Button
-          ref={shareTriggerRef}
-          size="icon"
-          variant="glass"
-          className="absolute right-4 top-4 size-9"
-          onClick={() => setShareOpen(true)}
-          aria-label={`Share ${link.slug} payment link`}
-          aria-expanded={shareOpen}
-          title="Share link"
-        >
-          <ShareLinkSketchIcon className="size-4.5" />
-        </Button>
-
         <div className="grid grid-cols-6 gap-1">
           <Button
             size="icon"
@@ -348,13 +334,6 @@ function GeneratedLinkCard({
         onOpenChange={setQrOpen}
         url={url}
         triggerRef={qrTriggerRef}
-      />
-
-      <ShareLinkDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        url={url}
-        triggerRef={shareTriggerRef}
       />
 
       <LinkEditorDialog

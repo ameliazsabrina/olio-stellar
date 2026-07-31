@@ -45,7 +45,7 @@ vi.mock("../src/lib/transak", async (importOriginal) => {
 
 import { WithdrawDashboard } from "../src/components/dashboard/WithdrawDashboard";
 
-it("shows card-based withdrawal methods while keeping Transak hidden", () => {
+it("keeps MoneyGram disabled while whitelisting and Transak hidden", () => {
   render(<WithdrawDashboard />);
 
   expect(
@@ -64,7 +64,12 @@ it("shows card-based withdrawal methods while keeping Transak hidden", () => {
   );
 
   expect(
-    screen.getByRole("button", { name: /^Cash anchor/ }),
+    screen.getByRole("button", { name: /^MoneyGram cash pickup/ }),
+  ).toBeDisabled();
+  expect(
+    screen.getByText(
+      "Sandbox access pending. We’re completing MoneyGram integration and will enable cash pickup after approval.",
+    ),
   ).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: /Transak/i }),
@@ -84,7 +89,9 @@ it("shows card-based withdrawal methods while keeping Transak hidden", () => {
     }),
   );
 
-  expect(screen.getByRole("button", { name: /^Cash anchor/ })).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: /^MoneyGram cash pickup/ }),
+  ).toBeDisabled();
   expect(
     screen.getByText("Cash anchors process one private payment at a time."),
   ).toBeInTheDocument();

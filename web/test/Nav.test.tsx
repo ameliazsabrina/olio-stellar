@@ -44,6 +44,11 @@ describe("EditionsTopNav", () => {
     expect(
       screen.queryByRole("button", { name: /claim username/i }),
     ).not.toBeInTheDocument();
+
+    const nav = document.querySelector("[data-ed-topnav]");
+    expect(nav).toHaveClass("data-[scrolled=true]:bg-none");
+    expect(nav).toHaveClass("data-[scrolled=true]:bg-ed-dark-2/88");
+    expect(nav?.className).not.toContain("data-[scrolled=true]:from-ed-dark-2");
   });
 
   it("shows @username when connected with a username", () => {
