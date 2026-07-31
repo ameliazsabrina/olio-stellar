@@ -34,13 +34,39 @@ describe("StrandedFundsRecovery", () => {
     });
   });
 
-  it("keeps recovery compact until requested, then uses the current wallet", async () => {
-    const user = userEvent.setup();
+  it("stays hidden while recoverable balances are being checked", () => {
+    bridgeMocks.bridgeUsdcBalance.mockReturnValue(new Promise(() => {}));
+
     render(<StrandedFundsRecovery defaultDestination={destination} />);
 
     expect(
-      await screen.findByText("$5.00 USDC needs recovery"),
-    ).toBeInTheDocument();
+      screen.queryByRole("region", { name: "Interrupted cash-out" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Checking…")).not.toBeInTheDocument();
+  });
+
+  it("stays hidden when persisted recovery records have no funds", async () => {
+    bridgeMocks.bridgeUsdcBalance.mockResolvedValue(0n);
+
+    render(<StrandedFundsRecovery defaultDestination={destination} />);
+
+    await waitFor(() =>
+      expect(bridgeMocks.bridgeUsdcBalance).toHaveBeenCalledWith(bridgeAddress),
+    );
+    expect(
+      screen.queryByRole("region", { name: "Interrupted cash-out" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a recovery card until requested, then uses the current wallet", async () => {
+    const user = userEvent.setup();
+    render(<StrandedFundsRecovery defaultDestination={destination} />);
+
+    const recoveryCard = await screen.findByRole("region", {
+      name: "Interrupted cash-out",
+    });
+    expect(screen.getByText("$5.00")).toBeInTheDocument();
+    expect(recoveryCard.querySelector("svg")).toBeInTheDocument();
     expect(
       screen.queryByRole("dialog", { name: "Recover your funds" }),
     ).not.toBeInTheDocument();

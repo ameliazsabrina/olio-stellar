@@ -5,22 +5,21 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
-  Check,
   Landmark,
   Loader2,
   LockKeyhole,
+  ShieldCheck,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { offRampEnabled } from "../../lib/anchor";
 import { LINKS_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
-import { getAccount, scanMyNotes } from "../../lib/notes";
-import { transakEnabled } from "../../lib/transak";
+import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   claimableNotes,
   isAlreadyCashedOut,
@@ -30,23 +29,25 @@ import {
 } from "../../lib/withdraw";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 import { useWallet } from "../WalletProvider";
 import { OffRampContent } from "./OffRampContent";
 import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
-import { TransakOffRampContent } from "./TransakOffRampContent";
 import { useMyNotes } from "./useMyNotes";
 
-type Step = "form" | "review" | "proving";
-type Exit = "wallet" | "bank_anchor" | "bank_transak";
+type WalletStep = "form" | "review" | "proving";
+type DialogView = "method" | "wallet" | "anchor";
+type WithdrawalTarget =
+  | { kind: "one"; note: MyNote }
+  | { kind: "all"; notes: MyNote[] };
 
 const withdrawFormSchema = z.object({
   destination: z
@@ -74,33 +75,11 @@ function formatUsd(units: bigint): string {
   });
 }
 
-const EXITS: {
-  key: Exit;
-  label: string;
-  icon: typeof Wallet;
-  tooltip: string;
-}[] = [
-  {
-    key: "wallet",
-    label: "Wallet",
-    icon: Wallet,
-    tooltip: "Private, instant. Stays on-chain; no ID check.",
-  },
-  {
-    key: "bank_anchor",
-    label: "Cash · Anchor",
-    icon: Landmark,
-    tooltip:
-      "Cash out via a Stellar anchor. Identity and pickup details are verified by the anchor.",
-  },
-  // {
-  //   key: "bank_transak",
-  //   label: "Bank · Transak",
-  //   icon: Building2,
-  //   tooltip:
-  //     "Cash out to bank/e-wallet via Transak. ID + bank details verified by Transak. Mainnet only.",
-  // },
-];
+function targetTotal(target: WithdrawalTarget | null): bigint {
+  if (!target) return 0n;
+  if (target.kind === "one") return target.note.amount;
+  return target.notes.reduce((total, note) => total + note.amount, 0n);
+}
 
 export function WithdrawDashboard() {
   const { address, accountUnlocked, promptUnlock, getSigner } = useWallet();
@@ -111,11 +90,10 @@ export function WithdrawDashboard() {
     error: notesError,
     refresh,
   } = useMyNotes(accountUnlocked ? address : undefined);
-  const [step, setStep] = useState<Step>("form");
-  const [exit, setExit] = useState<Exit>("wallet");
+  const [target, setTarget] = useState<WithdrawalTarget | null>(null);
+  const [dialogView, setDialogView] = useState<DialogView>("method");
+  const [walletStep, setWalletStep] = useState<WalletStep>("form");
   const [bankBusy, setBankBusy] = useState(false);
-  const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
-  const [selectMode, setSelectMode] = useState<"one" | "all">("one");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -129,35 +107,60 @@ export function WithdrawDashboard() {
   });
 
   const options = useMemo(() => claimableNotes(notes), [notes]);
-  const selected =
-    options.find((note) => note.leafIndex === selectedLeaf) ?? null;
   const destination = watch("destination");
+  const dialogBusy = bankBusy || walletStep === "proving";
+  const selectedNote = target?.kind === "one" ? target.note : null;
+  const selectedTotal = targetTotal(target);
+  const recoveryJoinsPaymentGrid =
+    accountUnlocked && !loading && !notesError && options.length > 0;
+  const showMethodBack =
+    !dialogBusy &&
+    (dialogView === "anchor" ||
+      (dialogView === "wallet" && walletStep === "form"));
 
-  useEffect(() => {
-    if (options.length === 0) setSelectedLeaf(null);
-    else if (!options.some((note) => note.leafIndex === selectedLeaf)) {
-      setSelectedLeaf(options[0].leafIndex);
-    }
-  }, [options, selectedLeaf]);
+  function openWithdrawal(nextTarget: WithdrawalTarget) {
+    setTarget(nextTarget);
+    setDialogView("method");
+    setWalletStep("form");
+    setBankBusy(false);
+    setSubmitError(null);
+    reset({ destination: "" });
+  }
+
+  function closeWithdrawal() {
+    if (dialogBusy) return;
+    setTarget(null);
+    setDialogView("method");
+    setWalletStep("form");
+    setSubmitError(null);
+    reset({ destination: "" });
+  }
+
+  function returnToMethods() {
+    setSubmitError(null);
+    setWalletStep("form");
+    setDialogView("method");
+  }
 
   const review = handleSubmit(() => {
     setSubmitError(null);
-    if (selectMode === "one" && !selected) {
+    if (!target) {
       setSubmitError("Select a payment to cash out.");
       return;
     }
-    setStep("review");
+    setWalletStep("review");
   });
 
   async function confirm() {
+    if (!target) return;
     setSubmitError(null);
-    setStep("proving");
+    setWalletStep("proving");
     try {
       const account = getAccount();
       if (!account) throw new Error("Unlock your private account to continue.");
       const scan = await scanMyNotes(account);
 
-      if (selectMode === "all") {
+      if (target.kind === "all") {
         const batch = await withdrawAll({
           signer: getSigner(),
           acct: account,
@@ -189,15 +192,16 @@ export function WithdrawDashboard() {
             },
           );
         }
-        refresh();
-        startAnother();
+        await refresh();
+        setBankBusy(false);
+        setWalletStep("form");
+        setTarget(null);
         return;
       }
 
-      if (!selected) throw new Error("Select a payment to cash out.");
       const note = scan.notes.find(
         (candidate) =>
-          candidate.leafIndex === selected.leafIndex && !candidate.spent,
+          candidate.leafIndex === target.note.leafIndex && !candidate.spent,
       );
       if (!note) throw new Error("That payment is no longer available.");
       const withdrawal = await withdrawNote({
@@ -207,20 +211,18 @@ export function WithdrawDashboard() {
         note,
         destination: destination.trim(),
       });
-      toast.success(`Cashed out ${fromBaseUnits(selected.amount)} USDC`, {
-        description: `${
+      toast.success(`Cashed out ${fromBaseUnits(target.note.amount)} USDC`, {
+        description:
           withdrawal.mode === "claimable"
             ? `The funds are waiting for ${shortAddress(destination.trim())} to claim them in a Stellar wallet.`
-            : `The funds were sent to ${shortAddress(destination.trim())}.`
-        }`,
+            : `The funds were sent to ${shortAddress(destination.trim())}.`,
         id: "wallet-withdrawal-success",
       });
-      refresh();
-      startAnother();
+      await refresh();
+      setBankBusy(false);
+      setWalletStep("form");
+      setTarget(null);
     } catch (error) {
-      // An already-cashed-out note means the funds already left the pool — not a
-      // retryable failure. Re-scan so the on-chain nullifier check drops the
-      // phantom note instead of offering it again.
       if (isAlreadyCashedOut(error)) {
         setSubmitError("This payment was already cashed out.");
         refresh();
@@ -231,15 +233,8 @@ export function WithdrawDashboard() {
             : "Withdrawal failed. Try again.",
         );
       }
-      setStep("review");
+      setWalletStep("review");
     }
-  }
-
-  function startAnother() {
-    setStep("form");
-    setSelectMode("one");
-    setSubmitError(null);
-    reset({ destination: "" });
   }
 
   return (
@@ -248,171 +243,427 @@ export function WithdrawDashboard() {
         <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
           Withdraw
         </h1>
-        <p className="mt-2 max-w-2xl text-sm font-medium text-white/70 sm:text-base">
-          Cash out private USDC to another Stellar wallet or, when available, as
-          local currency.
+        <p className="mt-2 text-sm font-medium text-white/70 sm:text-base">
+          Choose a private payment, then send it to a Stellar wallet or cash it
+          out through an available anchor.
         </p>
       </div>
 
-      <StrandedFundsRecovery defaultDestination={address} />
+      {!recoveryJoinsPaymentGrid ? (
+        <StrandedFundsRecovery defaultDestination={address} />
+      ) : null}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:gap-6">
-        <Card appearance="glass" className="gap-0 p-0">
-          <div className="border-b border-white/12 p-4 sm:p-5">
-            <TooltipProvider>
-              <fieldset className="grid grid-cols-1 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md sm:grid-cols-2">
-                <legend className="sr-only">Cash-out destination</legend>
-                {EXITS.map(({ key, label, icon: Icon, tooltip }) => {
-                  const active = exit === key;
-                  const disabled =
-                    (key === "bank_anchor" && !offRampEnabled) ||
-                    (key === "bank_transak" && !transakEnabled);
-                  return (
-                    <Tooltip key={key}>
-                      <TooltipTrigger
-                        render={
-                          <button
-                            type="button"
-                            aria-pressed={active}
-                            disabled={disabled || bankBusy}
-                            onClick={() => {
-                              setExit(key);
-                              setSubmitError(null);
-                            }}
-                            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-50 ${
-                              active
-                                ? "bg-white/18 text-white ring-1 ring-white/25"
-                                : "text-white/65 hover:bg-white/8 hover:text-white"
-                            }`}
-                          >
-                            <Icon className="size-4" aria-hidden="true" />
-                            {label}
-                          </button>
-                        }
-                      />
-                      <TooltipContent appearance="glass">
-                        {tooltip}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </fieldset>
-            </TooltipProvider>
-            {!offRampEnabled ? (
-              <p className="mt-2 text-xs text-white/55">
-                Anchor cash-out is unavailable in this environment.
-              </p>
-            ) : null}
-            {/* {!transakEnabled ? (
-              <p className="mt-2 text-xs text-white/55">
-                Transak bank cash-out is available on mainnet only.
-              </p>
-            ) : null} */}
-          </div>
-
-          <div className="p-4 sm:p-6">
-            {!accountUnlocked ? (
-              <LockedState onUnlock={promptUnlock} />
-            ) : loading ? (
-              <LoadingState />
-            ) : notesError ? (
-              <ErrorState message={notesError} onRetry={refresh} />
-            ) : options.length === 0 ? (
-              <EmptyState />
-            ) : exit === "bank_anchor" ? (
-              <div>
-                <OffRampContent notes={notes} onBusyChange={setBankBusy} />
-              </div>
-            ) : exit === "bank_transak" ? (
-              <div>
-                <TransakOffRampContent
-                  notes={notes}
-                  onBusyChange={setBankBusy}
-                />
-              </div>
-            ) : (
-              <div>
-                <WalletWithdrawal
-                  step={step}
-                  options={options}
-                  selectedLeaf={selectedLeaf}
-                  selectedAmount={selected?.amount ?? null}
-                  selectMode={selectMode}
-                  claimableTotal={claimable}
-                  destination={destination}
-                  submitError={submitError}
-                  fieldError={errors.destination?.message}
-                  registerDestination={register("destination")}
-                  onSelectOne={(leaf) => {
-                    setSelectedLeaf(leaf);
-                    setSelectMode("one");
-                  }}
-                  onSelectAll={() => setSelectMode("all")}
-                  onReview={review}
-                  onBack={() => setStep("form")}
-                  onConfirm={confirm}
-                />
-              </div>
-            )}
-          </div>
+      {!accountUnlocked ? (
+        <Card appearance="glass" className="p-5 sm:p-6">
+          <LockedState onUnlock={promptUnlock} />
         </Card>
-
-        <aside
-          className="grid gap-4 lg:sticky lg:top-6"
-          aria-label="Cash-out details"
-        >
-          <Card appearance="glass" className="gap-4 p-5">
-            {/* <div className="flex size-11 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
-              <CircleDollarSign className="size-5" aria-hidden="true" />
-            </div> */}
+      ) : loading ? (
+        <LoadingState />
+      ) : notesError ? (
+        <Card appearance="glass" className="p-5 sm:p-6">
+          <ErrorState message={notesError} onRetry={refresh} />
+        </Card>
+      ) : options.length === 0 ? (
+        <Card appearance="glass" className="p-5 sm:p-6">
+          <EmptyState />
+        </Card>
+      ) : (
+        <section className="grid gap-4" aria-labelledby="payments-title">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-white/60">Available</p>
-              <p className="mt-1 font-mono text-4xl font-semibold tracking-tight text-white tabular-nums">
-                {accountUnlocked && !loading ? formatUsd(claimable) : "—"}
-              </p>
-              <p className="mt-1 text-sm text-white/55">
-                {accountUnlocked && !loading
-                  ? `${options.length} private payment${options.length === 1 ? "" : "s"}`
-                  : "Private USDC"}
-              </p>
-            </div>
-          </Card>
-
-          <Card appearance="glass" className="gap-4 p-5">
-            {/* <div className="flex size-11 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
-              <ShieldCheck className="size-5" aria-hidden="true" />
-            </div> */}
-            <div className="space-y-2">
-              <h2 className="font-heading text-3xl font-semibold text-white">
-                Private by design
+              <h2
+                id="payments-title"
+                className="font-heading text-xl font-semibold text-white"
+              >
+                Private payments
               </h2>
-              <p className="text-sm leading-6 text-white/65">
-                A zero-knowledge proof releases the selected payment without
-                revealing which deposit funded it.
+              <p className="mt-1 text-sm text-white/60">
+                Payments are withdrawn in full without revealing the deposit
+                that funded them.
               </p>
             </div>
-          </Card>
-        </aside>
-      </div>
+            <div className="text-right">
+              <p className="font-mono text-lg font-semibold text-white tabular-nums">
+                {formatUsd(claimable)}
+              </p>
+              <p className="text-xs text-white/55">
+                {options.length} available
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StrandedFundsRecovery
+              defaultDestination={address}
+              className="mb-0"
+            />
+            {options.length > 1 ? (
+              <AllPaymentsCard
+                notes={options}
+                total={claimable}
+                onClick={() =>
+                  openWithdrawal({ kind: "all", notes: [...options] })
+                }
+              />
+            ) : null}
+            {options.map((note, index) => (
+              <PaymentCard
+                key={note.leafIndex}
+                note={note}
+                index={index}
+                onClick={() => openWithdrawal({ kind: "one", note })}
+              />
+            ))}
+          </div>
+
+          <div className="mt-2 flex items-start gap-3 border-t border-white/12 px-1 pt-5 text-white/65">
+            <ShieldCheck
+              className="mt-0.5 size-5 shrink-0 text-white/75"
+              aria-hidden="true"
+            />
+            <div>
+              <h3 className="text-sm font-semibold text-white">
+                Private by design
+              </h3>
+              <p className="mt-1 text-sm leading-6">
+                A zero-knowledge proof releases only the selected payment. Your
+                other deposits and balance stay private.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <Dialog
+        open={target !== null}
+        onOpenChange={(open) => {
+          if (!open) closeWithdrawal();
+        }}
+      >
+        <DialogContent
+          appearance="glass"
+          className="max-w-[560px] gap-0 p-0"
+          showCloseButton={!dialogBusy}
+        >
+          {target && showMethodBack ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute left-2 top-2 z-10 text-white/60 hover:bg-white/10 hover:text-white"
+              onClick={returnToMethods}
+              aria-label="Back to withdrawal methods"
+              title="Back to withdrawal methods"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </Button>
+          ) : null}
+
+          <div
+            className={`border-b border-white/12 p-5 pr-12 sm:p-6 sm:pr-14 ${
+              showMethodBack ? "pl-12 sm:pl-14" : ""
+            }`}
+          >
+            <DialogTitle className="text-xl text-white">
+              {target?.kind === "all"
+                ? "Withdraw all payments"
+                : "Withdraw payment"}
+            </DialogTitle>
+            <DialogDescription className="mt-2 text-white/60">
+              {target ? (
+                <>
+                  <span className="font-mono font-semibold text-white tabular-nums">
+                    {fromBaseUnits(selectedTotal)} USDC
+                  </span>
+                  {target.kind === "all"
+                    ? ` across ${target.notes.length} private payments`
+                    : " from one private payment"}
+                </>
+              ) : null}
+            </DialogDescription>
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {target && dialogView === "method" ? (
+              <WithdrawalMethodPicker
+                bulk={target.kind === "all"}
+                onWallet={() => setDialogView("wallet")}
+                onAnchor={() => setDialogView("anchor")}
+              />
+            ) : null}
+
+            {target && dialogView === "wallet" ? (
+              <WalletWithdrawal
+                step={walletStep}
+                amount={selectedTotal}
+                paymentCount={
+                  target.kind === "all" ? target.notes.length : undefined
+                }
+                destination={destination}
+                submitError={submitError}
+                fieldError={errors.destination?.message}
+                registerDestination={register("destination")}
+                onReview={review}
+                onBack={() => setWalletStep("form")}
+                onConfirm={confirm}
+              />
+            ) : null}
+
+            {target && dialogView === "anchor" && selectedNote ? (
+              <OffRampContent
+                note={selectedNote}
+                onBusyChange={setBankBusy}
+                onComplete={refresh}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
 
+function PaymentCard({
+  note,
+  index,
+  onClick,
+}: {
+  note: MyNote;
+  index: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="group text-left focus-visible:outline-none"
+      onClick={onClick}
+      aria-label={`Withdraw private payment ${index + 1}, ${fromBaseUnits(note.amount)} USDC`}
+    >
+      <Card
+        appearance="glass"
+        className="min-h-64 justify-between gap-5 p-5 ring-white/15 transition-colors duration-200 group-hover:bg-white/12 group-hover:ring-white/25 group-focus-visible:ring-2 group-focus-visible:ring-white/70 sm:p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/50">
+              Private payment
+            </p>
+            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+              {fromBaseUnits(note.amount)}
+            </p>
+            <p className="mt-1 text-sm font-medium text-white/60">USDC</p>
+          </div>
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/9 text-white ring-1 ring-white/15">
+            <Banknote className="size-5" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-4 h-px bg-white/12" />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-white/65">
+              Ready to withdraw
+            </span>
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+              Choose method
+              <ArrowRight
+                className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </span>
+          </div>
+        </div>
+      </Card>
+    </button>
+  );
+}
+
+function AllPaymentsCard({
+  notes,
+  total,
+  onClick,
+}: {
+  notes: MyNote[];
+  total: bigint;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="group text-left focus-visible:outline-none"
+      onClick={onClick}
+      aria-label={`Withdraw all ${notes.length} payments, ${fromBaseUnits(total)} USDC total`}
+    >
+      <Card
+        appearance="glass"
+        className="relative min-h-64 justify-between gap-4 p-5 ring-white/20 transition-colors duration-200 group-hover:bg-white/14 group-hover:ring-white/30 group-focus-visible:ring-2 group-focus-visible:ring-white/70 sm:p-6"
+      >
+        <div className="relative z-10 max-w-[58%]">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/50">
+            All payments
+          </p>
+          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+            {fromBaseUnits(total)}
+          </p>
+          <p className="mt-1 text-sm font-medium text-white/60">
+            USDC · {notes.length} payments
+          </p>
+        </div>
+
+        <AllPaymentsSketch />
+
+        <div className="relative z-10 flex items-center gap-1.5 text-sm font-semibold text-white">
+          Withdraw together
+          <ArrowRight
+            className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </div>
+      </Card>
+    </button>
+  );
+}
+
+function AllPaymentsSketch() {
+  return (
+    <svg
+      className="pointer-events-none absolute -right-3 top-8 h-32 w-40 overflow-visible text-white/70 transition-transform duration-500 ease-out motion-safe:group-hover:-rotate-2 motion-safe:group-hover:scale-[1.035]"
+      viewBox="0 0 190 150"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M20 116C52 91 88 82 124 90C144 94 160 104 174 121"
+        className="stroke-gold/65 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-1 motion-safe:group-hover:-translate-y-1"
+        strokeDasharray="6 9"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+      <g
+        className="stroke-current transition-transform duration-500 ease-out motion-safe:group-hover:-translate-y-1"
+        strokeLinejoin="round"
+      >
+        <rect
+          x="44"
+          y="38"
+          width="76"
+          height="82"
+          rx="11"
+          strokeWidth="1.8"
+          transform="rotate(-8 82 79)"
+        />
+        <rect
+          x="66"
+          y="27"
+          width="76"
+          height="82"
+          rx="11"
+          className="fill-white/5"
+          strokeWidth="2"
+          transform="rotate(6 104 68)"
+        />
+        <path
+          d="M84 53L124 57M82 70L129 75M80 87L111 91"
+          className="stroke-white/40"
+          strokeLinecap="round"
+          strokeWidth="1.6"
+          transform="rotate(6 104 68)"
+        />
+      </g>
+      <g
+        className="stroke-gold transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 motion-safe:group-hover:-translate-y-2"
+        strokeWidth="2"
+      >
+        <circle cx="144" cy="104" r="24" className="fill-white/5" />
+        <path
+          d="M151 91C145 87 137 89 136 95C135 101 141 103 146 104C151 106 155 109 154 115C153 121 144 124 138 120M145 84V90M144 120V127"
+          strokeLinecap="round"
+        />
+      </g>
+      <circle
+        cx="31"
+        cy="55"
+        r="8"
+        className="stroke-white/30"
+        strokeWidth="1.4"
+      />
+    </svg>
+  );
+}
+
+function WithdrawalMethodPicker({
+  bulk,
+  onWallet,
+  onAnchor,
+}: {
+  bulk: boolean;
+  onWallet: () => void;
+  onAnchor: () => void;
+}) {
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="mb-1 text-sm font-semibold text-white">
+        How would you like to withdraw?
+      </legend>
+      <button
+        type="button"
+        onClick={onWallet}
+        className="flex min-h-20 items-center gap-4 rounded-lg border border-white/18 bg-white/8 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70"
+      >
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+          <Wallet className="size-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-white">Stellar wallet</span>
+          <span className="mt-1 block text-xs leading-5 text-white/60">
+            Private and on-chain. Send to a G… or C… Stellar address.
+          </span>
+        </span>
+        <ArrowRight
+          className="size-4 shrink-0 text-white/65"
+          aria-hidden="true"
+        />
+      </button>
+
+      <button
+        type="button"
+        onClick={onAnchor}
+        disabled={bulk || !offRampEnabled}
+        className="flex min-h-20 items-center gap-4 rounded-lg border border-white/18 bg-white/8 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-white/18 disabled:hover:bg-white/8"
+      >
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+          <Landmark className="size-5" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-white">Cash anchor</span>
+          <span className="mt-1 block text-xs leading-5 text-white/60">
+            {bulk
+              ? "Cash anchors process one private payment at a time."
+              : offRampEnabled
+                ? "Cash out as local currency. Identity and payout details stay with the anchor."
+                : "Cash-anchor withdrawals are unavailable in this environment."}
+          </span>
+        </span>
+        <ArrowRight
+          className="size-4 shrink-0 text-white/65"
+          aria-hidden="true"
+        />
+      </button>
+    </fieldset>
+  );
+}
+
 type WalletWithdrawalProps = {
-  step: Step;
-  options: ReturnType<typeof claimableNotes>;
-  selectedLeaf: number | null;
-  selectedAmount: bigint | null;
-  selectMode: "one" | "all";
-  claimableTotal: bigint;
+  step: WalletStep;
+  amount: bigint;
+  paymentCount?: number;
   destination: string;
   submitError: string | null;
   fieldError?: string;
   registerDestination: ReturnType<
     ReturnType<typeof useForm<WithdrawFormInput>>["register"]
   >;
-  onSelectOne: (leaf: number) => void;
-  onSelectAll: () => void;
   onReview: () => void;
   onBack: () => void;
   onConfirm: () => void;
@@ -420,51 +671,34 @@ type WalletWithdrawalProps = {
 
 function WalletWithdrawal({
   step,
-  options,
-  selectedLeaf,
-  selectedAmount,
-  selectMode,
-  claimableTotal,
+  amount,
+  paymentCount,
   destination,
   submitError,
   fieldError,
   registerDestination,
-  onSelectOne,
-  onSelectAll,
   onReview,
   onBack,
   onConfirm,
 }: WalletWithdrawalProps) {
-  if (options.length === 0 && step === "form") {
-    return (
-      <div className="grid place-items-center gap-4 py-10 text-center">
-        <div className="flex size-12 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
-          <Banknote className="size-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="font-heading text-lg font-semibold text-white">
-            No payments to cash out
-          </h2>
-          <p className="max-w-sm text-sm text-white/65">
-            Share a payment link first. Private payments you receive will appear
-            here.
-          </p>
-        </div>
-        <Button
-          variant="glass"
-          nativeButton={false}
-          render={<Link href={LINKS_PATH} />}
-        >
-          View payment links
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </Button>
-      </div>
-    );
-  }
-
   if (step === "form") {
     return (
       <form className="grid gap-5" onSubmit={onReview} noValidate>
+        <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm text-white/60">Sending</span>
+            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+              {fromBaseUnits(amount)} USDC
+            </span>
+          </div>
+          {paymentCount ? (
+            <p className="mt-2 border-t border-white/12 pt-3 text-xs text-white/55">
+              {paymentCount} payments released as {paymentCount} separate
+              zero-knowledge proofs.
+            </p>
+          ) : null}
+        </div>
+
         <div className="grid gap-2">
           <Label className="text-white" htmlFor="withdraw-destination">
             Destination wallet
@@ -496,92 +730,9 @@ function WalletWithdrawal({
           )}
         </div>
 
-        <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm font-medium text-white">
-            Payment to cash out
-          </legend>
-          <div className="grid gap-2">
-            {options.length > 1 ? (
-              <button
-                type="button"
-                onClick={onSelectAll}
-                aria-pressed={selectMode === "all"}
-                className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left ring-1 ring-inset transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
-                  selectMode === "all"
-                    ? "border-white/45 bg-white/16 ring-white/25"
-                    : "border-white/20 bg-gradient-to-r from-white/[0.13] to-white/[0.06] ring-white/10 hover:border-white/30 hover:from-white/[0.17]"
-                }`}
-              >
-                <span className="flex items-center gap-2 text-sm font-semibold text-white">
-                  <span
-                    className={`grid size-5 place-items-center rounded-full border ${
-                      selectMode === "all"
-                        ? "border-white bg-white text-ink"
-                        : "border-white/35"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {selectMode === "all" ? <Check className="size-3" /> : null}
-                  </span>
-                  All payments
-                  <span className="rounded-full bg-white/12 px-2 py-0.5 text-xs font-medium text-white/75">
-                    {options.length}
-                  </span>
-                </span>
-                <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                  {fromBaseUnits(claimableTotal)} USDC
-                </span>
-              </button>
-            ) : null}
-            {options.map((note) => {
-              const active =
-                selectMode === "one" && note.leafIndex === selectedLeaf;
-              return (
-                <button
-                  key={note.leafIndex}
-                  type="button"
-                  onClick={() => onSelectOne(note.leafIndex)}
-                  aria-pressed={active}
-                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
-                    active
-                      ? "border-white/40 bg-white/16"
-                      : "border-white/15 bg-white/7 hover:border-white/25 hover:bg-white/10"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-sm text-white">
-                    <span
-                      className={`grid size-5 place-items-center rounded-full border ${
-                        active
-                          ? "border-white bg-white text-ink"
-                          : "border-white/35"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {active ? <Check className="size-3" /> : null}
-                    </span>
-                    Payment
-                  </span>
-                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                    {fromBaseUnits(note.amount)} USDC
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs text-white/60">
-            Private payments are cashed out in full. Cash out one, or all of
-            them to the same address.
-          </p>
-        </fieldset>
-
         {submitError ? <InlineError message={submitError} /> : null}
 
-        <Button
-          type="submit"
-          variant="glass"
-          size="lg"
-          className="w-full sm:w-fit sm:min-w-40 mt-4"
-        >
+        <Button type="submit" variant="glass" size="lg" className="w-full">
           Review withdrawal
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
@@ -589,30 +740,22 @@ function WalletWithdrawal({
     );
   }
 
-  if (step === "review" && (selectMode === "all" || selectedAmount !== null)) {
-    const reviewAmount = selectMode === "all" ? claimableTotal : selectedAmount;
+  if (step === "review") {
     return (
       <div className="grid gap-5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-white/70 hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Edit details
-        </button>
+        <BackButton label="Edit details" onClick={onBack} />
         <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-sm text-white/60">Cashing out</span>
-            <span className="font-heading text-2xl font-semibold text-white">
-              {fromBaseUnits(reviewAmount ?? 0n)} USDC
+            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+              {fromBaseUnits(amount)} USDC
             </span>
           </div>
-          {selectMode === "all" ? (
+          {paymentCount ? (
             <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/12 pt-4">
               <span className="text-sm text-white/60">Payments</span>
               <span className="text-sm font-medium text-white">
-                {options.length} released as {options.length} separate proofs
+                {paymentCount} separate proofs
               </span>
             </div>
           ) : null}
@@ -627,7 +770,7 @@ function WalletWithdrawal({
         <Button
           variant="glass"
           size="lg"
-          className="w-full sm:w-fit sm:min-w-44 mt-4"
+          className="w-full"
           onClick={onConfirm}
         >
           Confirm &amp; cash out
@@ -636,29 +779,41 @@ function WalletWithdrawal({
     );
   }
 
-  if (step === "proving") {
-    return (
-      <div
-        className="grid place-items-center gap-3 py-12 text-center"
-        role="status"
-        aria-live="polite"
-      >
-        <Loader2
-          className="size-8 motion-safe:animate-spin"
-          aria-hidden="true"
-        />
-        <div className="text-sm font-semibold text-white">
-          Generating proof and releasing funds…
-        </div>
-        <div className="max-w-sm text-sm text-white/65">
-          The zero-knowledge proof is built in your browser. This can take a few
-          seconds.
-        </div>
+  return (
+    <div
+      className="grid place-items-center gap-3 py-12 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="size-8 motion-safe:animate-spin" aria-hidden="true" />
+      <div className="text-sm font-semibold text-white">
+        Generating proof and releasing funds…
       </div>
-    );
-  }
+      <div className="max-w-sm text-sm text-white/65">
+        The zero-knowledge proof is built in your browser. This can take a few
+        seconds.
+      </div>
+    </div>
+  );
+}
 
-  return null;
+function BackButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-white/70 hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70"
+    >
+      <ArrowLeft className="size-4" aria-hidden="true" />
+      {label}
+    </button>
+  );
 }
 
 function LockedState({ onUnlock }: { onUnlock: () => void }) {
@@ -712,19 +867,17 @@ function EmptyState() {
 function LoadingState() {
   return (
     <div
-      className="grid gap-5 motion-safe:animate-pulse"
+      className="grid gap-4 motion-safe:animate-pulse sm:grid-cols-2 lg:grid-cols-3"
       role="status"
       aria-label="Loading private payments"
     >
-      <div className="space-y-2">
-        <div className="h-4 w-36 rounded-full bg-white/10" />
-        <div className="h-11 rounded-lg bg-white/8" />
-      </div>
-      <div className="space-y-2">
-        <div className="h-4 w-44 rounded-full bg-white/10" />
-        <div className="h-14 rounded-lg bg-white/8" />
-        <div className="h-14 rounded-lg bg-white/8" />
-      </div>
+      {["first", "second", "third"].map((key) => (
+        <div
+          key={key}
+          className="min-h-64 rounded-xl bg-white/8 ring-1 ring-white/15 backdrop-blur-xl"
+          aria-hidden="true"
+        />
+      ))}
     </div>
   );
 }

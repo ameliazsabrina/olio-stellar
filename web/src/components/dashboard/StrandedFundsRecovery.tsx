@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { StrKey } from "@stellar/stellar-sdk";
 import {
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   ChevronRight,
@@ -21,6 +20,7 @@ import {
   type StrandedBridge,
 } from "../../lib/bridge";
 import { fromBaseUnits } from "../../lib/crypto";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -63,8 +63,10 @@ function formatUsd(units: bigint): string {
 
 export function StrandedFundsRecovery({
   defaultDestination,
+  className,
 }: {
   defaultDestination?: string;
+  className?: string;
 }) {
   const hasDefaultDestination =
     !!defaultDestination && StrKey.isValidEd25519PublicKey(defaultDestination);
@@ -165,32 +167,37 @@ export function StrandedFundsRecovery({
 
   return (
     <>
-      {rows.length > 0 ? (
+      {total !== null && total > 0n ? (
         <section
           aria-label="Interrupted cash-out"
-          className="mb-5 flex flex-col gap-4 rounded-xl border border-amber-300/25 bg-amber-200/10 p-4 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between"
+          className={cn(
+            "group/recovery relative mb-5 flex min-h-64 flex-col justify-between gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-200/10 p-5 shadow-[0_16px_40px_rgba(120,78,10,0.08)] backdrop-blur-xl transition-colors duration-200 hover:border-amber-200/35 hover:bg-amber-200/14 sm:p-6",
+            className,
+          )}
         >
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-300/15 text-amber-100 ring-1 ring-amber-300/25">
-              <AlertTriangle className="size-4" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-heading text-base font-semibold text-white">
-                {total === null
-                  ? "Checking recoverable funds…"
-                  : total > 0n
-                    ? `${formatUsd(total)} USDC needs recovery`
-                    : "Review a previous cash-out"}
-              </p>
-              <p className="mt-0.5 text-sm text-white/65">
-                A previous cash-out didn&apos;t finish. Your funds are safe.
-              </p>
-            </div>
+          <div className="relative z-10 max-w-[62%]">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-100/65">
+              Recovery needed
+            </p>
+            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+              {formatUsd(total)}
+            </p>
+            <p className="mt-1 text-sm font-medium text-amber-50/65 max-w-[15ch]">
+              USDC from an interrupted cash-out
+            </p>
           </div>
+
+          <RecoverySketch />
+
+          <p className="relative z-10 max-w-[30ch] text-sm leading-5 text-white/65">
+            The payout didn&apos;t finish, but your funds are safe on a recovery
+            account.
+          </p>
+
           <Button
             type="button"
             variant="glass"
-            className="w-full bg-white/14 ring-white/25 sm:w-auto"
+            className="relative z-10 w-full bg-amber-50/14 text-white ring-amber-100/25 hover:bg-amber-50/20"
             onClick={() => setOpen(true)}
           >
             Recover funds
@@ -425,5 +432,80 @@ export function StrandedFundsRecovery({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function RecoverySketch() {
+  return (
+    <svg
+      className="pointer-events-none absolute -right-2 top-7 h-32 w-40 overflow-visible text-amber-50/75 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:-rotate-2 motion-safe:group-hover/recovery:scale-[1.035]"
+      viewBox="0 0 190 150"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M24 111C50 88 78 81 107 87C132 92 151 103 170 124"
+        className="stroke-amber-200/45 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-1"
+        strokeDasharray="6 9"
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+      <g
+        className="stroke-current transition-transform duration-500 ease-out motion-safe:group-hover/recovery:-translate-y-1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect
+          x="35"
+          y="35"
+          width="76"
+          height="82"
+          rx="12"
+          className="fill-amber-100/5"
+          strokeWidth="2"
+          transform="rotate(-6 73 76)"
+        />
+        <path
+          d="M54 58L91 54M53 75L96 71M52 92L80 89"
+          className="stroke-amber-50/45"
+          strokeWidth="1.6"
+          transform="rotate(-6 73 76)"
+        />
+      </g>
+      <path
+        d="M107 70H126M120 62L128 70L120 78"
+        className="stroke-amber-200/65 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-2"
+        strokeDasharray="3 5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <g
+        className="stroke-amber-100 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M134 70V58C134 46 142 38 154 38C166 38 174 46 174 58V70" />
+        <rect
+          x="127"
+          y="68"
+          width="54"
+          height="42"
+          rx="10"
+          className="fill-amber-100/5"
+        />
+        <circle cx="154" cy="85" r="3" />
+        <path d="M154 88V96" />
+      </g>
+      <circle
+        cx="27"
+        cy="60"
+        r="8"
+        className="stroke-amber-100/35"
+        strokeWidth="1.4"
+      />
+    </svg>
   );
 }

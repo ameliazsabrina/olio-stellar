@@ -2,7 +2,6 @@
 
 import {
   Banknote,
-  Check,
   ExternalLink,
   Landmark,
   Loader2,
@@ -33,7 +32,6 @@ import {
   provisionBridge,
   releaseNoteToBridge,
 } from "../../lib/offramp";
-import { claimableNotes } from "../../lib/withdraw";
 import { Button } from "../ui/button";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
@@ -73,16 +71,17 @@ function paintAnchorWindow(
 }
 
 export function OffRampContent({
-  notes,
+  note,
   onBusyChange,
+  onComplete,
 }: {
-  notes: MyNote[];
+  note: MyNote;
   onBusyChange?: (busy: boolean) => void;
+  onComplete?: () => void | Promise<void>;
 }) {
   const { getSigner } = useWallet();
   const [step, setStep] = useState<Step>("select");
   const [prepPhase, setPrepPhase] = useState<string>("fund");
-  const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Live off-ramp session state, populated as the flow advances.
@@ -95,8 +94,6 @@ export function OffRampContent({
   const [settled, setSettled] = useState<Sep24Transaction | null>(null);
 
   const [limits, setLimits] = useState<WithdrawLimits | null>(null);
-
-  const options = useMemo(() => claimableNotes(notes), [notes]);
 
   const { minUnits, maxUnits } = useMemo(
     () => ({
@@ -116,8 +113,6 @@ export function OffRampContent({
     [minUnits, maxUnits],
   );
 
-  const selected = options.find((n) => n.leafIndex === selectedLeaf) ?? null;
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -135,32 +130,17 @@ export function OffRampContent({
   }, []);
 
   useEffect(() => {
-    onBusyChange?.(step !== "select");
+    onBusyChange?.(step !== "select" && step !== "done");
   }, [step, onBusyChange]);
 
-  useEffect(() => {
-    if (options.length === 0) {
-      setSelectedLeaf(null);
-      return;
-    }
-
-    if (options.some((n) => n.leafIndex === selectedLeaf)) return;
-    const firstEligible = options.find((n) => limitIssue(n.amount) === null);
-    setSelectedLeaf((firstEligible ?? options[0]).leafIndex);
-  }, [options, selectedLeaf, limitIssue]);
-
   async function start() {
-    if (!selected) {
-      setError("Select a payment to cash out.");
-      return;
-    }
     // Pre-flight against the anchor's advertised limits so we never provision a
     // bridge account (and spend gas) for a withdrawal the anchor will reject.
     // Surfaced as a toast on the withdraw attempt rather than blocking the note.
-    const issue = limitIssue(selected.amount);
+    const issue = limitIssue(note.amount);
     if (issue === "over") {
       toast.error(
-        `This payment is ${fromBaseUnits(selected.amount)} USDC, above ${anchorLabel()}'s ${limits?.max} USDC per-withdrawal limit. Cash out a smaller payment.`,
+        `This payment is ${fromBaseUnits(note.amount)} USDC, above ${anchorLabel()}'s ${limits?.max} USDC per-withdrawal limit. Cash out a smaller payment.`,
         { id: "off-ramp-limit" },
       );
       return;
@@ -194,7 +174,7 @@ export function OffRampContent({
     try {
       const acct = getAccount();
       if (!acct) throw new Error("No local account found on this device.");
-      const amount = fromBaseUnits(selected.amount);
+      const amount = fromBaseUnits(note.amount);
 
       // 1 · verify the configured anchor before spending sponsor XLM.
       const info = await fetchAnchorInfo();
@@ -234,28 +214,26 @@ export function OffRampContent({
       // into the bridge and settle. Re-scan for the freshest Merkle root (the
       // pool keeps a 30-root history, so the KYC wait can't stale the proof).
       if (ready.status !== "completed") {
-        if (
-          !ready.amount_in ||
-          toBaseUnits(ready.amount_in) !== selected.amount
-        ) {
+        if (!ready.amount_in || toBaseUnits(ready.amount_in) !== note.amount) {
           throw new Error(
             "Anchor payment instructions do not match the selected amount.",
           );
         }
         setStep("settling");
         const scan = await scanMyNotes(acct);
-        const note = scan.notes.find(
-          (n) => n.leafIndex === selected.leafIndex && !n.spent,
+        const currentNote = scan.notes.find(
+          (n) => n.leafIndex === note.leafIndex && !n.spent,
         );
-        if (!note) throw new Error("That payment is no longer available.");
+        if (!currentNote)
+          throw new Error("That payment is no longer available.");
         // Persist the bridge secret BEFORE spending, so an interrupted settle
         // leaves the funds recoverable instead of stranded on a lost key.
-        persistBridge(bridge, id, note.amount);
+        persistBridge(bridge, id, currentNote.amount);
         await releaseNoteToBridge({
           signer: getSigner(),
           acct,
           scan,
-          note,
+          note: currentNote,
           bridge,
         });
         released = true;
@@ -288,6 +266,7 @@ export function OffRampContent({
       clearPersistedBridge(id);
       setSettled(final);
       setStep("done");
+      await onComplete?.();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Off-ramp failed.";
       // Surface the failure IN the pre-opened tab instead of leaving a blank
@@ -306,15 +285,6 @@ export function OffRampContent({
     }
   }
 
-  if (options.length === 0) {
-    return (
-      <ToastFeedback
-        message="No payments to cash out yet. Share your pay link to receive your first private payment."
-        toastId="off-ramp-empty"
-      />
-    );
-  }
-
   if (step === "select") {
     return (
       <div className="grid gap-4">
@@ -328,50 +298,14 @@ export function OffRampContent({
           </span>
         </div>
 
-        <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm font-medium text-white">
-            Payment to cash out
-          </legend>
-          <div className="grid gap-2">
-            {options.map((note) => {
-              const active = note.leafIndex === selectedLeaf;
-              return (
-                <button
-                  key={note.leafIndex}
-                  type="button"
-                  onClick={() => setSelectedLeaf(note.leafIndex)}
-                  aria-pressed={active}
-                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
-                    active
-                      ? "border-white/40 bg-white/16"
-                      : "border-white/15 bg-white/7 hover:border-white/25 hover:bg-white/10"
-                  }`}
-                >
-                  <span className="flex items-center gap-2 text-sm text-white">
-                    <span
-                      className={`grid size-5 place-items-center rounded-full border ${
-                        active
-                          ? "border-white bg-white text-ink"
-                          : "border-white/35"
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {active && <Check className="size-3" />}
-                    </span>
-                    Payment
-                  </span>
-                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
-                    {fromBaseUnits(note.amount)} USDC
-                  </span>
-                </button>
-              );
-            })}
+        <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm text-white/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+              {fromBaseUnits(note.amount)} USDC
+            </span>
           </div>
-          <p className="text-xs text-white/60">
-            Each payment is cashed out in full. To move a smaller amount,
-            receive it as a separate payment.
-          </p>
-        </fieldset>
+        </div>
 
         <ToastFeedback
           title="Withdrawal not completed"
@@ -412,8 +346,8 @@ export function OffRampContent({
         <div className="rounded-lg bg-white/8 p-4 text-sm ring-1 ring-white/15">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-white/60">Cashing out</span>
-            <span className="font-heading text-2xl font-semibold text-white">
-              {selected ? fromBaseUnits(selected.amount) : ""} USDC
+            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+              {fromBaseUnits(note.amount)} USDC
             </span>
           </div>
         </div>
