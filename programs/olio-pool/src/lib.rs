@@ -1,14 +1,13 @@
 #![no_std]
 
-
 use soroban_poseidon::poseidon_hash;
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contractmeta, contracttype,
-    crypto::bn254::Bn254Fr, panic_with_error, symbol_short, token, vec, Address, Bytes, BytesN,
-    Env, String, Vec, U256,
+    crypto::bn254::Bn254Fr, panic_with_error, symbol_short, token, vec, xdr::ToXdr, Address, Bytes,
+    BytesN, Env, String, Vec, U256,
 };
 
-contractmeta!(key = "binver", val = "2.0.0");
+contractmeta!(key = "binver", val = "3.0.0");
 
 mod groth16;
 pub use groth16::{Proof, VerificationKey};
@@ -29,6 +28,7 @@ const MAX_DEPTH: u32 = 32;
 const DAY_LEDGERS: u32 = 17_280;
 const TTL_THRESHOLD: u32 = DAY_LEDGERS * 30;
 const TTL_EXTEND: u32 = DAY_LEDGERS * 90;
+pub const TIMELOCK_SECONDS: u64 = 172_800;
 
 const BN254_FR_ORDER: [u8; 32] = [
     0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
@@ -36,7 +36,7 @@ const BN254_FR_ORDER: [u8; 32] = [
 ];
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     pub asset: Address,
     pub depth: u32,
@@ -56,6 +56,44 @@ enum DataKey {
     NextIndex,
     Roots,
     Nullifier(BytesN<32>),
+    PendingGovernance,
+    GovernanceNonce,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum VerifierKind {
+    Deposit,
+    Withdraw,
+    Transfer,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GovernanceAction {
+    Upgrade(BytesN<32>),
+    SetVerifierKey(VerifierKind, VerificationKey),
+    SetAdmin(Address),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GovernanceActionKind {
+    Upgrade,
+    DepositVerifier,
+    WithdrawVerifier,
+    TransferVerifier,
+    Admin,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingGovernance {
+    pub proposal_id: u64,
+    pub action: GovernanceAction,
+    pub payload_hash: BytesN<32>,
+    pub proposed_at: u64,
+    pub execute_at: u64,
 }
 
 #[contracterror]
@@ -74,6 +112,13 @@ pub enum Error {
     Paused = 10,
     AdminTransferNotPending = 11,
     InvalidFieldElement = 12,
+    ProposalAlreadyPending = 13,
+    NoPendingProposal = 14,
+    TimelockNotElapsed = 15,
+    ProposalIdMismatch = 16,
+    InvalidVerifierKey = 17,
+    TimestampOverflow = 18,
+    ProposalIdOverflow = 19,
 }
 
 #[contractevent(topics = ["pause"])]
@@ -95,20 +140,6 @@ pub struct UpgradeEvent {
     pub new_wasm_hash: BytesN<32>,
 }
 
-#[contractevent(topics = ["admin_proposed"])]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AdminProposedEvent {
-    pub admin: Address,
-    pub pending_admin: Address,
-}
-
-#[contractevent(topics = ["admin_cancelled"])]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AdminCancelledEvent {
-    pub admin: Address,
-    pub pending_admin: Address,
-}
-
 #[contractevent(topics = ["admin_changed"])]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdminChangedEvent {
@@ -116,15 +147,56 @@ pub struct AdminChangedEvent {
     pub new_admin: Address,
 }
 
+#[contractevent(topics = ["gov_proposed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GovernanceProposedEvent {
+    pub proposal_id: u64,
+    pub action_kind: GovernanceActionKind,
+    pub payload_hash: BytesN<32>,
+    pub execute_at: u64,
+}
+
+#[contractevent(topics = ["gov_executed"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GovernanceExecutedEvent {
+    pub proposal_id: u64,
+    pub action_kind: GovernanceActionKind,
+    pub payload_hash: BytesN<32>,
+    pub execute_at: u64,
+}
+
+#[contractevent(topics = ["gov_cancelled"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GovernanceCancelledEvent {
+    pub proposal_id: u64,
+    pub action_kind: GovernanceActionKind,
+    pub payload_hash: BytesN<32>,
+    pub execute_at: u64,
+}
+
 #[contract]
 pub struct PoolContract;
 
 #[contractimpl]
 impl PoolContract {
-    pub fn __constructor(env: Env, admin: Address, asset: Address, depth: u32) {
+    pub fn __constructor(
+        env: Env,
+        admin: Address,
+        asset: Address,
+        depth: u32,
+        deposit_vk: VerificationKey,
+        withdraw_vk: VerificationKey,
+        transfer_vk: VerificationKey,
+    ) {
         let store = env.storage().instance();
         if depth == 0 || depth > MAX_DEPTH {
             panic_with_error!(&env, Error::InvalidDepth);
+        }
+        if validate_verifier_key(&deposit_vk, &VerifierKind::Deposit).is_err()
+            || validate_verifier_key(&withdraw_vk, &VerifierKind::Withdraw).is_err()
+            || validate_verifier_key(&transfer_vk, &VerifierKind::Transfer).is_err()
+        {
+            panic_with_error!(&env, Error::InvalidVerifierKey);
         }
 
         let mut zeros = Vec::new(&env);
@@ -142,38 +214,14 @@ impl PoolContract {
         store.set(&DataKey::Config, &Config { asset, depth });
         store.set(&DataKey::Admin, &admin);
         store.set(&DataKey::Paused, &false);
+        store.set(&DataKey::VkDeposit, &deposit_vk);
+        store.set(&DataKey::Vk, &withdraw_vk);
+        store.set(&DataKey::VkTransfer, &transfer_vk);
         store.set(&DataKey::Zeros, &zeros);
         store.set(&DataKey::Filled, &filled);
         store.set(&DataKey::NextIndex, &0u32);
         store.set(&DataKey::Roots, &roots);
         store.extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-    }
-
-    pub fn set_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
-        require_admin(&env)?;
-        env.storage().instance().set(&DataKey::Vk, &vk);
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        Ok(())
-    }
-
-    pub fn set_deposit_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
-        require_admin(&env)?;
-        env.storage().instance().set(&DataKey::VkDeposit, &vk);
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        Ok(())
-    }
-
-    pub fn set_transfer_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
-        require_admin(&env)?;
-        env.storage().instance().set(&DataKey::VkTransfer, &vk);
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        Ok(())
     }
 
     pub fn deposit(
@@ -363,7 +411,6 @@ impl PoolContract {
         Ok((recipient_index, change_index))
     }
 
-
     pub fn get_config(env: Env) -> Result<Config, Error> {
         load_config(&env)
     }
@@ -413,11 +460,6 @@ impl PoolContract {
             .ok_or(Error::NotInitialized)
     }
 
-    pub fn pending_admin(env: Env) -> Option<Address> {
-        env.storage().instance().get(&DataKey::PendingAdmin)
-    }
-
-
     pub fn pause(env: Env) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         env.storage().instance().set(&DataKey::Paused, &true);
@@ -438,80 +480,199 @@ impl PoolContract {
         Ok(())
     }
 
-    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
-        let admin = require_admin(&env)?;
-        UpgradeEvent {
-            admin,
-            new_wasm_hash: new_wasm_hash.clone(),
-        }
-        .publish(&env);
-        env.deployer().update_current_contract_wasm(new_wasm_hash);
-        Ok(())
+    pub fn propose_upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<u64, Error> {
+        propose_governance(&env, GovernanceAction::Upgrade(new_wasm_hash))
     }
 
-    pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
-        let admin = require_admin(&env)?;
-        env.storage()
+    pub fn propose_verifier_key(
+        env: Env,
+        kind: VerifierKind,
+        vk: VerificationKey,
+    ) -> Result<u64, Error> {
+        propose_governance(&env, GovernanceAction::SetVerifierKey(kind, vk))
+    }
+
+    pub fn propose_admin(env: Env, new_admin: Address) -> Result<u64, Error> {
+        propose_governance(&env, GovernanceAction::SetAdmin(new_admin))
+    }
+
+    pub fn execute_governance(env: Env, proposal_id: u64) -> Result<(), Error> {
+        let pending: PendingGovernance = env
+            .storage()
             .instance()
-            .set(&DataKey::PendingAdmin, &new_admin);
+            .get(&DataKey::PendingGovernance)
+            .ok_or(Error::NoPendingProposal)?;
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        AdminProposedEvent {
-            admin,
-            pending_admin: new_admin,
+        if proposal_id != pending.proposal_id {
+            return Err(Error::ProposalIdMismatch);
+        }
+        if env.ledger().timestamp() < pending.execute_at {
+            return Err(Error::TimelockNotElapsed);
+        }
+        if let GovernanceAction::SetAdmin(new_admin) = &pending.action {
+            new_admin.require_auth();
+        }
+        let action_kind = governance_action_kind(&pending.action);
+        env.storage().instance().remove(&DataKey::PendingGovernance);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        GovernanceExecutedEvent {
+            proposal_id,
+            action_kind,
+            payload_hash: pending.payload_hash.clone(),
+            execute_at: pending.execute_at,
+        }
+        .publish(&env);
+        match pending.action {
+            GovernanceAction::Upgrade(new_wasm_hash) => {
+                let admin: Address = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Admin)
+                    .ok_or(Error::NotInitialized)?;
+                UpgradeEvent {
+                    admin,
+                    new_wasm_hash: new_wasm_hash.clone(),
+                }
+                .publish(&env);
+                env.deployer().update_current_contract_wasm(new_wasm_hash);
+            }
+            GovernanceAction::SetVerifierKey(kind, vk) => {
+                let key = verifier_data_key(&kind);
+                env.storage().instance().set(&key, &vk);
+            }
+            GovernanceAction::SetAdmin(new_admin) => {
+                let previous_admin: Address = env
+                    .storage()
+                    .instance()
+                    .get(&DataKey::Admin)
+                    .ok_or(Error::NotInitialized)?;
+                env.storage().instance().set(&DataKey::Admin, &new_admin);
+                AdminChangedEvent {
+                    previous_admin,
+                    new_admin,
+                }
+                .publish(&env);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn cancel_governance(env: Env, proposal_id: u64) -> Result<(), Error> {
+        require_admin(&env)?;
+        let pending: PendingGovernance = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingGovernance)
+            .ok_or(Error::NoPendingProposal)?;
+        if proposal_id != pending.proposal_id {
+            return Err(Error::ProposalIdMismatch);
+        }
+        let action_kind = governance_action_kind(&pending.action);
+        env.storage().instance().remove(&DataKey::PendingGovernance);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        GovernanceCancelledEvent {
+            proposal_id,
+            action_kind,
+            payload_hash: pending.payload_hash,
+            execute_at: pending.execute_at,
         }
         .publish(&env);
         Ok(())
     }
 
-    pub fn accept_admin(env: Env) -> Result<(), Error> {
-        let pending_admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::PendingAdmin)
-            .ok_or(Error::AdminTransferNotPending)?;
-        pending_admin.require_auth();
-        let previous_admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .ok_or(Error::NotInitialized)?;
-        env.storage()
-            .instance()
-            .set(&DataKey::Admin, &pending_admin);
-        env.storage().instance().remove(&DataKey::PendingAdmin);
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        AdminChangedEvent {
-            previous_admin,
-            new_admin: pending_admin,
+    pub fn pending_governance(env: Env) -> Option<PendingGovernance> {
+        let pending = env.storage().instance().get(&DataKey::PendingGovernance);
+        if pending.is_some() {
+            env.storage()
+                .instance()
+                .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         }
-        .publish(&env);
-        Ok(())
-    }
-
-    pub fn cancel_admin_transfer(env: Env) -> Result<(), Error> {
-        let admin = require_admin(&env)?;
-        let pending_admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::PendingAdmin)
-            .ok_or(Error::AdminTransferNotPending)?;
-        env.storage().instance().remove(&DataKey::PendingAdmin);
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        AdminCancelledEvent {
-            admin,
-            pending_admin,
-        }
-        .publish(&env);
-        Ok(())
+        pending
     }
 }
 
+fn propose_governance(env: &Env, action: GovernanceAction) -> Result<u64, Error> {
+    require_admin(env)?;
+    if let GovernanceAction::SetVerifierKey(kind, vk) = &action {
+        validate_verifier_key(vk, kind)?;
+    }
+    let store = env.storage().instance();
+    if store.has(&DataKey::PendingGovernance) {
+        return Err(Error::ProposalAlreadyPending);
+    }
+    let previous_id: u64 = store.get(&DataKey::GovernanceNonce).unwrap_or(0);
+    let proposal_id = previous_id
+        .checked_add(1)
+        .ok_or(Error::ProposalIdOverflow)?;
+    let proposed_at = env.ledger().timestamp();
+    let execute_at = proposed_at
+        .checked_add(TIMELOCK_SECONDS)
+        .ok_or(Error::TimestampOverflow)?;
+    let payload_hash = env.crypto().sha256(&action.clone().to_xdr(env)).to_bytes();
+    let action_kind = governance_action_kind(&action);
+    let pending = PendingGovernance {
+        proposal_id,
+        action,
+        payload_hash: payload_hash.clone(),
+        proposed_at,
+        execute_at,
+    };
+    store.set(&DataKey::GovernanceNonce, &proposal_id);
+    store.set(&DataKey::PendingGovernance, &pending);
+    store.extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+    GovernanceProposedEvent {
+        proposal_id,
+        action_kind,
+        payload_hash,
+        execute_at,
+    }
+    .publish(env);
+    Ok(proposal_id)
+}
+
+fn governance_action_kind(action: &GovernanceAction) -> GovernanceActionKind {
+    match action {
+        GovernanceAction::Upgrade(_) => GovernanceActionKind::Upgrade,
+        GovernanceAction::SetVerifierKey(VerifierKind::Deposit, _) => {
+            GovernanceActionKind::DepositVerifier
+        }
+        GovernanceAction::SetVerifierKey(VerifierKind::Withdraw, _) => {
+            GovernanceActionKind::WithdrawVerifier
+        }
+        GovernanceAction::SetVerifierKey(VerifierKind::Transfer, _) => {
+            GovernanceActionKind::TransferVerifier
+        }
+        GovernanceAction::SetAdmin(_) => GovernanceActionKind::Admin,
+    }
+}
+
+fn verifier_data_key(kind: &VerifierKind) -> DataKey {
+    match kind {
+        VerifierKind::Deposit => DataKey::VkDeposit,
+        VerifierKind::Withdraw => DataKey::Vk,
+        VerifierKind::Transfer => DataKey::VkTransfer,
+    }
+}
+
+fn validate_verifier_key(vk: &VerificationKey, kind: &VerifierKind) -> Result<(), Error> {
+    let expected_len = match kind {
+        VerifierKind::Deposit => 3,
+        VerifierKind::Withdraw | VerifierKind::Transfer => 5,
+    };
+    if vk.ic.len() != expected_len {
+        return Err(Error::InvalidVerifierKey);
+    }
+    for point in vk.ic.iter() {
+        let _ = point.to_array();
+    }
+    Ok(())
+}
 
 fn load_config(env: &Env) -> Result<Config, Error> {
     env.storage()

@@ -48,12 +48,269 @@
       ]
     ],
     [],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
+              "function_name": "propose_verifier_key",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "symbol": "Deposit"
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "alpha"
+                      },
+                      "val": {
+                        "bytes": "2e4e82598d3779ef0e68b391c1c66c585d125394e6c7f68cbf0a5903ac7d667011dc5d9ae237a53a6b4b18f0951a5b57de6edd174de10479d92128b636575b14"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "beta"
+                      },
+                      "val": {
+                        "bytes": "24478332b3f38ee222dee33f0d12dd9c149e2535064a95c959eda7773be718321cbfc3af17e5e710209b326f0b5cb20521ec9e69340125bce680832db4f1869a2d77eae541edb9489634689129932b6be6a5f15e78d995171ead900740bef8f619883be8c667306c0589b20e1fc2c1fbdc61c8fd4d503b22d95fba32a33a4817"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "delta"
+                      },
+                      "val": {
+                        "bytes": "053a3653a1ff70b6d6c43794f3da90fb215482ce909f457a2750dfb446e107e43030f615193ca95216a19346ad2dbb3d1e34d987c6da02753b26a006240be3442302bd32de462324a0b6371322b06632e84df156575deb2d0e9cffe6b8cc19d414073977fd9a6ff814e837abd4a9079468a188fb396f865cf76a545ea9b322df"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "gamma"
+                      },
+                      "val": {
+                        "bytes": "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "ic"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "bytes": "2e4e82598d3779ef0e68b391c1c66c585d125394e6c7f68cbf0a5903ac7d667011dc5d9ae237a53a6b4b18f0951a5b57de6edd174de10479d92128b636575b14"
+                          },
+                          {
+                            "bytes": "2e31f2c9c1d11877f0b9961c41f82c39e9b03b68fe7327d131737d6ebfe5bee20a8ae3d1dfab8fc24c52d37120b6075f175e26cb62f17ec37796e5a910f564d3"
+                          },
+                          {
+                            "bytes": "1f227a6acf2fb0043dc2217ead11b16839eea32907f1846086cc336cc13e89c8263d6929811c0d52dbdc12dd5a30a52c54616605be75bb72aa8f80fef6268d44"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
+              "function_name": "propose_verifier_key",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "symbol": "Withdraw"
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "alpha"
+                      },
+                      "val": {
+                        "bytes": "301535519ee3f171635b38d889b82df5b554ceddbd204512aa50f6f2b353a9112ed6f8a7393a9f4021673a71d622304759dcf5c29503a9518cc5423a84492428"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "beta"
+                      },
+                      "val": {
+                        "bytes": "24478332b3f38ee222dee33f0d12dd9c149e2535064a95c959eda7773be718321cbfc3af17e5e710209b326f0b5cb20521ec9e69340125bce680832db4f1869a2d77eae541edb9489634689129932b6be6a5f15e78d995171ead900740bef8f619883be8c667306c0589b20e1fc2c1fbdc61c8fd4d503b22d95fba32a33a4817"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "delta"
+                      },
+                      "val": {
+                        "bytes": "2b2393c3573388efa582b4072cf3e413747023ab6644b117fc62037e493c962221e16d5bb28de23a43547e12a8332992c9c7bb46b2af9e25df83bbf91854c27e14b41973201389fe2c7ca094e23da61234a1d21d5ab6a4490c32fecb84e01322012aab2ab96f1c2ad978998572426fe835d8dc0c09b9f0c66315a8b119e4c71b"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "gamma"
+                      },
+                      "val": {
+                        "bytes": "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "ic"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "bytes": "301535519ee3f171635b38d889b82df5b554ceddbd204512aa50f6f2b353a9112ed6f8a7393a9f4021673a71d622304759dcf5c29503a9518cc5423a84492428"
+                          },
+                          {
+                            "bytes": "06ca6e60741c24b6f5a8f709b6cdec03dc2e622a4c374c33499ba7dfaa6f401329cd25b27e4214ee3642da894198b8676b2f15b1f78ced20b5a4003ed3cc4dce"
+                          },
+                          {
+                            "bytes": "2e5623a8069e308442c3b3247f68218ed359a2afc7814f67112288f2f0392251119d67fe011ca568d9edfb9cd2d502abab3e56b541091e2037d73854cd918318"
+                          },
+                          {
+                            "bytes": "253e5e75cd52ab46add348cf60f7e089decd83212cf9ba3c495dce846cdad5ca175345da520a1ff98d48a241ee12ff44e331e844a69e8dfc48b5d793c8822327"
+                          },
+                          {
+                            "bytes": "2b558653e2a3b478fd17a8451a20e7235fd5be81d2e1fed6c67f84859a2daa88070f84d1a55e21f70ec28a6c824c8b6d2e0836299ca401cf3c9d3ebfacd98cb8"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
+              "function_name": "propose_verifier_key",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "symbol": "Transfer"
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "alpha"
+                      },
+                      "val": {
+                        "bytes": "1ddf3a5603b91e34512f4fed10bc11bffb31d00ab60921b814eac00b6661386810f2cfdd82c1b81f9a4c15c89c28978a2bb0541adf6211eb5dbc2d125bba37dd"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "beta"
+                      },
+                      "val": {
+                        "bytes": "24478332b3f38ee222dee33f0d12dd9c149e2535064a95c959eda7773be718321cbfc3af17e5e710209b326f0b5cb20521ec9e69340125bce680832db4f1869a2d77eae541edb9489634689129932b6be6a5f15e78d995171ead900740bef8f619883be8c667306c0589b20e1fc2c1fbdc61c8fd4d503b22d95fba32a33a4817"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "delta"
+                      },
+                      "val": {
+                        "bytes": "104f8e314d5d69997805fc4c3af075ccbb4fd98d2779d6b481dd79e1983097ad0a9b714bc1599117f1121210f6dd8044b1f3562aeac0d5d4c511538edc89e0ac19af74e39e9ef65c3623428c20e8e2968f7cde57149cc4744bb3b372f351cfe202e23fd8dead2e13d273401ff013244d7fdd6330fe0734b1d8b7d9624a6bfad8"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "gamma"
+                      },
+                      "val": {
+                        "bytes": "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "ic"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "bytes": "1ddf3a5603b91e34512f4fed10bc11bffb31d00ab60921b814eac00b6661386810f2cfdd82c1b81f9a4c15c89c28978a2bb0541adf6211eb5dbc2d125bba37dd"
+                          },
+                          {
+                            "bytes": "178844e4d33ceab69fe565d9ee8fe9815bc699f5f0c1dd0dfbefa0fffc5252bd02af73d8b6d15448582bd79e77772574946af3212ce4d1a7ae967b4dba087a26"
+                          },
+                          {
+                            "bytes": "0d95e9513eff6fa6acebe2fed659f1f09ee24440208c1c97c9ada994529ff9fc0612c18a46da0352090a565a20b9cc9631115915b56637e3581ee43e59a53de3"
+                          },
+                          {
+                            "bytes": "1e4eade801b1a8b9b533883911e7b931dbf12e5bda5a2de4b2a8a52e5aab268c25366cdefb8167eb999f6c9db0868ae0028663800030712f3820b5969b56b18d"
+                          },
+                          {
+                            "bytes": "0a81045b015fc1e5634801a19f9e9a1b84d9f2411152c6f5a825b64badf108c50d40984aaf5751a17c2452f3ebba30d97e58e7a86dbbb56709fa3a8a0f6a2a3d"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [],
+    [],
+    [],
     []
   ],
   "ledger": {
     "protocol_version": 26,
     "sequence_number": 0,
-    "timestamp": 0,
+    "timestamp": 518400,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
@@ -91,6 +348,66 @@
               "key": {
                 "ledger_key_nonce": {
                   "nonce": "801925984706572462"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1033654523790656264"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2032731177588607455"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "4837995959683129791"
                 }
               },
               "durability": "temporary",
@@ -254,6 +571,18 @@
                       "key": {
                         "vec": [
                           {
+                            "symbol": "GovernanceNonce"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "u64": "3"
+                      }
+                    },
+                    {
+                      "key": {
+                        "vec": [
+                          {
                             "symbol": "NextIndex"
                           }
                         ]
@@ -305,7 +634,7 @@
                               "symbol": "alpha"
                             },
                             "val": {
-                              "bytes": "07ca818e7229dc79d9d61b5a545616f0810692648435be6b656436b118e5d70d1f86214b20cb5aacac670f11fb9dfe370b203eefb9eaf7d382cd45b6776b2c77"
+                              "bytes": "301535519ee3f171635b38d889b82df5b554ceddbd204512aa50f6f2b353a9112ed6f8a7393a9f4021673a71d622304759dcf5c29503a9518cc5423a84492428"
                             }
                           },
                           {
@@ -374,7 +703,7 @@
                               "symbol": "alpha"
                             },
                             "val": {
-                              "bytes": "07ca818e7229dc79d9d61b5a545616f0810692648435be6b656436b118e5d70d1f86214b20cb5aacac670f11fb9dfe370b203eefb9eaf7d382cd45b6776b2c77"
+                              "bytes": "2e4e82598d3779ef0e68b391c1c66c585d125394e6c7f68cbf0a5903ac7d667011dc5d9ae237a53a6b4b18f0951a5b57de6edd174de10479d92128b636575b14"
                             }
                           },
                           {
@@ -437,7 +766,7 @@
                               "symbol": "alpha"
                             },
                             "val": {
-                              "bytes": "07ca818e7229dc79d9d61b5a545616f0810692648435be6b656436b118e5d70d1f86214b20cb5aacac670f11fb9dfe370b203eefb9eaf7d382cd45b6776b2c77"
+                              "bytes": "1ddf3a5603b91e34512f4fed10bc11bffb31d00ab60921b814eac00b6661386810f2cfdd82c1b81f9a4c15c89c28978a2bb0541adf6211eb5dbc2d125bba37dd"
                             }
                           },
                           {

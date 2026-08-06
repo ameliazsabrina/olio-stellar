@@ -15,7 +15,7 @@ use soroban_sdk::{
 };
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerificationKey {
     pub alpha: BytesN<64>,
     pub beta: BytesN<128>,
@@ -26,7 +26,7 @@ pub struct VerificationKey {
 }
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Proof {
     pub a: BytesN<64>,
     pub b: BytesN<128>,
