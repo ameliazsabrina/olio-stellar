@@ -12,18 +12,15 @@ export type WithdrawInput = {
 };
 
 export type TransferInput = {
-  // Public
   root: string;
   nullifier: string;
   outCommitmentRecipient: string;
   outCommitmentChange: string;
-  // Private — input note
   inAmount: string;
   ownerSecret: string;
   inSalt: string;
   pathElements: string[];
   pathIndices: (string | number)[];
-  // Private — outputs
   recipientPk: string;
   recipientAmount: string;
   recipientSalt: string;
@@ -31,10 +28,16 @@ export type TransferInput = {
   changeSalt: string;
 };
 
+export type DepositInput = {
+  commitment: string;
+  amount: string;
+  ownerPk: string;
+  salt: string;
+};
+
 export type RawProof = { a: Uint8Array; b: Uint8Array; c: Uint8Array };
 
 const g1 = (p: string[]) => concat(toBE32(BigInt(p[0])), toBE32(BigInt(p[1])));
-// snarkjs G2 is [[x_c0, x_c1], [y_c0, y_c1]]; Soroban wants c1‖c0 per coordinate.
 const g2 = (p: string[][]) =>
   concat(
     toBE32(BigInt(p[0][1])),
@@ -60,8 +63,24 @@ function encodeProof(proof: SnarkProof): RawProof {
   return { a: g1(proof.pi_a), b: g2(proof.pi_b), c: g1(proof.pi_c) };
 }
 
-/// Generate and serialize a withdraw proof. Returns timing so the UI can surface
-/// proving performance (the PRD launch-gate metric).
+export async function proveDeposit(
+  input: DepositInput,
+  artifactRoot = "/zk",
+): Promise<{ proof: RawProof; publicSignals: string[]; ms: number }> {
+  const snarkjs = await import("snarkjs");
+  const started = performance.now();
+  const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+    input,
+    `${artifactRoot}/deposit.wasm`,
+    `${artifactRoot}/deposit.zkey`,
+  );
+  return {
+    proof: encodeProof(proof as SnarkProof),
+    publicSignals,
+    ms: performance.now() - started,
+  };
+}
+
 export async function proveWithdraw(
   input: WithdrawInput,
 ): Promise<{ proof: RawProof; publicSignals: string[]; ms: number }> {
@@ -79,8 +98,6 @@ export async function proveWithdraw(
   };
 }
 
-/// Generate and serialize a shielded-transfer proof (1-input / 2-output).
-/// Returns timing so the UI can surface proving performance.
 export async function proveTransfer(
   input: TransferInput,
 ): Promise<{ proof: RawProof; publicSignals: string[]; ms: number }> {

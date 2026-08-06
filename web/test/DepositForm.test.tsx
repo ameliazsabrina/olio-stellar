@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -21,6 +20,17 @@ vi.mock("../src/lib/stellar", () => ({
   poolDeposit: mocks.poolDeposit,
   usdcBalance: mocks.usdcBalance,
 }));
+vi.mock("../src/lib/prover", () => ({
+  proveDeposit: vi.fn(async () => ({
+    proof: {
+      a: new Uint8Array(64),
+      b: new Uint8Array(128),
+      c: new Uint8Array(64),
+    },
+    publicSignals: ["1", "50000000"],
+    ms: 1,
+  })),
+}));
 vi.mock("../src/lib/crypto", () => ({
   commitment: vi.fn(async () => 1n),
   encryptNote: vi.fn(() => ({
@@ -29,7 +39,6 @@ vi.mock("../src/lib/crypto", () => ({
   })),
   fromBE: vi.fn(() => 1n),
   randomFieldElement: vi.fn(() => 2n),
-  // 7 decimals, matching USDC base units.
   toBaseUnits: (v: string) => BigInt(Math.round(parseFloat(v) * 1e7)),
   toBE32: vi.fn(() => new Uint8Array(32)),
 }));
@@ -102,7 +111,7 @@ describe("DepositForm", () => {
   });
 
   it("blocks the deposit when the wallet balance is insufficient", async () => {
-    mocks.usdcBalance.mockResolvedValue(0n); // less than 5 USDC in base units
+    mocks.usdcBalance.mockResolvedValue(0n);
     renderForm();
     await userEvent.type(screen.getByLabelText(/usdc/i), "5");
     await userEvent.click(screen.getByRole("button", { name: /deposit/i }));
@@ -114,7 +123,7 @@ describe("DepositForm", () => {
   });
 
   it("shields the deposit and reports success", async () => {
-    mocks.usdcBalance.mockResolvedValue(1_000_000_000n); // plenty
+    mocks.usdcBalance.mockResolvedValue(1_000_000_000n);
     mocks.poolDeposit.mockResolvedValue(7);
     renderForm();
 
@@ -126,14 +135,12 @@ describe("DepositForm", () => {
       await screen.findByText(/shielded 5 usdc into your account/i),
     ).toBeInTheDocument();
 
-    // Deposited to the user's OWN pubkeys, with the amount in base units (5 * 1e7).
     expect(mocks.poolDeposit).toHaveBeenCalledTimes(1);
     const [signer, , amount] = mocks.poolDeposit.mock.calls[0];
     expect(signer).toBe(SIGNER);
     expect(amount).toBe(50_000_000n);
     expect(mocks.accountPubkeys).toHaveBeenCalled();
 
-    // Form resets after a successful deposit.
     expect(input.value).toBe("");
   });
 });

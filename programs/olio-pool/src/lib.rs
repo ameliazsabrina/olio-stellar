@@ -1,17 +1,5 @@
 #![no_std]
 
-//! Olio shielded pool — iteration 2 (real zero-knowledge).
-//!
-//! Value is held as *notes*. A deposit publishes only a Poseidon `commitment`
-//! (inserted into an incremental Merkle tree) plus note metadata **encrypted to
-//! the recipient**, so observers can't link a deposit to a username. A
-//! withdrawal submits a Groth16 proof (verified on-chain via BN254 host
-//! functions) that proves ownership + Merkle membership + nullifier in zero
-//! knowledge; the contract learns only `{root, nullifier, recipient, amount}`.
-//! The deposit↔withdrawal link is broken cryptographically.
-//!
-//! Hashing is Poseidon over BN254 (`soroban-poseidon`, circomlib-compatible), so
-//! the tree the contract maintains matches the circuit and the browser client.
 
 use soroban_poseidon::poseidon_hash;
 use soroban_sdk::{
@@ -28,6 +16,8 @@ pub use groth16::{Proof, VerificationKey};
 #[cfg(test)]
 mod fixture;
 #[cfg(test)]
+mod deposit_fixture;
+#[cfg(test)]
 mod test;
 #[cfg(test)]
 mod transfer_fixture;
@@ -40,7 +30,6 @@ const DAY_LEDGERS: u32 = 17_280;
 const TTL_THRESHOLD: u32 = DAY_LEDGERS * 30;
 const TTL_EXTEND: u32 = DAY_LEDGERS * 90;
 
-// BN254 scalar field order r, big-endian.
 const BN254_FR_ORDER: [u8; 32] = [
     0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
     0x28, 0x33, 0xe8, 0x48, 0x79, 0xb9, 0x70, 0x91, 0x43, 0xe1, 0xf5, 0x93, 0xf0, 0x00, 0x00, 0x01,
@@ -59,6 +48,7 @@ enum DataKey {
     Admin,
     PendingAdmin,
     Paused,
+    VkDeposit,
     Vk,
     VkTransfer,
     Zeros,
@@ -83,6 +73,7 @@ pub enum Error {
     InvalidProof = 9,
     Paused = 10,
     AdminTransferNotPending = 11,
+    InvalidFieldElement = 12,
 }
 
 #[contractevent(topics = ["pause"])]
@@ -130,14 +121,12 @@ pub struct PoolContract;
 
 #[contractimpl]
 impl PoolContract {
-    /// Atomically pin the admin and asset and build the empty Poseidon tree.
     pub fn __constructor(env: Env, admin: Address, asset: Address, depth: u32) {
         let store = env.storage().instance();
         if depth == 0 || depth > MAX_DEPTH {
             panic_with_error!(&env, Error::InvalidDepth);
         }
 
-        // Empty leaf = field 0; each level doubles up via Poseidon.
         let mut zeros = Vec::new(&env);
         let mut z = U256::from_u32(&env, 0);
         zeros.push_back(z.clone());
@@ -160,7 +149,6 @@ impl PoolContract {
         store.extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
     }
 
-    /// Set / rotate the withdraw Groth16 verification key (admin only).
     pub fn set_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
         require_admin(&env)?;
         env.storage().instance().set(&DataKey::Vk, &vk);
@@ -170,8 +158,15 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Set / rotate the transfer Groth16 verification key (admin only). The
-    /// transfer circuit is distinct from withdraw, so it needs its own key.
+    pub fn set_deposit_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
+        require_admin(&env)?;
+        env.storage().instance().set(&DataKey::VkDeposit, &vk);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        Ok(())
+    }
+
     pub fn set_transfer_verifier_key(env: Env, vk: VerificationKey) -> Result<(), Error> {
         require_admin(&env)?;
         env.storage().instance().set(&DataKey::VkTransfer, &vk);
@@ -181,21 +176,36 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Deposit `amount` and record `commitment` as a note. `ephemeral_pk` +
-    /// `ciphertext` carry the note's `{amount, salt}` encrypted to the
-    /// recipient's viewing key (opaque to the contract).
     pub fn deposit(
         env: Env,
         from: Address,
         commitment: BytesN<32>,
         amount: i128,
+        proof: Proof,
         ephemeral_pk: BytesN<32>,
         ciphertext: Bytes,
     ) -> Result<u32, Error> {
         from.require_auth();
         require_not_paused(&env)?;
-        if amount <= 0 {
+        if amount <= 0 || amount > u64::MAX as i128 {
             return Err(Error::InvalidAmount);
+        }
+        let commitment_field = to_u256(&env, &commitment);
+        if commitment_field >= bn254_fr_order(&env) {
+            return Err(Error::InvalidFieldElement);
+        }
+        let vk: VerificationKey = env
+            .storage()
+            .instance()
+            .get(&DataKey::VkDeposit)
+            .ok_or(Error::VerifierKeyNotSet)?;
+        let signals = vec![
+            &env,
+            Bn254Fr::from_u256(commitment_field.clone()),
+            Bn254Fr::from_u256(U256::from_u128(&env, amount as u128)),
+        ];
+        if !groth16::verify(&env, &vk, &proof, &signals) {
+            return Err(Error::InvalidProof);
         }
         let config = load_config(&env)?;
         token::Client::new(&env, &config.asset).transfer(
@@ -204,8 +214,7 @@ impl PoolContract {
             &amount,
         );
 
-        let leaf = to_u256(&env, &commitment);
-        let leaf_index = insert(&env, &config, &leaf)?;
+        let leaf_index = insert(&env, &config, &commitment_field)?;
 
         env.storage()
             .instance()
@@ -217,9 +226,6 @@ impl PoolContract {
         Ok(leaf_index)
     }
 
-    /// Spend a note in zero knowledge and release `amount` to `recipient`.
-    /// `recipient` is a strkey String so the contract can both bind it into the
-    /// proof (via `keccak256(strkey) mod r`) and build the payout Address.
     pub fn withdraw(
         env: Env,
         recipient: String,
@@ -247,7 +253,6 @@ impl PoolContract {
             return Err(Error::DoubleSpend);
         }
 
-        // Public signals, in the circuit's order: [root, nullifier, recipient, amount].
         let recipient_fr = recipient_to_field(&env, &recipient);
         let signals = vec![
             &env,
@@ -281,19 +286,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Shielded transfer: spend one note in zero knowledge and mint two new
-    /// notes — one for the recipient, one for the sender's change — without any
-    /// value leaving the pool. The proof guarantees Merkle membership + nullifier
-    /// derivation of the input and value conservation across the outputs; the
-    /// contract only ever sees `{root, nullifier, recipient_commitment,
-    /// change_commitment}` (amounts and identities stay private). Each output is
-    /// published via the same `deposit` event as a deposit, carrying its note
-    /// metadata encrypted to the owner's viewing key, so the existing indexer and
-    /// client scan discover both notes unchanged.
-    ///
-    /// Authorization is the proof itself (a valid one-time nullifier), so no
-    /// `require_auth` is taken — the sender's wallet is never revealed. A relayer
-    /// submits the (empty-auth) invocation.
     #[allow(clippy::too_many_arguments)]
     pub fn transfer(
         env: Env,
@@ -323,8 +315,6 @@ impl PoolContract {
             return Err(Error::DoubleSpend);
         }
 
-        // Public signals, in the circuit's order:
-        // [root, nullifier, outCommitmentRecipient, outCommitmentChange].
         let signals = vec![
             &env,
             Bn254Fr::from_u256(to_u256(&env, &root)),
@@ -343,7 +333,6 @@ impl PoolContract {
             TTL_EXTEND,
         );
 
-        // Insert both output notes; value stays in the pool (no token transfer).
         let recipient_leaf = to_u256(&env, &recipient_commitment);
         let recipient_index = insert(&env, &config, &recipient_leaf)?;
         let change_leaf = to_u256(&env, &change_commitment);
@@ -374,7 +363,6 @@ impl PoolContract {
         Ok((recipient_index, change_index))
     }
 
-    // ---- views -------------------------------------------------------------
 
     pub fn get_config(env: Env) -> Result<Config, Error> {
         load_config(&env)
@@ -403,6 +391,10 @@ impl PoolContract {
         env.storage().instance().has(&DataKey::Vk)
     }
 
+    pub fn has_deposit_verifier_key(env: Env) -> bool {
+        env.storage().instance().has(&DataKey::VkDeposit)
+    }
+
     pub fn has_transfer_verifier_key(env: Env) -> bool {
         env.storage().instance().has(&DataKey::VkTransfer)
     }
@@ -425,9 +417,7 @@ impl PoolContract {
         env.storage().instance().get(&DataKey::PendingAdmin)
     }
 
-    // ---- admin ---------------------------------------------------------------
 
-    /// Freeze deposit / withdraw / transfer (admin only).
     pub fn pause(env: Env) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         env.storage().instance().set(&DataKey::Paused, &true);
@@ -438,7 +428,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Lift the freeze (admin only).
     pub fn unpause(env: Env) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         env.storage().instance().set(&DataKey::Paused, &false);
@@ -449,8 +438,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Swap the contract's WASM to `new_wasm_hash` (admin only). Upload the new
-    /// WASM first (`stellar contract upload`) and pass its hash.
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         UpgradeEvent {
@@ -462,7 +449,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Start a two-step admin handoff (current admin only).
     pub fn propose_admin(env: Env, new_admin: Address) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         env.storage()
@@ -479,7 +465,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Accept a pending handoff (pending admin only).
     pub fn accept_admin(env: Env) -> Result<(), Error> {
         let pending_admin: Address = env
             .storage()
@@ -507,7 +492,6 @@ impl PoolContract {
         Ok(())
     }
 
-    /// Cancel a pending handoff (current admin only).
     pub fn cancel_admin_transfer(env: Env) -> Result<(), Error> {
         let admin = require_admin(&env)?;
         let pending_admin: Address = env
@@ -528,7 +512,6 @@ impl PoolContract {
     }
 }
 
-// ---- internals -------------------------------------------------------------
 
 fn load_config(env: &Env) -> Result<Config, Error> {
     env.storage()
@@ -537,7 +520,6 @@ fn load_config(env: &Env) -> Result<Config, Error> {
         .ok_or(Error::NotInitialized)
 }
 
-/// Require the stored admin's authorization.
 fn require_admin(env: &Env) -> Result<Address, Error> {
     let admin: Address = env
         .storage()
@@ -560,9 +542,12 @@ fn require_not_paused(env: &Env) -> Result<(), Error> {
     Ok(())
 }
 
-/// Poseidon(2) node hash — matches circomlib / soroban-poseidon.
 fn hash_pair(env: &Env, left: &U256, right: &U256) -> U256 {
     poseidon_hash::<3, Bn254Fr>(env, &vec![env, left.clone(), right.clone()])
+}
+
+fn bn254_fr_order(env: &Env) -> U256 {
+    U256::from_be_bytes(env, &Bytes::from_array(env, &BN254_FR_ORDER))
 }
 
 fn to_u256(env: &Env, b: &BytesN<32>) -> U256 {
@@ -576,10 +561,9 @@ fn to_bytes32(env: &Env, u: &U256) -> BytesN<32> {
     BytesN::from_array(env, &arr)
 }
 
-/// recipient field element = keccak256(strkey bytes) mod r.
 fn recipient_to_field(env: &Env, recipient: &String) -> U256 {
     let hash = env.crypto().keccak256(&recipient.to_bytes());
-    let order = U256::from_be_bytes(env, &Bytes::from_array(env, &BN254_FR_ORDER));
+    let order = bn254_fr_order(env);
     U256::from_be_bytes(env, &Bytes::from_array(env, &hash.to_bytes().to_array()))
         .rem_euclid(&order)
 }
@@ -589,7 +573,6 @@ fn root_is_known(env: &Env, root: &BytesN<32>) -> bool {
     roots.iter().any(|r| &r == root)
 }
 
-/// Insert a leaf into the incremental Poseidon tree; return the leaf index.
 fn insert(env: &Env, config: &Config, leaf: &U256) -> Result<u32, Error> {
     let store = env.storage().instance();
     let next_index: u32 = store.get(&DataKey::NextIndex).unwrap();

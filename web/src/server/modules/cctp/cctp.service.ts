@@ -1,16 +1,3 @@
-// CCTP V2 relay: turns a cross-chain USDC burn into a shielded-pool deposit.
-//
-// The payer (any source chain) burns USDC naming our intake **contract** as the
-// mintRecipient (Circle's Stellar minter always mints to a contract address).
-// Given the attested message, this relay: (1) submits receive_message as the
-// operator so CCTP mints the USDC into the intake contract's balance, (2)
-// encrypts a note to the payee's PUBLIC viewing key from the registry, and (3)
-// calls the intake contract's admin-only deposit_to_pool, which forwards its
-// balance into the pool as that note. The operator is only the tx source / fee
-// payer / admin — never the mint recipient. It needs no payee secret and stores
-// nothing — the deposit→payee link exists only for the duration of this call
-// (preserves the Mongo mirror invariant). Replay is prevented on-chain by the
-// transmitter's nonce set.
 
 import "server-only";
 import {
@@ -49,6 +36,7 @@ import {
   simulateRead,
   usdcSacId,
 } from "../../../lib/stellar";
+import { proveDeposit, type RawProof } from "../../../lib/prover";
 import {
   CctpAttestationError,
   CctpConfigError,
@@ -70,8 +58,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const stripHex = (h: string) => (h.startsWith("0x") ? h.slice(2) : h);
 const bytesEqual = (a: Uint8Array, b: Uint8Array) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
-// USDC is 6 decimals in CCTP's canonical message, 7 on Stellar; Circle's minter
-// (cctp-utils decimal_converter::to_local_amount) scales canonical→local by ×10.
+const scProof = (proof: RawProof) => {
+  const entry = (key: string, value: Uint8Array) =>
+    new xdr.ScMapEntry({
+      key: nativeToScVal(key, { type: "symbol" }),
+      val: scBytes(value),
+    });
+  return xdr.ScVal.scvMap([
+    entry("a", proof.a),
+    entry("b", proof.b),
+    entry("c", proof.c),
+  ]);
+};
 const EVM_TO_STELLAR_SCALE = 10n;
 const scAddr = (s: string) => new Address(s).toScVal();
 const scBytes = (b: Uint8Array) => xdr.ScVal.scvBytes(b as unknown as Buffer);
@@ -79,7 +77,6 @@ const scBytesHex = (h: string) =>
   xdr.ScVal.scvBytes(Buffer.from(stripHex(h), "hex"));
 const scI128 = (v: bigint) => nativeToScVal(v, { type: "i128" });
 
-// --- Circle Iris attestation -------------------------------------------------
 
 export async function fetchAttestation(
   sourceDomain: number,
@@ -119,11 +116,7 @@ export async function fetchAttestation(
   };
 }
 
-// --- server-signed Soroban invocation (operator is the tx source) ------------
 
-// The operator account signs every relay tx: it is the fee payer, the
-// receive_message caller, and the intake contract's admin (whose require_auth
-// gates deposit_to_pool). It never holds USDC — the intake *contract* does.
 function operatorKeypair(): Keypair {
   const secret = process.env.CCTP_OPERATOR_SECRET;
   if (!secret) {
@@ -191,9 +184,6 @@ async function intakeUsdcBalance(address: string): Promise<bigint> {
   }
 }
 
-// One-time provisioning: the operator only needs to exist + hold XLM for fees
-// (testnet friendbot). No USDC trustline — the intake *contract* holds the
-// bridged USDC as a SAC balance, which contracts hold without a trustline.
 async function ensureOperatorFunded(kp: Keypair): Promise<void> {
   try {
     await horizon.loadAccount(kp.publicKey());
@@ -203,10 +193,7 @@ async function ensureOperatorFunded(kp: Keypair): Promise<void> {
   }
 }
 
-// --- relay -------------------------------------------------------------------
 
-// Serialize relays: receive_message + the balance-delta assertion below assume
-// one relay mutates the intake contract's balance at a time.
 let relayChain: Promise<unknown> = Promise.resolve();
 
 export async function relayDeposit(input: RelayInput): Promise<RelayOutput> {
@@ -221,29 +208,18 @@ async function doRelayDeposit(input: RelayInput): Promise<RelayOutput> {
 
   const operator = operatorKeypair();
 
-  // Parse and authorize the attested burn against the resolved payee. The
-  // message + attestation are public, so caller-supplied intent (username) is
-  // untrusted — these checks are what bind the burn to this payee.
   const msg = parseCctpMessage(input.message);
 
-  // (1) The burn must actually mint to *our* intake contract. Circle's Stellar
-  // minter treats mintRecipient as a 32-byte contract id, so compare against the
-  // decoded C-address, not an ed25519 account key.
   const intakeRaw = StrKey.decodeContract(cctpIntakeContract);
   if (!bytesEqual(msg.mintRecipient, intakeRaw)) {
     throw new CctpRelayError("Burn does not target the intake contract.");
   }
 
-  // (2) hookData must equal keccak256(payee.note_pubkey ‖ nonce). A front-runner
-  // relaying a victim's burn under their own username fails here — they cannot
-  // forge a nonce that maps their note key to the message's fixed commitment.
   const binding = cctpBinding(payee.note_pubkey, hexToBytes(input.nonce));
   if (!bytesEqual(msg.hookData, binding)) {
     throw new CctpRelayError("Burn is not bound to this payee.");
   }
 
-  // (3) Amount comes from the signed message, not a live balance read: canonical
-  // 6-dec → Stellar 7-dec local units.
   const amount = msg.amount * EVM_TO_STELLAR_SCALE;
   if (amount <= 0n) {
     throw new CctpRelayError("Burn amount is zero.");
@@ -252,9 +228,6 @@ async function doRelayDeposit(input: RelayInput): Promise<RelayOutput> {
   await ensureOperatorFunded(operator);
   const before = await intakeUsdcBalance(cctpIntakeContract);
 
-  // Mint the bridged USDC into the intake contract. The operator is only the
-  // caller / fee payer; the burn's destinationCaller=0 lets any caller relay.
-  // Reverts if the message was already used.
   await invokeAsSource(
     operator,
     cctpStellar.messageTransmitter,
@@ -266,9 +239,6 @@ async function doRelayDeposit(input: RelayInput): Promise<RelayOutput> {
     ],
   );
 
-  // Fail-safe: the mint must credit exactly the message amount to the intake
-  // contract. A mismatch means stranded balance or concurrent movement — reject
-  // rather than mis-attribute.
   const minted = (await intakeUsdcBalance(cctpIntakeContract)) - before;
   if (minted !== amount) {
     throw new CctpRelayError(
@@ -276,13 +246,18 @@ async function doRelayDeposit(input: RelayInput): Promise<RelayOutput> {
     );
   }
 
-  // Build a note owned by the payee (public note key) and encrypted to their
-  // public viewing key, then have the intake contract forward its balance into
-  // the pool as that note. The operator signs, satisfying the contract's
-  // admin.require_auth(); the pool pull is `from = intake contract`.
   const salt = randomFieldElement();
   const ownerPkField = fromBE(payee.note_pubkey);
   const commitmentBytes = toBE32(await commitment(amount, ownerPkField, salt));
+  const { proof } = await proveDeposit(
+    {
+      commitment: fromBE(commitmentBytes).toString(),
+      amount: amount.toString(),
+      ownerPk: ownerPkField.toString(),
+      salt: salt.toString(),
+    },
+    `${process.cwd()}/public/zk`,
+  );
   const { ephemeralPk, ciphertext } = encryptNote(
     payee.view_pubkey,
     amount,
@@ -296,6 +271,7 @@ async function doRelayDeposit(input: RelayInput): Promise<RelayOutput> {
     [
       scBytes(commitmentBytes),
       scI128(amount),
+      scProof(proof),
       scBytes(ephemeralPk),
       scBytes(ciphertext),
     ],

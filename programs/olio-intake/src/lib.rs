@@ -13,11 +13,8 @@ const TTL_EXTEND: u32 = DAY_LEDGERS * 90;
 #[contracttype]
 #[derive(Clone)]
 pub struct Config {
-    /// The relay account. Only it may move the intake's USDC into the pool.
     pub admin: Address,
-    /// The shielded pool contract this intake forwards deposits into.
     pub pool: Address,
-    /// The USDC Stellar Asset Contract the CCTP minter credits this intake with.
     pub asset: Address,
 }
 
@@ -39,9 +36,6 @@ pub struct IntakeContract;
 
 #[contractimpl]
 impl IntakeContract {
-    /// Pin the relay `admin`, the `pool`, and the USDC `asset` at deploy time.
-    /// Runs once, atomically — there is no re-init or admin-rotation path, so the
-    /// admin can never be hijacked after deployment.
     pub fn __constructor(env: Env, admin: Address, pool: Address, asset: Address) {
         env.storage()
             .instance()
@@ -49,16 +43,11 @@ impl IntakeContract {
         env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
     }
 
-    /// Forward `amount` of the intake's own USDC balance into the pool as a
-    /// shielded note. Only the `admin` (the relay) may call this; the relay has
-    /// already resolved + bound the payee and computed `commitment` / the
-    /// encrypted note off-chain. The pool pulls the funds from *this* contract's
-    /// balance (`from = self`); that transfer is auto-authorized because this
-    /// contract initiates the sub-call.
     pub fn deposit_to_pool(
         env: Env,
         commitment: BytesN<32>,
         amount: i128,
+        proof: Val,
         ephemeral_pk: BytesN<32>,
         ciphertext: Bytes,
     ) -> Result<u32, Error> {
@@ -70,12 +59,6 @@ impl IntakeContract {
 
         let from = env.current_contract_address();
 
-        // The pool pulls our USDC via `token.transfer(from = self, to = pool)` —
-        // a sub-invocation of `pool.deposit`, one level deeper than the call we
-        // make directly. The invoker-contract auth that flows automatically only
-        // covers the *direct* call (`pool.deposit`), so we must explicitly
-        // authorize this deeper token transfer on our own behalf; otherwise its
-        // `from.require_auth()` fails with `Auth, InvalidAction`.
         let transfer_args: Vec<Val> = vec![
             &env,
             from.clone().into_val(&env),
@@ -99,6 +82,7 @@ impl IntakeContract {
             from.into_val(&env),
             commitment.into_val(&env),
             amount.into_val(&env),
+            proof,
             ephemeral_pk.into_val(&env),
             ciphertext.into_val(&env),
         ];
@@ -108,8 +92,6 @@ impl IntakeContract {
         Ok(leaf_index)
     }
 
-    /// The intake's current USDC balance (what a CCTP mint credited). Read by the
-    /// relay's balance-delta fail-safe before/after `receive_message`.
     pub fn usdc_balance(env: Env) -> i128 {
         match load(&env) {
             Ok(cfg) => {
@@ -119,7 +101,6 @@ impl IntakeContract {
         }
     }
 
-    /// The pinned configuration (admin / pool / asset).
     pub fn config(env: Env) -> Result<Config, Error> {
         load(&env)
     }

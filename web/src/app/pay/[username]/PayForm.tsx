@@ -30,6 +30,7 @@ import {
   toBaseUnits,
   toBE32,
 } from "../../../lib/crypto";
+import { proveDeposit } from "../../../lib/prover";
 import {
   explorerTxUrl,
   type OlioAccount,
@@ -106,6 +107,12 @@ export function PayForm({
       const salt = randomFieldElement();
       const ownerPkField = fromBE(account.note_pubkey);
       const note = toBE32(await commitment(units, ownerPkField, salt));
+      const { proof } = await proveDeposit({
+        commitment: fromBE(note).toString(),
+        amount: units.toString(),
+        ownerPk: ownerPkField.toString(),
+        salt: salt.toString(),
+      });
       const { ephemeralPk, ciphertext } = encryptNote(
         account.view_pubkey,
         units,
@@ -116,6 +123,7 @@ export function PayForm({
         signer,
         note,
         units,
+        proof,
         ephemeralPk,
         ciphertext,
       );

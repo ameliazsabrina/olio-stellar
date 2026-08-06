@@ -14,6 +14,7 @@ import {
   toBE32,
 } from "../lib/crypto";
 import { accountPubkeys, getAccount } from "../lib/notes";
+import { proveDeposit } from "../lib/prover";
 import { poolDeposit, usdcBalance } from "../lib/stellar";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -29,9 +30,6 @@ const depositInput = z.object({
 });
 type DepositInput = z.infer<typeof depositInput>;
 
-// Self-deposit: shield the user's own USDC into the pool, committed to their
-// own note pubkey and encrypted to their own view key — the same note the
-// PayForm builds for a payee, but targeting the connected user.
 export function DepositForm() {
   const { address, getSigner } = useWallet();
   const [status, setStatus] = useState<{
@@ -71,13 +69,21 @@ export function DepositForm() {
 
       const { notePubkey, viewPubkey } = await accountPubkeys(acct);
       const salt = randomFieldElement();
-      const note = toBE32(await commitment(units, fromBE(notePubkey), salt));
+      const ownerPkField = fromBE(notePubkey);
+      const note = toBE32(await commitment(units, ownerPkField, salt));
+      const { proof } = await proveDeposit({
+        commitment: fromBE(note).toString(),
+        amount: units.toString(),
+        ownerPk: ownerPkField.toString(),
+        salt: salt.toString(),
+      });
       const { ephemeralPk, ciphertext } = encryptNote(viewPubkey, units, salt);
 
       const leafIndex = await poolDeposit(
         signer,
         note,
         units,
+        proof,
         ephemeralPk,
         ciphertext,
       );

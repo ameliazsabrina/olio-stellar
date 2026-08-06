@@ -10,8 +10,6 @@ use soroban_sdk::{
     token, Address, Bytes, BytesN, Env, IntoVal, String, Vec, U256,
 };
 
-// Fixture note (from circuits/build/gen_input.mjs): ownerSecret=111111111111,
-// salt=222222222222, amount=50000000, inserted at leaf 0.
 const FIX_COMMITMENT: &str = "22f7c82788b172ce0fc90e436bd633c700d8e736a7e85752f8e993c3dad9930d";
 const FIX_ROOT: &str = "0f858c902c0d5f577f7ac38a8fb185f3f14247ce1d6f15d75deae22f36aad360";
 
@@ -67,6 +65,39 @@ fn transfer_vk(env: &Env) -> VerificationKey {
     }
 }
 
+fn deposit_vk(env: &Env) -> VerificationKey {
+    use super::deposit_fixture::*;
+    let mut ic = Vec::new(env);
+    for s in DP_VK_IC {
+        ic.push_back(decode::<64>(env, s));
+    }
+    VerificationKey {
+        alpha: decode::<64>(env, DP_VK_ALPHA),
+        beta: decode::<128>(env, DP_VK_BETA),
+        gamma: decode::<128>(env, DP_VK_GAMMA),
+        delta: decode::<128>(env, DP_VK_DELTA),
+        ic,
+    }
+}
+
+fn deposit_proof(env: &Env) -> Proof {
+    use super::deposit_fixture::*;
+    Proof {
+        a: decode::<64>(env, DP_PROOF_A),
+        b: decode::<128>(env, DP_PROOF_B),
+        c: decode::<64>(env, DP_PROOF_C),
+    }
+}
+
+fn wd_deposit_proof(env: &Env) -> Proof {
+    use super::deposit_fixture::*;
+    Proof {
+        a: decode::<64>(env, DP_WD_PROOF_A),
+        b: decode::<128>(env, DP_WD_PROOF_B),
+        c: decode::<64>(env, DP_WD_PROOF_C),
+    }
+}
+
 fn fixture_signals(env: &Env) -> Vec<Bn254Fr> {
     let mut v = Vec::new(env);
     for s in PUB_SIGNALS {
@@ -79,7 +110,6 @@ fn fixture_signals(env: &Env) -> Vec<Bn254Fr> {
     v
 }
 
-// --- the crucial encoding test: a real snarkjs proof verifies on-chain --------
 
 #[test]
 fn groth16_verifies_real_proof() {
@@ -96,7 +126,6 @@ fn groth16_verifies_real_proof() {
 fn groth16_rejects_tampered_signal() {
     let env = Env::default();
     let mut signals = fixture_signals(&env);
-    // Flip the amount public signal.
     signals.set(3, Bn254Fr::from_u256(U256::from_u32(&env, 999)));
     assert!(!verify(
         &env,
@@ -106,7 +135,6 @@ fn groth16_rejects_tampered_signal() {
     ));
 }
 
-// --- contract tree parity: contract Poseidon root == circuit root -------------
 
 struct Fx<'a> {
     env: Env,
@@ -126,6 +154,7 @@ fn setup<'a>() -> Fx<'a> {
     token::StellarAssetClient::new(&env, &asset).mint(&payer, &1_000_0000000);
     let id = env.register(PoolContract, (admin.clone(), asset.clone(), 20u32));
     let pool = PoolContractClient::new(&env, &id);
+    pool.set_deposit_verifier_key(&deposit_vk(&env));
     Fx {
         env,
         pool,
@@ -160,14 +189,63 @@ fn deposit_tree_root_matches_circuit() {
     let commitment = decode::<32>(&f.env, FIX_COMMITMENT);
 
     let token = token::Client::new(&f.env, &f.asset);
-    let idx = f
-        .pool
-        .deposit(&f.payer, &commitment, &50_000_000, &eph, &ct);
+    let idx = f.pool.deposit(
+        &f.payer,
+        &commitment,
+        &50_000_000,
+        &deposit_proof(&f.env),
+        &eph,
+        &ct,
+    );
     assert_eq!(idx, 0);
     assert_eq!(f.pool.leaf_count(), 1);
     assert_eq!(token.balance(&f.pool.address), 50_000_000);
-    // The contract's Poseidon tree lands on exactly the root the circuit proved.
     assert_eq!(f.pool.current_root(), decode::<32>(&f.env, FIX_ROOT));
+}
+
+#[test]
+fn deposit_rejects_commitment_not_bound_to_amount_atomically() {
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+    let token = token::Client::new(&f.env, &f.asset);
+    let payer_before = token.balance(&f.payer);
+
+    let err = f
+        .pool
+        .try_deposit(
+            &f.payer,
+            &decode(&f.env, FIX_COMMITMENT),
+            &1,
+            &deposit_proof(&f.env),
+            &eph,
+            &ct,
+        )
+        .err()
+        .unwrap();
+
+    assert_eq!(err, Ok(Error::InvalidProof));
+    assert_eq!(f.pool.leaf_count(), 0);
+    assert_eq!(token.balance(&f.pool.address), 0);
+    assert_eq!(token.balance(&f.payer), payer_before);
+}
+
+#[test]
+fn deposit_rejects_amount_outside_circuit_range() {
+    let f = setup();
+    let (eph, ct) = dummy_bytes(&f.env);
+    let err = f
+        .pool
+        .try_deposit(
+            &f.payer,
+            &decode(&f.env, FIX_COMMITMENT),
+            &((u64::MAX as i128) + 1),
+            &deposit_proof(&f.env),
+            &eph,
+            &ct,
+        )
+        .err()
+        .unwrap();
+    assert_eq!(err, Ok(Error::InvalidAmount));
 }
 
 #[test]
@@ -178,6 +256,7 @@ fn withdraw_requires_verifier_key() {
         &f.payer,
         &decode::<32>(&f.env, FIX_COMMITMENT),
         &50_000_000,
+        &deposit_proof(&f.env),
         &eph,
         &ct,
     );
@@ -197,8 +276,6 @@ fn withdraw_requires_verifier_key() {
     assert_eq!(err, Ok(Error::VerifierKeyNotSet));
 }
 
-// Full withdraw path with a real snarkjs proof bound to a real recipient strkey:
-// exercises proof verification + recipient binding + nullifier + payout.
 #[test]
 fn withdraw_full_flow() {
     use super::withdraw_fixture::*;
@@ -210,17 +287,14 @@ fn withdraw_full_flow() {
         &f.payer,
         &decode::<32>(&f.env, WD_COMMITMENT),
         &WD_AMOUNT,
+        &wd_deposit_proof(&f.env),
         &eph,
         &ct,
     );
-    // Contract Poseidon tree matches the circuit's proved root.
     assert_eq!(f.pool.current_root(), decode::<32>(&f.env, WD_ROOT));
     f.pool.set_verifier_key(&fixture_vk(&f.env));
     assert_eq!(token.balance(&f.pool.address), WD_AMOUNT);
 
-    // Fixture proof is bound to a contract address (SAC transfers to contracts
-    // need no trustline). The keccak(strkey) binding is identical for G-addresses,
-    // which the live testnet e2e exercises against a real wallet.
     let recipient = String::from_str(&f.env, WD_RECIPIENT);
     let dest = Address::from_string(&recipient);
     let root = decode::<32>(&f.env, WD_ROOT);
@@ -252,7 +326,6 @@ fn withdraw_full_flow() {
     assert_eq!(token.balance(&dest), WD_AMOUNT);
     assert_eq!(token.balance(&f.pool.address), 0);
 
-    // Replay is rejected by the nullifier.
     let err = f
         .pool
         .try_withdraw(&recipient, &WD_AMOUNT, &root, &nullifier, &proof)
@@ -261,10 +334,6 @@ fn withdraw_full_flow() {
     assert_eq!(err, Ok(Error::DoubleSpend));
 }
 
-// Full shielded-transfer path with a real snarkjs proof: deposit an input note,
-// then spend it in ZK to mint a recipient note + a change note in one call, with
-// no value leaving the pool. Exercises transfer VK verification, nullifier, dual
-// insert, and replay protection.
 #[test]
 fn transfer_full_flow() {
     use super::transfer_fixture::*;
@@ -272,11 +341,11 @@ fn transfer_full_flow() {
     let (eph, ct) = dummy_bytes(&f.env);
     let token = token::Client::new(&f.env, &f.asset);
 
-    // Deposit the input note at leaf 0; contract tree lands on the proved root.
     f.pool.deposit(
         &f.payer,
         &decode::<32>(&f.env, TR_IN_COMMITMENT),
         &TR_IN_AMOUNT,
+        &deposit_proof(&f.env),
         &eph,
         &ct,
     );
@@ -332,10 +401,8 @@ fn transfer_full_flow() {
     assert_eq!(change_index, 2);
     assert_eq!(f.pool.leaf_count(), 3);
     assert!(f.pool.is_spent(&nullifier));
-    // Value never left the pool.
     assert_eq!(token.balance(&f.pool.address), TR_IN_AMOUNT);
 
-    // Replay is rejected by the nullifier.
     let err = f
         .pool
         .try_transfer(
@@ -363,6 +430,7 @@ fn transfer_requires_verifier_key() {
         &f.payer,
         &decode::<32>(&f.env, TR_IN_COMMITMENT),
         &TR_IN_AMOUNT,
+        &deposit_proof(&f.env),
         &eph,
         &ct,
     );
@@ -412,21 +480,18 @@ fn withdraw_unknown_root_rejected() {
     assert_eq!(err, Ok(Error::UnknownRoot));
 }
 
-// --- pause / admin / upgrade --------------------------------------------------
 
-// Once paused, deposit/withdraw/transfer all reject with Error::Paused; after
-// unpause the (real-proof) withdraw settles and a fresh deposit is accepted.
 #[test]
 fn pause_blocks_deposit_withdraw_transfer() {
     use super::withdraw_fixture::*;
     let f = setup();
     let (eph, ct) = dummy_bytes(&f.env);
 
-    // Seed a spendable note + verifier key while still unpaused.
     f.pool.deposit(
         &f.payer,
         &decode::<32>(&f.env, WD_COMMITMENT),
         &WD_AMOUNT,
+        &wd_deposit_proof(&f.env),
         &eph,
         &ct,
     );
@@ -443,11 +508,9 @@ fn pause_blocks_deposit_withdraw_transfer() {
     f.pool.pause();
     assert!(f.pool.is_paused());
 
-    // All three mutating entrypoints are frozen (Paused is checked first, so the
-    // exact args below never matter).
     assert_eq!(
         f.pool
-            .try_deposit(&f.payer, &nullifier, &1, &nullifier, &ct)
+            .try_deposit(&f.payer, &nullifier, &1, &proof, &nullifier, &ct)
             .err()
             .unwrap(),
         Ok(Error::Paused)
@@ -469,7 +532,6 @@ fn pause_blocks_deposit_withdraw_transfer() {
         Ok(Error::Paused)
     );
 
-    // Unpause and confirm the paths work again.
     f.pool.unpause();
     assert!(!f.pool.is_paused());
     let token = token::Client::new(&f.env, &f.asset);
@@ -480,12 +542,12 @@ fn pause_blocks_deposit_withdraw_transfer() {
         &f.payer,
         &decode::<32>(&f.env, FIX_COMMITMENT),
         &50_000_000,
+        &deposit_proof(&f.env),
         &eph,
         &ct,
     );
 }
 
-// A caller without the admin's auth cannot pause.
 #[test]
 fn only_admin_can_pause() {
     let f = setup();
@@ -493,7 +555,6 @@ fn only_admin_can_pause() {
     assert!(f.pool.try_pause().is_err());
 }
 
-// A caller without the admin's auth cannot upgrade.
 #[test]
 fn only_admin_can_upgrade() {
     let f = setup();
@@ -502,7 +563,6 @@ fn only_admin_can_upgrade() {
     assert!(f.pool.try_upgrade(&hash).is_err());
 }
 
-// A caller without the admin's auth cannot rotate the verifier key.
 #[test]
 fn only_admin_can_set_verifier_key() {
     let f = setup();
@@ -510,7 +570,6 @@ fn only_admin_can_set_verifier_key() {
     assert!(f.pool.try_set_verifier_key(&fixture_vk(&f.env)).is_err());
 }
 
-// After a two-step handoff the new admin controls pause and the old admin is locked out.
 #[test]
 fn admin_handoff_transfers_control() {
     let f = setup();
@@ -521,7 +580,6 @@ fn admin_handoff_transfers_control() {
     assert_eq!(f.pool.admin(), new_admin);
     assert_eq!(f.pool.pending_admin(), None);
 
-    // Old admin's signature no longer satisfies the admin gate.
     f.env.mock_auths(&[MockAuth {
         address: &f.admin,
         invoke: &MockAuthInvoke {
@@ -533,7 +591,6 @@ fn admin_handoff_transfers_control() {
     }]);
     assert!(f.pool.try_pause().is_err());
 
-    // New admin can pause.
     f.env.mock_auths(&[MockAuth {
         address: &new_admin,
         invoke: &MockAuthInvoke {

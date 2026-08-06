@@ -6,6 +6,7 @@ mkdir -p build
 echo "==> compiling circuits"
 circom src/withdraw.circom --r1cs --wasm --sym -l node_modules/circomlib/circuits -o build
 circom src/transfer.circom --r1cs --wasm --sym -l node_modules/circomlib/circuits -o build
+circom src/deposit.circom --r1cs --wasm --sym -l node_modules/circomlib/circuits -o build
 
 cd build
 if [ ! -f pot_final.ptau ]; then
@@ -15,9 +16,6 @@ if [ ! -f pot_final.ptau ]; then
   npx snarkjs powersoftau prepare phase2 pot_1.ptau pot_final.ptau
 fi
 
-# Groth16 setup is non-deterministic (random contribution), so a fresh zkey
-# changes the VK and invalidates any committed proof fixtures bound to it. Only
-# run setup when the zkey is missing; committed zkeys are reused as-is.
 if [ ! -f withdraw_final.zkey ]; then
   echo "==> groth16 setup (withdraw)"
   npx snarkjs groth16 setup withdraw.r1cs pot_final.ptau withdraw_0.zkey
@@ -32,6 +30,13 @@ if [ ! -f transfer_final.zkey ]; then
 fi
 npx snarkjs zkey export verificationkey transfer_final.zkey verification_key_transfer.json
 
+if [ ! -f deposit_final.zkey ]; then
+  echo "==> groth16 setup (deposit)"
+  npx snarkjs groth16 setup deposit.r1cs pot_final.ptau deposit_0.zkey
+  npx snarkjs zkey contribute deposit_0.zkey deposit_final.zkey --name=olio2 -e="olio deposit"
+fi
+npx snarkjs zkey export verificationkey deposit_final.zkey verification_key_deposit.json
+
 echo "==> test vector + fixture (withdraw)"
 node ../gen_input.mjs
 npx snarkjs groth16 fullprove input.json withdraw_js/withdraw.wasm withdraw_final.zkey proof.json public.json
@@ -44,6 +49,13 @@ npx snarkjs groth16 fullprove input_transfer.json transfer_js/transfer.wasm tran
 npx snarkjs groth16 verify verification_key_transfer.json public_transfer.json proof_transfer.json
 node ../to_soroban_transfer.mjs   # writes programs/olio-pool/src/transfer_fixture.rs + vk_transfer_soroban.json
 
+echo "==> test vector + fixture (deposit)"
+node ../gen_deposit_input.mjs
+npx snarkjs groth16 fullprove input_deposit.json deposit_js/deposit.wasm deposit_final.zkey proof_deposit.json public_deposit.json
+npx snarkjs groth16 fullprove input_deposit_wd.json deposit_js/deposit.wasm deposit_final.zkey proof_deposit_wd.json public_deposit_wd.json
+npx snarkjs groth16 verify verification_key_deposit.json public_deposit.json proof_deposit.json
+node ../to_soroban_deposit.mjs
+
 echo "==> staging web proving assets"
 mkdir -p ../../web/public/zk
 cp withdraw_js/withdraw.wasm ../../web/public/zk/withdraw.wasm
@@ -52,4 +64,7 @@ cp verification_key.json ../../web/public/zk/verification_key.json
 cp transfer_js/transfer.wasm ../../web/public/zk/transfer.wasm
 cp transfer_final.zkey ../../web/public/zk/transfer.zkey
 cp verification_key_transfer.json ../../web/public/zk/verification_key_transfer.json
+cp deposit_js/deposit.wasm ../../web/public/zk/deposit.wasm
+cp deposit_final.zkey ../../web/public/zk/deposit.zkey
+cp verification_key_deposit.json ../../web/public/zk/verification_key_deposit.json
 echo "circuit build complete"

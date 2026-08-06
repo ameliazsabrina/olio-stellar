@@ -59,13 +59,9 @@ const toBytes = (v: unknown): Uint8Array =>
 
 export type Signer = {
   address: string;
-  // Sign Soroban authorization entries and return them as base64 XDR. Returns
-  // base64 (not live xdr objects) because passkey-kit uses a separately-bundled
-  // js-xdr — objects can't cross that boundary, only bytes can.
   signAuthEntries: (
     entries: xdr.SorobanAuthorizationEntry[],
   ) => Promise<string[]>;
-  // Relay a Soroban func+auth invocation gaslessly through the Channels service.
   relaySoroban: (func: string, auth: string[]) => Promise<{ hash: string }>;
 };
 
@@ -89,10 +85,6 @@ export async function simulateRead(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Invoke a contract method gaslessly. Every wallet is a passkey smart wallet, so
-// this is the only path: simulate for the required auth entries, sign them, and
-// relay a func+auth invocation through the Channels service — the relayer's
-// channel account is the tx source and pays the fee, so the user needs no XLM.
 export async function invoke(
   signer: Signer,
   contractId: string,
@@ -102,10 +94,6 @@ export async function invoke(
   const op = new Contract(contractId).call(method, ...args);
   const hostFunction = op.body().invokeHostFunctionOp().hostFunction();
 
-  // Simulate to discover required auth entries. Use a throwaway source (NOT the
-  // user) so the user's require_auth resolves to a detached address credential we
-  // sign — a source-account credential would be rejected by the relayer, whose
-  // channel account is the real tx source.
   const built = new TransactionBuilder(
     new Account(Keypair.random().publicKey(), "0"),
     { fee: BASE_FEE, networkPassphrase },
@@ -160,8 +148,6 @@ export type AccountStatus = {
   usdc: string;
 };
 
-// Every wallet is a passkey smart-wallet contract, which holds USDC directly as
-// a SAC balance — no classic account, XLM, or trustline involved.
 export async function accountStatus(address: string): Promise<AccountStatus> {
   return { usdc: fromBaseUnits(await usdcBalance(address)) };
 }
@@ -187,9 +173,6 @@ export async function registerUsername(
   ]);
 }
 
-/// Rotate both pubkeys for a username already owned by `signer`. Used by the
-/// re-key path — `register` rejects an existing username (`UsernameTaken`), so
-/// key rotation must go through `set_pubkey`.
 export async function setUsernamePubkeys(
   signer: Signer,
   username: string,
@@ -270,6 +253,7 @@ export async function poolDeposit(
   signer: Signer,
   commitment: Uint8Array,
   amount: bigint,
+  proof: RawProof,
   ephemeralPk: Uint8Array,
   ciphertext: Uint8Array,
 ): Promise<{ leafIndex: number; txHash: string }> {
@@ -277,6 +261,7 @@ export async function poolDeposit(
     scAddr(signer.address),
     scBytes(commitment),
     scI128(amount),
+    scProof(proof),
     scBytes(ephemeralPk),
     scBytes(ciphertext),
   ]);
@@ -306,9 +291,6 @@ export type TransferNote = {
   ciphertext: Uint8Array;
 };
 
-/// Shielded transfer: spend a note (root + nullifier + proof) and mint two new
-/// notes — one for the recipient, one for the sender's change — in one gasless
-/// call. Returns the two new leaf indices. No value leaves the pool.
 export async function poolTransfer(
   signer: Signer,
   root: Uint8Array,
@@ -401,7 +383,6 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
       latestLedger: latest.sequence,
     };
   } catch {
-    // preferred start is outside RPC retention; fall back to whatever's still retained.
   }
 
   const windows = [17280, 8000, 2000, 500];
@@ -415,7 +396,6 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
         latestLedger: latest.sequence,
       };
     } catch {
-      // window too large for retention; try a smaller one
     }
   }
   return {
@@ -458,12 +438,6 @@ export async function pageEvents(
 ): Promise<rpc.Api.EventResponse[]> {
   const collected: rpc.Api.EventResponse[] = [];
   let cursor: string | undefined;
-  // Soroban `getEvents` scans only a bounded ledger window per call and returns
-  // a continuation cursor even when the page is empty or short — a matching
-  // event can sit several pages past an empty leading page. So we must NOT stop
-  // on a short page (the old `events.length < 200` break dropped events that
-  // were one cursor-hop away, silently returning []). Keep following the cursor
-  // until the RPC stops advancing it, i.e. we've caught up to the tip.
   for (let i = 0; i < 200; i += 1) {
     const req = cursor
       ? { cursor, filters, limit: 200 }
