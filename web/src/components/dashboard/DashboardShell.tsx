@@ -57,7 +57,7 @@ export function DashboardShell({
   return (
     <div className="relative min-h-svh overflow-x-clip text-white">
       <main
-        id="dashboard-content"
+        id="main-content"
         className={cn(
           "relative isolate mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8 lg:py-10 xl:px-6",
           contentClassName,

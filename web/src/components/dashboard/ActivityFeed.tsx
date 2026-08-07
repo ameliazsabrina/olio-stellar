@@ -156,7 +156,7 @@ export function ActivityFeed({
           )}
 
           {!loading && filtered.length === 0 && (
-            <li className="py-5 text-sm text-white/55">
+            <li className="py-5 text-sm text-white/65">
               {tab === "Cashed out"
                 ? "Nothing cashed out yet."
                 : tab === "Received"
@@ -191,7 +191,7 @@ export function ActivityFeed({
                     <Badge
                       appearance="glass"
                       variant="outline"
-                      className="border-white/15 text-[10px] text-white/55"
+                      className="border-white/15 text-[10px] text-white/65"
                     >
                       private note
                     </Badge>

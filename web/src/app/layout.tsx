@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
 import { AppShell } from "../components/AppShell";
 import { Toaster } from "../components/ui/sonner";
 import { WalletProvider } from "../components/WalletProvider";
 import { TRPCReactProvider } from "../trpc/react";
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Olio: private USDC payments",
@@ -19,8 +15,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={cn("min-h-full", "font-sans", geist.variable)}>
+    <html lang="en" className="min-h-full font-sans">
       <body className="min-h-full bg-paper text-ink antialiased font-sans">
+        <a
+          href="#main-content"
+          className="sr-only z-[100] rounded-lg bg-panel px-4 py-2 text-sm font-semibold text-ink shadow-lg focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          Skip to main content
+        </a>
         <TRPCReactProvider>
           <WalletProvider>
             <AppShell>{children}</AppShell>

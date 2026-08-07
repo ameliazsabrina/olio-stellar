@@ -207,7 +207,7 @@ export function ReceiveDialog({
             </label>
             <textarea
               id="receive-description"
-              className="min-h-24 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/45 focus-visible:ring-2 focus-visible:ring-white/70"
+              className="min-h-24 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/65 focus-visible:ring-2 focus-visible:ring-white/70"
               placeholder="What's it for? (e.g. Invoice #12)"
               autoComplete="off"
               maxLength={500}

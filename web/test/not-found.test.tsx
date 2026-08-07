@@ -36,8 +36,6 @@ describe("NotFound", () => {
     expect(
       screen.getByRole("link", { name: "Open dashboard" }),
     ).toHaveAttribute("href", "/dashboard");
-    expect(container.querySelector("#dashboard-content")).toHaveClass(
-      "max-w-7xl",
-    );
+    expect(container.querySelector("#main-content")).toHaveClass("max-w-7xl");
   });
 });

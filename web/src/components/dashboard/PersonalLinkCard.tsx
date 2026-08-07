@@ -35,7 +35,7 @@ export function PersonalLinkCard({
         <h2 className="font-heading text-lg font-semibold text-white">
           Personal pay link
         </h2>
-        <p className="text-sm text-white/55">Share to get paid</p>
+        <p className="text-sm text-white/65">Share to get paid</p>
       </div>
 
       <div className="grid min-h-0 gap-3">

@@ -125,6 +125,7 @@ export function Faq() {
                     </span>
                   </button>
                   <div
+                    aria-hidden={!isOpen}
                     className="grid grid-rows-[0fr] transition-[grid-template-rows,opacity] duration-300 ease-out data-[open=true]:grid-rows-[1fr] data-[open=true]:opacity-100 motion-reduce:transition-none"
                     data-open={isOpen}
                     id={answerId}

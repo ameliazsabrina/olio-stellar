@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             href="https://www.moneygram.com/us/en/ramps"
             target="_blank"
             rel="noreferrer"
-            className="font-semibold text-ed-cream underline decoration-ed-cream/70 underline-offset-2 transition-colors hover:text-ed-gold"
+            className="font-semibold text-ed-cream underline decoration-ed-cream/70 underline-offset-2 transition-colors hover:text-ed-cream/80"
           >
             Get to know about MoneyGram
           </a>
@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <>
         {moneyGramBanner}
-        <main className="block w-full m-0 p-0">{children}</main>
+        <div className="block w-full m-0 p-0">{children}</div>
         {usernameModal}
         {pinModal}
       </>

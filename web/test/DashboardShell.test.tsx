@@ -21,6 +21,16 @@ describe("DashboardShell navigation", () => {
     mocks.usePathname.mockReturnValue("/dashboard");
   });
 
+  it("provides the page's main-content landmark", () => {
+    render(
+      <DashboardShell>
+        <div>Dashboard content</div>
+      </DashboardShell>,
+    );
+
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
   it("moves dashboard navigation and account controls into a hamburger menu on mobile", async () => {
     const user = userEvent.setup();
     render(

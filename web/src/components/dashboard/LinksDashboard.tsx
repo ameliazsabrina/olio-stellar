@@ -472,7 +472,7 @@ function LinkEditorDialog({
             </Label>
             <textarea
               id={`${mode}-link-description`}
-              className="min-h-28 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/55 focus-visible:border-white/35 focus-visible:ring-2 focus-visible:ring-white/70"
+              className="min-h-28 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/65 focus-visible:border-white/35 focus-visible:ring-2 focus-visible:ring-white/70"
               placeholder="Tell people what this payment is for..."
               maxLength={500}
               {...register("description")}
@@ -505,7 +505,7 @@ function LinkEditorDialog({
                   className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     amountMode === modeKey
                       ? "bg-white/18 text-white ring-1 ring-white/25"
-                      : "text-white/55 hover:bg-white/8 hover:text-white"
+                      : "text-white/65 hover:bg-white/8 hover:text-white"
                   }`}
                 >
                   {modeKey === "fixed" ? "Fixed Amount" : "Open Amount"}

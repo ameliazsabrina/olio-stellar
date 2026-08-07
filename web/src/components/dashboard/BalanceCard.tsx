@@ -84,7 +84,7 @@ export function BalanceCard({
               Your private balance
               <button
                 type="button"
-                className="rounded-sm text-white/45 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-wait disabled:text-white/30"
+                className="rounded-sm text-white/65 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-wait disabled:text-white/30"
                 onClick={onRefresh}
                 disabled={!onRefresh || refreshing}
                 aria-label={
@@ -148,7 +148,7 @@ export function BalanceCard({
         </div>
 
         <div className="grid gap-3">
-          <div className="text-sm font-medium text-white/55">Tokens</div>
+          <div className="text-sm font-medium text-white/65">Tokens</div>
           <DropdownMenu>
             <DropdownMenuTrigger
               className="group flex min-h-16 w-full items-center gap-3 rounded-lg bg-white/7 p-3 text-left ring-1 ring-white/12 backdrop-blur-md transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70"
@@ -164,11 +164,11 @@ export function BalanceCard({
                         ? fromBaseUnits(claimable)
                         : "••••"}
                   </span>
-                  <span className="text-sm font-medium text-white/55">
+                  <span className="text-sm font-medium text-white/65">
                     USDC
                   </span>
                 </div>
-                <div className="text-sm text-white/45">Private USDC</div>
+                <div className="text-sm text-white/65">Private USDC</div>
               </div>
               <div className="font-mono text-sm text-white/60 tabular-nums">
                 {loading
@@ -178,7 +178,7 @@ export function BalanceCard({
                     : "••••••"}
               </div>
               <ChevronDown
-                className="size-4 shrink-0 text-white/55 transition-transform group-data-[popup-open]:rotate-180"
+                className="size-4 shrink-0 text-white/65 transition-transform group-data-[popup-open]:rotate-180"
                 aria-hidden="true"
               />
             </DropdownMenuTrigger>
@@ -189,7 +189,7 @@ export function BalanceCard({
               className="min-w-72 p-2"
             >
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-semibold text-white/55">
+                <DropdownMenuLabel className="px-2 pb-2 pt-1 text-xs font-semibold text-white/65">
                   Stellar Stablecoins
                 </DropdownMenuLabel>
                 <DropdownMenuItem className="min-h-12 gap-3 rounded-lg border border-white/12 bg-white/10 px-3 py-2 text-white outline-none focus:bg-white/14 focus:text-white focus:[&_svg]:text-white">
@@ -252,11 +252,11 @@ function LockedBalanceCard({ onUnlock }: { onUnlock?: () => void }) {
         <LockKeyhole className="size-5" aria-hidden="true" />
       </div>
       <div className="grid gap-1">
-        <div className="text-sm font-medium text-white/55">Private balance</div>
+        <div className="text-sm font-medium text-white/65">Private balance</div>
         <h2 className="font-heading text-xl font-semibold text-white">
           Balance locked
         </h2>
-        <p className="text-sm text-white/55">Unlock to view your notes.</p>
+        <p className="text-sm text-white/65">Unlock to view your notes.</p>
       </div>
       <Button
         variant="glass"

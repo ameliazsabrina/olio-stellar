@@ -47,6 +47,17 @@ beforeEach(() => {
 });
 
 describe("AppShell MoneyGram announcement", () => {
+  it("does not introduce a second main landmark", () => {
+    render(
+      <AppShell>
+        <main id="main-content">Protected content</main>
+      </AppShell>,
+    );
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
   it("shows the linked announcement on middleware-protected routes", () => {
     render(<AppShell>Protected content</AppShell>);
 

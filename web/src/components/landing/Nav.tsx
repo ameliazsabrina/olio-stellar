@@ -28,7 +28,7 @@ export function EditionsTopNav() {
 
   return (
     <header
-      className="fixed inset-x-0 top-0 z-[70] flex items-center justify-between gap-2 bg-gradient-to-b from-olive-deep/50 to-olive-deep/0 px-[clamp(16px,4vw,40px)] py-3 text-ed-cream transition-[background,border-color,backdrop-filter] duration-300 data-[scrolled=true]:border-b data-[scrolled=true]:border-ed-line data-[scrolled=true]:bg-ed-dark-2/88 data-[scrolled=true]:bg-none data-[scrolled=true]:backdrop-blur-md sm:gap-[18px] sm:py-4"
+      className="fixed inset-x-0 top-0 z-[70] flex items-center justify-between gap-2 bg-gradient-to-b from-olive-deep/50 to-olive-deep/0 px-[clamp(16px,4vw,40px)] py-3 text-ed-cream transition-[background,border-color,backdrop-filter] duration-300  data-[scrolled=true]:bg-ed-dark-2/88 data-[scrolled=true]:bg-none data-[scrolled=true]:backdrop-blur-md sm:gap-[18px] sm:py-4"
       data-ed-topnav
     >
       <a

@@ -289,19 +289,13 @@ export function WithdrawDashboard() {
       ) : null}
 
       {!accountUnlocked ? (
-        <Card appearance="glass" className="p-5 sm:p-6">
-          <LockedState onUnlock={promptUnlock} />
-        </Card>
+        <LockedState onUnlock={promptUnlock} />
       ) : loading ? (
         <LoadingState />
       ) : notesError ? (
-        <Card appearance="glass" className="p-5 sm:p-6">
-          <ErrorState message={notesError} onRetry={refresh} />
-        </Card>
+        <ErrorState message={notesError} onRetry={refresh} />
       ) : options.length === 0 ? (
-        <Card appearance="glass" className="p-5 sm:p-6">
-          <EmptyState />
-        </Card>
+        <EmptyState />
       ) : (
         <section className="grid gap-4" aria-labelledby="payments-title">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -321,7 +315,7 @@ export function WithdrawDashboard() {
               <p className="font-mono text-lg font-semibold text-white tabular-nums">
                 {formatUsd(claimable)}
               </p>
-              <p className="text-xs text-white/55">
+              <p className="text-xs text-white/65">
                 {options.length} available
               </p>
             </div>
@@ -501,7 +495,7 @@ function PaymentCard({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/50">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/65">
               Private payment
             </p>
             <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
@@ -555,7 +549,7 @@ function AllPaymentsCard({
         className="relative min-h-64 justify-between gap-4 p-5 ring-white/20 transition-colors duration-200 group-hover:bg-white/14 group-hover:ring-white/30 group-focus-visible:ring-2 group-focus-visible:ring-white/70 sm:p-6"
       >
         <div className="relative z-10 max-w-[58%]">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/50">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/65">
             All payments
           </p>
           <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">

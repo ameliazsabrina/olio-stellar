@@ -254,13 +254,13 @@ export function StrandedFundsRecovery({
               </DialogHeader>
 
               <div className="rounded-xl bg-white/8 p-4 ring-1 ring-white/15">
-                <p className="text-xs font-medium tracking-wide text-white/55 uppercase">
+                <p className="text-xs font-medium tracking-wide text-white/65 uppercase">
                   Recoverable
                 </p>
                 <p className="mt-1 font-mono text-3xl font-semibold text-white tabular-nums">
                   {total === null ? "…" : formatUsd(total)}
                 </p>
-                <p className="mt-1 text-xs text-white/50">
+                <p className="mt-1 text-xs text-white/65">
                   {rows.length} interrupted payout
                   {rows.length === 1 ? "" : "s"}
                 </p>
@@ -291,7 +291,7 @@ export function StrandedFundsRecovery({
                       <p className="text-sm font-semibold text-white">
                         Current wallet
                       </p>
-                      <p className="truncate font-mono text-xs text-white/50">
+                      <p className="truncate font-mono text-xs text-white/65">
                         {shortKey(destination)}
                       </p>
                     </div>
@@ -345,7 +345,7 @@ export function StrandedFundsRecovery({
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs text-white/50">
+                          <p className="text-xs text-white/65">
                             Cash-out amount
                           </p>
                           <p className="flex items-center gap-2 font-mono text-base font-semibold text-white tabular-nums">
@@ -358,13 +358,13 @@ export function StrandedFundsRecovery({
                             {amount ?? "Checking…"}
                           </p>
                         </div>
-                        <span className="text-xs text-white/45">
+                        <span className="text-xs text-white/65">
                           {empty ? "No funds found" : "Ready to recover"}
                         </span>
                       </div>
 
                       {row.destination ? (
-                        <p className="text-xs text-white/50">
+                        <p className="text-xs text-white/65">
                           Originally headed to {shortKey(row.destination)}
                         </p>
                       ) : null}
@@ -410,8 +410,8 @@ export function StrandedFundsRecovery({
                         </Button>
                       )}
 
-                      <details className="group text-xs text-white/45">
-                        <summary className="cursor-pointer font-medium text-white/55 hover:text-white/75">
+                      <details className="group text-xs text-white/65">
+                        <summary className="cursor-pointer font-medium text-white/70 hover:text-white/85">
                           Technical details
                         </summary>
                         <p className="mt-2 break-all font-mono">
@@ -423,7 +423,7 @@ export function StrandedFundsRecovery({
                 })}
               </ul>
 
-              <details className="rounded-lg bg-white/6 px-3 py-2.5 text-xs text-white/55 ring-1 ring-white/10">
+              <details className="rounded-lg bg-white/6 px-3 py-2.5 text-xs text-white/65 ring-1 ring-white/10">
                 <summary className="cursor-pointer font-semibold text-white/70">
                   How recovery works
                 </summary>
