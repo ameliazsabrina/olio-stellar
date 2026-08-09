@@ -1,9 +1,11 @@
+import { LandingSection } from "./LandingSection";
 import { ScrollReveal } from "./ScrollReveal";
 
 export function ProblemStatement() {
   return (
-    <section
-      className="relative z-20 flex min-h-svh items-center bg-paper px-[clamp(20px,5vw,72px)] py-24 text-ink sm:py-28"
+    <LandingSection
+      container="6xl"
+      fullHeight
       id="problem"
       data-ed-section
       aria-labelledby="problem-title"
@@ -11,7 +13,7 @@ export function ProblemStatement() {
       <h2 className="sr-only" id="problem-title">
         Public wallets were never designed for your business.
       </h2>
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-14 lg:grid-cols-[0.88fr_1fr] lg:gap-20">
+      <div className="grid w-full items-center gap-14 lg:grid-cols-[0.88fr_1fr] lg:gap-20">
         <div
           className="relative min-h-[220px] lg:min-h-[420px]"
           aria-hidden="true"
@@ -72,7 +74,7 @@ export function ProblemStatement() {
           </div>
         </div>
       </div>
-    </section>
+    </LandingSection>
   );
 }
 

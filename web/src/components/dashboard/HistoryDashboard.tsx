@@ -6,6 +6,7 @@ import { Card } from "../ui/card";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 import { ActivityFeed } from "./ActivityFeed";
+import { DashboardPageHeader } from "./DashboardPageHeader";
 import { useMyNotes } from "./useMyNotes";
 
 export function HistoryDashboard() {
@@ -18,14 +19,12 @@ export function HistoryDashboard() {
 
   return (
     <>
-      <div className="mb-7">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          History
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm font-medium text-white/70 sm:text-base">
-          Review private payments received and cash-outs from this account.
-        </p>
-      </div>
+      <DashboardPageHeader
+        title="History"
+        description={
+          <>Review private payments received and cash-outs from this account.</>
+        }
+      />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)] lg:gap-6">
         <div className="min-w-0">
@@ -79,7 +78,7 @@ function SummaryCard({
   icon: typeof ArrowDownLeft;
 }) {
   return (
-    <Card appearance="glass" className="gap-4 p-5">
+    <Card appearance="glass" density="comfortable" className="gap-4">
       <div className="flex size-11 items-center justify-center rounded-lg bg-white/12 text-white ring-1 ring-white/25">
         <Icon className="size-5" aria-hidden="true" />
       </div>
@@ -95,12 +94,16 @@ function SummaryCard({
 
 function LockedHistory({ onUnlock }: { onUnlock: () => void }) {
   return (
-    <Card appearance="glass" className="items-start gap-4 p-5 sm:p-6">
+    <Card
+      appearance="glass"
+      density="comfortable"
+      className="items-start gap-4"
+    >
       <div className="flex size-11 items-center justify-center rounded-lg bg-white/12 text-white ring-1 ring-white/25">
         <LockKeyhole className="size-5" aria-hidden="true" />
       </div>
       <div className="space-y-1">
-        <h2 className="font-heading text-lg font-semibold text-white">
+        <h2 className="type-product-panel-title text-white">
           Unlock to view history
         </h2>
         <p className="text-sm text-white/65">

@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
+import { glassInsetClass } from "../../../components/ui/glass";
 import { Input } from "../../../components/ui/input";
 import { ToastFeedback } from "../../../components/ui/toast-feedback";
 import type { CctpChain } from "../../../features/cctpPayer/hooks/useCctpDeposit";
@@ -37,6 +38,7 @@ import {
   poolDeposit,
   usdcBalance,
 } from "../../../lib/stellar";
+import { cn } from "../../../lib/utils";
 import { CctpPayForm } from "./CctpPayForm";
 
 type Method = "stellar" | "cctp";
@@ -142,9 +144,9 @@ export function PayForm({
   });
 
   return (
-    <Card appearance="glass" className="gap-4 p-6">
+    <Card appearance="glass" density="spacious" className="gap-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="type-product-panel-title text-white">
           {lockedAmount ? "Requested amount" : "Amount"}
         </h2>
         {link?.label ? (
@@ -153,7 +155,7 @@ export function PayForm({
       </div>
 
       {cctpEnabled && (
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md">
+        <div className={cn(glassInsetClass, "grid grid-cols-2 gap-1 p-1")}>
           <button
             type="button"
             onClick={() => {
@@ -321,6 +323,7 @@ export function PayForm({
                           href={status.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          aria-label="View transaction proof in Stellar Explorer"
                           className="underline underline-offset-2"
                         >
                           here

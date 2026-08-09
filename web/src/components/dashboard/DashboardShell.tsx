@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { glassButtonClass } from "../ui/glass";
 import { useWallet } from "../WalletProvider";
 
 const DASHBOARD_ACTIONS = [
@@ -59,7 +60,7 @@ export function DashboardShell({
       <main
         id="main-content"
         className={cn(
-          "relative isolate mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8 lg:py-10 xl:px-6",
+          "relative isolate mx-auto w-full max-w-7xl px-(--dashboard-gutter) py-7 sm:py-9 lg:py-10",
           contentClassName,
         )}
       >
@@ -110,7 +111,10 @@ function DashboardNavigation() {
         <DropdownMenu>
           <DropdownMenuTrigger
             id="dashboard-nav-menu-trigger"
-            className="flex size-11 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70"
+            className={cn(
+              glassButtonClass,
+              "flex size-11 items-center justify-center transition-colors focus-visible:ring-2",
+            )}
             aria-label="Open dashboard navigation"
           >
             <Menu className="size-5" aria-hidden="true" />
@@ -198,7 +202,10 @@ function DashboardNavigation() {
       <DropdownMenu>
         <DropdownMenuTrigger
           id="dashboard-account-menu-trigger"
-          className="hidden min-h-11 items-center justify-self-end gap-2 rounded-xl bg-white/15 px-3 text-sm font-semibold text-white ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/70 sm:col-start-3 sm:flex lg:col-start-3"
+          className={cn(
+            glassButtonClass,
+            "hidden min-h-11 items-center justify-self-end gap-2 px-3 text-sm font-semibold transition-colors focus-visible:ring-2 sm:col-start-3 sm:flex lg:col-start-3",
+          )}
         >
           <span className="flex size-7 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase text-white">
             {username?.slice(0, 1) || "O"}

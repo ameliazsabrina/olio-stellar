@@ -71,7 +71,12 @@ describe("EditionsTopNav", () => {
       }),
     );
     render(<EditionsTopNav />);
-    expect(screen.getByRole("button", { name: "@alice" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "@alice" })).toHaveClass(
+      "surface-glass-control",
+      "theme-glass",
+      "min-h-11",
+      "font-semibold",
+    );
     expect(
       screen.queryByRole("button", { name: /claim username/i }),
     ).not.toBeInTheDocument();

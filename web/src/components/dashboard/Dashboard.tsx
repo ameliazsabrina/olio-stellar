@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useWallet } from "../WalletProvider";
 import { ActivityFeed } from "./ActivityFeed";
 import { BalanceCard } from "./BalanceCard";
+import { DashboardPageHeader } from "./DashboardPageHeader";
 import { PersonalLinkCard } from "./PersonalLinkCard";
 import { ReceiveDialog } from "./ReceiveDialog";
 import { useMyNotes } from "./useMyNotes";
@@ -24,15 +25,17 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="mb-7">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          <span className="sr-only">Dashboard: </span>
-          Hi, {username || "there"}.
-        </h1>
-        <p className="mt-2 max-w-xl text-sm font-medium text-white/70 sm:text-base">
-          Receive privately, keep control, and cash out when you are ready.
-        </p>
-      </div>
+      <DashboardPageHeader
+        title={
+          <>
+            <span className="sr-only">Dashboard: </span>
+            Hi, {username || "there"}.
+          </>
+        }
+        description={
+          <>Receive privately, keep control, and cash out when you are ready.</>
+        }
+      />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)] lg:gap-x-6 lg:gap-y-5 xl:gap-x-7">
         <div className="grid min-w-0 gap-5">

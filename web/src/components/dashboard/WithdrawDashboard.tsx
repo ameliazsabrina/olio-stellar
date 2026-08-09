@@ -41,10 +41,12 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog";
+import { glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
+import { DashboardPageHeader } from "./DashboardPageHeader";
 import { OffRampContent } from "./OffRampContent";
 import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
 import { useMyNotes } from "./useMyNotes";
@@ -274,15 +276,15 @@ export function WithdrawDashboard() {
 
   return (
     <>
-      <div className="mb-7">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Withdraw
-        </h1>
-        <p className="mt-2 text-sm font-medium text-white/70 sm:text-base">
-          Choose a private payment, then send it to a Stellar wallet or cash it
-          out through an available anchor.
-        </p>
-      </div>
+      <DashboardPageHeader
+        title="Withdraw"
+        description={
+          <>
+            Choose a private payment, then send it to a Stellar wallet or cash
+            it out through an available anchor.
+          </>
+        }
+      />
 
       {!recoveryJoinsPaymentGrid ? (
         <StrandedFundsRecovery defaultDestination={address} />
@@ -371,7 +373,8 @@ export function WithdrawDashboard() {
       >
         <DialogContent
           appearance="glass"
-          className="max-w-[560px] gap-0 p-0"
+          size="lg"
+          className="gap-0 p-0"
           showCloseButton={false}
         >
           <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-start gap-3 border-b border-white/12 p-5 sm:p-6">
@@ -491,7 +494,8 @@ function PaymentCard({
     >
       <Card
         appearance="glass"
-        className="min-h-64 justify-between gap-5 p-5 ring-white/15 transition-colors duration-200 group-hover:bg-white/12 group-hover:ring-white/25 group-focus-visible:ring-2 group-focus-visible:ring-white/70 sm:p-6"
+        density="comfortable"
+        className="min-h-64 justify-between gap-5 ring-white/15 transition-colors duration-200 group-hover:bg-white/12 group-hover:ring-white/25 group-focus-visible:ring-2 group-focus-visible:ring-white/70"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -546,7 +550,8 @@ function AllPaymentsCard({
     >
       <Card
         appearance="glass"
-        className="relative min-h-64 justify-between gap-4 p-5 ring-white/20 transition-colors duration-200 group-hover:bg-white/14 group-hover:ring-white/30 group-focus-visible:ring-2 group-focus-visible:ring-white/70 sm:p-6"
+        density="comfortable"
+        className="relative min-h-64 justify-between gap-4 ring-white/20 transition-colors duration-200 group-hover:bg-white/14 group-hover:ring-white/30 group-focus-visible:ring-2 group-focus-visible:ring-white/70"
       >
         <div className="relative z-10 max-w-[58%]">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/65">
@@ -662,7 +667,7 @@ function WithdrawalMethodPicker({
       <button
         type="button"
         onClick={onWallet}
-        className="flex min-h-20 items-center gap-4 rounded-lg border border-white/18 bg-white/8 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70"
+        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-white/18 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70`}
       >
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
           <Wallet className="size-5" aria-hidden="true" />
@@ -683,7 +688,7 @@ function WithdrawalMethodPicker({
         type="button"
         onClick={onAnchor}
         disabled={bulk || !moneyGramCashOutEnabled}
-        className="flex min-h-20 items-center gap-4 rounded-lg border border-white/18 bg-white/8 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-white/18 disabled:hover:bg-white/8"
+        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-white/18 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-white/18 disabled:hover:bg-white/8`}
       >
         <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
           <Landmark className="size-5" aria-hidden="true" />
@@ -785,7 +790,7 @@ function WalletWithdrawal({
     return (
       <div className="grid gap-5">
         <BackButton label="Edit details" onClick={onBack} />
-        <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
+        <div className={`${glassInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-sm text-white/60">Cashing out</span>
             <span className="font-mono text-xl font-semibold text-white tabular-nums">

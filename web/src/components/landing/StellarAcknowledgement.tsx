@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
+import { LandingSection } from "./LandingSection";
 
 const STELLAR_FEATURES = [
   "Fast settlement",
@@ -18,14 +19,15 @@ type StellarSwayStyle = CSSProperties & {
 
 export function StellarAcknowledgement() {
   return (
-    <section
-      className="relative z-20 overflow-hidden bg-paper px-[clamp(20px,5vw,72px)] py-24 text-ink sm:py-28"
+    <LandingSection
+      container="none"
+      className="overflow-hidden"
       id="stellar"
       aria-labelledby="stellar-title"
     >
       <div className="mx-auto max-w-6xl text-center">
         <h2
-          className="mx-auto flex max-w-[1120px] flex-col items-center justify-center gap-3 text-balance text-[clamp(2.5rem,7.5vw,6rem)] font-semibold leading-[0.86] tracking-[-0.065em] text-ink sm:flex-row sm:gap-6"
+          className="type-landing-display mx-auto flex max-w-[1120px] flex-col items-center justify-center gap-3 text-balance text-ink sm:flex-row sm:gap-6"
           id="stellar-title"
         >
           <span>Built on</span>
@@ -54,7 +56,7 @@ export function StellarAcknowledgement() {
           <li key={feature}>{feature}</li>
         ))}
       </ul>
-    </section>
+    </LandingSection>
   );
 }
 
@@ -63,7 +65,7 @@ function FeatureStrip() {
     <div className="flex shrink-0 items-center gap-5 px-2">
       {STELLAR_FEATURES.map((feature, index) => (
         <div
-          className="stellar-sway flex h-20 min-w-[260px] items-center justify-center rounded-full border-2  bg-olive-deep px-9 text-[clamp(1.2rem,2.1vw,2rem)] font-medium tracking-[-0.025em] text-paper shadow-[0_12px_36px_rgba(32,38,26,0.05)] md:min-w-[330px]"
+          className="stellar-sway flex h-20 min-w-[260px] items-center justify-center rounded-full border-2 bg-olive-deep px-9 text-[clamp(1.2rem,2.1vw,2rem)] font-medium tracking-[-0.025em] text-paper [box-shadow:var(--shadow-md)] md:min-w-[330px]"
           key={feature}
           style={
             {

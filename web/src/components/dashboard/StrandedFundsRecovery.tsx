@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
@@ -171,12 +172,12 @@ export function StrandedFundsRecovery({
         <section
           aria-label="Interrupted cash-out"
           className={cn(
-            "group/recovery relative mb-5 flex min-h-64 flex-col justify-between gap-5 overflow-hidden rounded-2xl border border-amber-300/25 bg-amber-200/10 p-5 shadow-[0_16px_40px_rgba(120,78,10,0.08)] backdrop-blur-xl transition-colors duration-200 hover:border-amber-200/35 hover:bg-amber-200/14 sm:p-6",
+            "group/recovery relative mb-5 flex min-h-64 flex-col justify-between gap-5 overflow-hidden rounded-2xl border border-warning-border bg-warning-surface p-5 [box-shadow:var(--shadow-md)] backdrop-blur-xl transition-colors duration-200 hover:border-warning-text/35 hover:bg-warning-surface/80 sm:p-6",
             className,
           )}
         >
           <div className="relative z-10 max-w-[62%]">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-amber-100/65">
+            <p className="type-caption uppercase text-warning-text/65">
               Recovery needed
             </p>
             <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
@@ -197,7 +198,7 @@ export function StrandedFundsRecovery({
           <Button
             type="button"
             variant="glass"
-            className="relative z-10 w-full bg-amber-50/14 text-white ring-amber-100/25 hover:bg-amber-50/20"
+            className="relative z-10 w-full bg-warning-surface text-white ring-warning-border hover:bg-warning-surface/80"
             onClick={() => setOpen(true)}
           >
             Recover funds
@@ -209,7 +210,8 @@ export function StrandedFundsRecovery({
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           appearance="glass"
-          className="max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[calc(100dvh-1rem)] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl sm:max-w-[480px]"
+          size="md"
+          className="max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[calc(100dvh-1rem)] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl"
         >
           {success ? (
             <div className="grid justify-items-center gap-5 py-4 text-center">
@@ -253,7 +255,7 @@ export function StrandedFundsRecovery({
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="rounded-xl bg-white/8 p-4 ring-1 ring-white/15">
+              <div className={`${glassInsetClass} rounded-xl p-4`}>
                 <p className="text-xs font-medium tracking-wide text-white/65 uppercase">
                   Recoverable
                 </p>
@@ -283,7 +285,9 @@ export function StrandedFundsRecovery({
                 </div>
 
                 {!editingDestination && currentWalletSelected ? (
-                  <div className="flex items-center gap-3 rounded-lg bg-white/8 p-3 ring-1 ring-white/15">
+                  <div
+                    className={`${glassInsetClass} flex items-center gap-3 p-3`}
+                  >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
                       <Wallet className="size-4" aria-hidden="true" />
                     </span>
@@ -423,7 +427,9 @@ export function StrandedFundsRecovery({
                 })}
               </ul>
 
-              <details className="rounded-lg bg-white/6 px-3 py-2.5 text-xs text-white/65 ring-1 ring-white/10">
+              <details
+                className={`${glassInsetClass} px-3 py-2.5 text-xs text-white/65`}
+              >
                 <summary className="cursor-pointer font-semibold text-white/70">
                   How recovery works
                 </summary>

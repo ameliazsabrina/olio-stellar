@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { LandingSection } from "./LandingSection";
 
 const USER_CARDS = [
   {
@@ -31,16 +32,16 @@ const USER_CARDS = [
 
 export function Users() {
   return (
-    <section
-      className="relative z-20 bg-paper px-[clamp(20px,5vw,72px)] py-8 text-ink sm:py-20"
+    <LandingSection
+      spacing="compact"
       id="users"
       data-ed-section
       aria-labelledby="users-title"
     >
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         <div className="max-w-full">
           <h2
-            className="text-balance text-[clamp(2.45rem,5.2vw,4.8rem)] font-semibold leading-[0.94] tracking-[-0.045em] text-ink"
+            className="type-landing-section-title text-balance text-ink"
             id="users-title"
           >
             Designed for people who actually earn in crypto.
@@ -50,7 +51,7 @@ export function Users() {
         <div className="mt-14 grid gap-1.5 md:grid-cols-2">
           {USER_CARDS.map((card) => (
             <article
-              className="group relative min-h-[360px] overflow-hidden rounded-lg bg-olive-deep text-ed-cream md:min-h-[390px] lg:min-h-[430px]"
+              className="group relative min-h-[360px] overflow-hidden rounded-2xl bg-olive-deep text-ed-cream md:min-h-[390px] lg:min-h-[430px]"
               key={card.title}
             >
               <Image
@@ -87,6 +88,6 @@ export function Users() {
           ))}
         </div>
       </div>
-    </section>
+    </LandingSection>
   );
 }

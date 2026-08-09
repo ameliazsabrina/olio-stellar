@@ -17,6 +17,7 @@ import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { glassInsetClass } from "../ui/glass";
 import { DiscloseDialog } from "./DiscloseDialog";
 
 type ActivityEvent = {
@@ -103,15 +104,16 @@ export function ActivityFeed({
   return (
     <Card
       appearance="glass"
+      density="comfortable"
       id="activity"
-      className={cn("gap-5 p-5 sm:p-6", className)}
+      className={cn("gap-5", className)}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-heading text-lg font-semibold text-white">
-          {title}
-        </h2>
+        <h2 className="type-product-panel-title text-white">{title}</h2>
         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-          <fieldset className="flex w-fit items-center gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md">
+          <fieldset
+            className={cn(glassInsetClass, "flex w-fit items-center gap-1 p-1")}
+          >
             <legend className="sr-only">Filter activity</legend>
             {TABS.map((t) => (
               <button

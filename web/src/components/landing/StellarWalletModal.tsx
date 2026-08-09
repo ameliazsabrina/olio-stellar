@@ -39,7 +39,7 @@ export function StellarWalletModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent appearance="glass" className="max-w-[420px] gap-0">
+      <DialogContent appearance="glass" size="sm" className="gap-0">
         <DialogTitle className="text-lg font-semibold text-center">
           Create Your Account
         </DialogTitle>

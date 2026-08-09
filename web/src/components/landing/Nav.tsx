@@ -11,6 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { glassButtonClass } from "@/components/ui/glass";
+import { cn } from "@/lib/utils";
 import { useWallet } from "../WalletProvider";
 import { StellarWalletModal } from "./StellarWalletModal";
 
@@ -61,7 +63,10 @@ export function EditionsTopNav() {
         {address ? (
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="group inline-flex min-h-[38px] items-center gap-2 rounded-lg border border-ed-line bg-transparent px-[18px] font-mono text-sm font-medium text-ed-cream outline-none transition-colors hover:border-ed-cream/40 hover:bg-ed-cream/[0.06] focus-visible:border-ed-cream/60 focus-visible:ring-2 focus-visible:ring-ed-cream/20 data-popup-open:border-ed-cream/40 data-popup-open:bg-ed-cream/[0.06]"
+              className={cn(
+                glassButtonClass,
+                "group inline-flex min-h-11 items-center gap-2 px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 data-popup-open:bg-white/20",
+              )}
               title={address}
             >
               <span className="max-w-24 truncate sm:max-w-40">

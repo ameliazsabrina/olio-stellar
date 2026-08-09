@@ -165,12 +165,42 @@ export async function registerUsername(
   notePubkey: Uint8Array,
   viewPubkey: Uint8Array,
 ): Promise<void> {
-  await invoke(signer, registryId, "register", [
-    scAddr(signer.address),
-    scStr(username),
-    scBytes(notePubkey),
-    scBytes(viewPubkey),
-  ]);
+  try {
+    await invoke(signer, registryId, "register", [
+      scAddr(signer.address),
+      scStr(username),
+      scBytes(notePubkey),
+      scBytes(viewPubkey),
+    ]);
+  } catch (error) {
+    throw friendlyRegistryError(error);
+  }
+}
+
+const REGISTRY_ERROR_MESSAGES: Readonly<Record<number, string>> = {
+  1: "That username is already owned by another account.",
+  2: "This wallet already owns a different username on this network.",
+  3: "Your username was not found on the current Stellar network.",
+  4: "Username must be at least 3 characters.",
+  5: "Username must be no more than 32 characters.",
+};
+
+/** Extract a typed registry error from Stellar's verbose HostError text. */
+export function registryContractErrorCode(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/Error\(Contract,\s*#(\d+)\)/);
+  return match ? Number(match[1]) : null;
+}
+
+function friendlyRegistryError(error: unknown): unknown {
+  const code = registryContractErrorCode(error);
+  return code === null
+    ? error
+    : new Error(
+        REGISTRY_ERROR_MESSAGES[code] ??
+          "The username registry rejected this request. Please try again.",
+        { cause: error },
+      );
 }
 
 export async function setUsernamePubkeys(
@@ -179,12 +209,26 @@ export async function setUsernamePubkeys(
   notePubkey: Uint8Array,
   viewPubkey: Uint8Array,
 ): Promise<void> {
-  await invoke(signer, registryId, "set_pubkey", [
+  const args = [
     scAddr(signer.address),
     scStr(username),
     scBytes(notePubkey),
     scBytes(viewPubkey),
-  ]);
+  ];
+
+  try {
+    await invoke(signer, registryId, "set_pubkey", args);
+  } catch (error) {
+    if (registryContractErrorCode(error) !== 3) {
+      throw friendlyRegistryError(error);
+    }
+
+    try {
+      await invoke(signer, registryId, "register", args);
+    } catch (registerError) {
+      throw friendlyRegistryError(registerError);
+    }
+  }
 }
 
 export async function resolveUsernameOnChain(
@@ -382,8 +426,7 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
       scannedFromLedger: preferred,
       latestLedger: latest.sequence,
     };
-  } catch {
-  }
+  } catch {}
 
   const windows = [17280, 8000, 2000, 500];
   for (const w of windows) {
@@ -395,8 +438,7 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
         scannedFromLedger: start,
         latestLedger: latest.sequence,
       };
-    } catch {
-    }
+    } catch {}
   }
   return {
     events: [],

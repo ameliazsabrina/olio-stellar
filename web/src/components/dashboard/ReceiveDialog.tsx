@@ -12,6 +12,7 @@ import { payUrl } from "../../lib/paymentLinks";
 import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { glassFieldClass, glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { ToastFeedback } from "../ui/toast-feedback";
 
@@ -116,7 +117,8 @@ export function ReceiveDialog({
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
       <DialogContent
         appearance="glass"
-        className="w-[calc(100%-2rem)] min-w-0 max-w-[440px] sm:w-full"
+        size="md"
+        className="w-[calc(100%-2rem)] min-w-0 sm:w-full"
       >
         <DialogTitle className="flex items-center gap-2">
           {step === "configure" && (
@@ -146,7 +148,7 @@ export function ReceiveDialog({
                 setSubmitError(null);
                 setStep("configure");
               }}
-              className="flex items-center gap-3 rounded-lg bg-white/8 px-4 py-3 text-left ring-1 ring-white/15 transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              className={`${glassInsetClass} flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70`}
             >
               <Link2 className="size-5 text-olive" aria-hidden="true" />
               <div>
@@ -161,7 +163,7 @@ export function ReceiveDialog({
             <button
               type="button"
               disabled
-              className="flex items-center gap-3 rounded-lg bg-white/5 px-4 py-3 text-left ring-1 ring-white/10 opacity-60"
+              className={`${glassInsetClass} flex items-center gap-3 px-4 py-3 text-left opacity-60`}
             >
               <AtSign className="size-5 text-muted-text" aria-hidden="true" />
               <div>
@@ -207,7 +209,7 @@ export function ReceiveDialog({
             </label>
             <textarea
               id="receive-description"
-              className="min-h-24 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/65 focus-visible:ring-2 focus-visible:ring-white/70"
+              className={`${glassFieldClass} min-h-24 rounded-lg border px-3 py-3 text-sm outline-none focus-visible:ring-2`}
               placeholder="What's it for? (e.g. Invoice #12)"
               autoComplete="off"
               maxLength={500}

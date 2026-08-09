@@ -23,15 +23,11 @@ type StepSketchName = (typeof STEPS)[number]["sketch"];
 
 export function Steps() {
   return (
-    <section
-      className="relative z-20 bg-paper px-[clamp(20px,5vw,72px)] py-16 text-ink sm:py-24"
-      id="steps"
-      aria-labelledby="steps-title"
-    >
-      <div className="mx-auto w-full max-w-7xl lg:px-12 lg:py-16">
+    <LandingSection spacing="compact" id="steps" aria-labelledby="steps-title">
+      <div className="w-full lg:px-12 lg:py-16">
         <div className="mx-auto max-w-[680px] text-center">
           <h2
-            className="text-balance text-[clamp(2.3rem,5vw,4rem)] font-semibold leading-[0.96] tracking-[-0.04em] text-ink"
+            className="type-landing-section-title text-balance text-ink"
             id="steps-title"
           >
             Three simple steps.
@@ -72,7 +68,7 @@ export function Steps() {
           revealing everything else.
         </p>
       </div>
-    </section>
+    </LandingSection>
   );
 }
 
@@ -280,3 +276,5 @@ function PrivateReceiptSketch() {
     </g>
   );
 }
+
+import { LandingSection } from "./LandingSection";

@@ -12,6 +12,7 @@ import { downloadDisclosurePdf } from "../../lib/disclosurePdf";
 import { getAccount, scanMyNotes } from "../../lib/notes";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { glassInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
@@ -67,7 +68,7 @@ export function DiscloseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent appearance="glass" className="max-w-[440px]">
+      <DialogContent appearance="glass" size="md">
         <DialogTitle className="flex items-center gap-2">
           Create payment receipt
         </DialogTitle>
@@ -99,7 +100,7 @@ export function DiscloseDialog({
 
         {step === "ready" && bundle && (
           <div className="grid gap-4">
-            <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
+            <div className={`${glassInsetClass} p-4`}>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm text-muted-text">
                   Payment received

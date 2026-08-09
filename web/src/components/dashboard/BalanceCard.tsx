@@ -13,6 +13,7 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { fromBaseUnits } from "../../lib/crypto";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import {
@@ -24,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { glassInsetClass } from "../ui/glass";
 
 const UPCOMING_STABLECOINS = ["EURC", "GYEN", "ZUSD", "AUDD"] as const;
 const STABLECOIN_ASSETS = {
@@ -151,7 +153,10 @@ export function BalanceCard({
           <div className="text-sm font-medium text-white/65">Tokens</div>
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="group flex min-h-16 w-full items-center gap-3 rounded-lg bg-white/7 p-3 text-left ring-1 ring-white/12 backdrop-blur-md transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70"
+              className={cn(
+                glassInsetClass,
+                "group flex min-h-16 w-full items-center gap-3 p-3 text-left transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70",
+              )}
               aria-label="Select token"
             >
               <LedgerMark />
@@ -247,15 +252,13 @@ export function BalanceCard({
 
 function LockedBalanceCard({ onUnlock }: { onUnlock?: () => void }) {
   return (
-    <Card appearance="glass" className="gap-5 p-5 sm:p-7">
+    <Card appearance="glass" density="comfortable" className="gap-5">
       <div className="flex size-11 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white">
         <LockKeyhole className="size-5" aria-hidden="true" />
       </div>
       <div className="grid gap-1">
         <div className="text-sm font-medium text-white/65">Private balance</div>
-        <h2 className="font-heading text-xl font-semibold text-white">
-          Balance locked
-        </h2>
+        <h2 className="type-product-panel-title text-white">Balance locked</h2>
         <p className="text-sm text-white/65">Unlock to view your notes.</p>
       </div>
       <Button

@@ -15,12 +15,10 @@ describe("glass primitives", () => {
 
     const button = screen.getByRole("button", { name: "Continue" });
     expect(button).toHaveClass(
-      "rounded-xl",
-      "bg-white/15",
+      "rounded-lg",
+      "surface-glass-control",
+      "theme-glass",
       "text-white",
-      "ring-1",
-      "ring-white/25",
-      "backdrop-blur-xl",
       "hover:bg-white/20",
       "hover:text-white",
       "focus-visible:ring-white/70",
@@ -35,15 +33,35 @@ describe("glass primitives", () => {
     );
 
     expect(screen.getByLabelText("Amount")).toHaveClass(
-      "border-white/20",
-      "bg-white/10",
+      "surface-glass-field",
+      "theme-glass",
       "text-white",
     );
     expect(screen.getByLabelText("Amount").parentElement).toHaveClass(
       "rounded-2xl",
-      "bg-white/8",
-      "ring-white/15",
-      "backdrop-blur-xl",
+      "surface-glass-panel",
+      "theme-glass",
+    );
+  });
+
+  it("exposes explicit card density and dialog width roles", () => {
+    render(
+      <>
+        <Card density="comfortable">Summary</Card>
+        <Dialog open>
+          <DialogContent size="lg">
+            <DialogTitle>Large dialog</DialogTitle>
+          </DialogContent>
+        </Dialog>
+      </>,
+    );
+
+    expect(screen.getByText("Summary")).toHaveAttribute(
+      "data-density",
+      "comfortable",
+    );
+    expect(screen.getByRole("dialog", { name: "Large dialog" })).toHaveClass(
+      "sm:max-w-xl",
     );
   });
 

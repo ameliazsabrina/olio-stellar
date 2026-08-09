@@ -193,7 +193,7 @@ export function Hero() {
         </svg>
         <div data-ed-hero-inner className="relative flex w-full flex-col">
           <h1
-            className="m-0 mt-2 flex flex-col text-[clamp(2.1rem,8vw,4.8rem)] font-medium leading-[0.92] tracking-[-0.02em] text-ed-cream sm:mt-4 sm:text-[clamp(2.1rem,4.4vw,4.8rem)]"
+            className="type-landing-display m-0 mt-2 flex flex-col text-[clamp(2.1rem,8vw,4.8rem)] text-ed-cream sm:mt-4 sm:text-[clamp(2.1rem,4.4vw,4.8rem)]"
             id="ed-hero-title"
           >
             <span>Private</span>

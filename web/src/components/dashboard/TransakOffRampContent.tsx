@@ -24,6 +24,7 @@ import {
 } from "../../lib/transak";
 import { claimableNotes } from "../../lib/withdraw";
 import { Button } from "../ui/button";
+import { glassInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
@@ -149,7 +150,9 @@ export function TransakOffRampContent({
   if (step === "select") {
     return (
       <div className="grid gap-4">
-        <div className="flex items-start gap-2 rounded-lg bg-white/8 px-3 py-2.5 text-xs text-white/70 ring-1 ring-white/12">
+        <div
+          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-white/70`}
+        >
           <Building2 className="mt-0.5 size-4 shrink-0 text-white/70" />
           <span>
             Cash out to your bank or e-wallet through{" "}
@@ -241,7 +244,7 @@ export function TransakOffRampContent({
   if (step === "interactive") {
     return (
       <div className="grid gap-4">
-        <div className="rounded-lg bg-white/8 p-4 text-sm ring-1 ring-white/15">
+        <div className={`${glassInsetClass} p-4 text-sm`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-white/60">Cashing out</span>
             <span className="font-heading text-2xl font-semibold text-white">

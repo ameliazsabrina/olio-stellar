@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LandingSection } from "./LandingSection";
 
 const FAQ_ITEMS = [
   {
@@ -56,17 +57,12 @@ export function Faq() {
   };
 
   return (
-    <section
-      className="relative z-20 bg-paper px-[clamp(20px,5vw,72px)] py-20 text-ink sm:py-24"
-      id="faq"
-      data-ed-section
-      aria-labelledby="faq-title"
-    >
-      <div className="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[0.74fr_1.26fr] lg:gap-20">
+    <LandingSection id="faq" data-ed-section aria-labelledby="faq-title">
+      <div className="grid w-full gap-12 lg:grid-cols-[0.74fr_1.26fr] lg:gap-20">
         <div className="flex flex-col gap-10 lg:sticky lg:top-24 lg:min-h-[480px] lg:self-start lg:justify-between lg:gap-0">
           <div>
             <h2
-              className="max-w-[7ch] text-balance text-[clamp(3.25rem,12vw,5rem)] font-semibold leading-[0.86] tracking-[-0.07em] text-ink sm:leading-[0.82] sm:tracking-[-0.075em]"
+              className="type-landing-section-title max-w-[7ch] text-balance text-ink"
               id="faq-title"
             >
               Have questions?
@@ -144,7 +140,7 @@ export function Faq() {
           </div>
         </div>
       </div>
-    </section>
+    </LandingSection>
   );
 }
 

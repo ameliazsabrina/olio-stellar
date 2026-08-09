@@ -99,7 +99,13 @@ export async function restorePasskeyWallet(): Promise<PasskeyWallet | null> {
     forgetPasskeyWallet();
     return null;
   }
-  return { contractId: wallet.contractId, keyId: wallet.credentialId };
+  const restored = await (
+    await kit()
+  ).connectWallet({
+    keyId: wallet.credentialId,
+    getContractId: async () => wallet.contractId,
+  });
+  return { contractId: restored.contractId, keyId: restored.keyIdBase64 };
 }
 
 export async function connectPasskeyWallet(): Promise<PasskeyWallet> {
@@ -161,6 +167,12 @@ export function passkeySigner(wallet: PasskeyWallet): Signer {
     address: wallet.contractId,
     signAuthEntries: async (entries) => {
       const k = await kit();
+      if (k.wallet?.options.contractId !== wallet.contractId) {
+        await k.connectWallet({
+          keyId: wallet.keyId,
+          getContractId: async () => wallet.contractId,
+        });
+      }
       const { xdr: mxdr } = await import("@stellar/stellar-sdk/minimal");
       const out: string[] = [];
       for (const entry of entries) {

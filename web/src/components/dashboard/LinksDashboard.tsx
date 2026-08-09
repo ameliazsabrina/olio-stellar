@@ -30,9 +30,11 @@ import { api } from "../../trpc/client";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { glassFieldClass, glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
+import { DashboardPageHeader } from "./DashboardPageHeader";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 import { PersonalLinkCard } from "./PersonalLinkCard";
 
@@ -83,25 +85,21 @@ export function LinksDashboard({
 
   return (
     <>
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            Links
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm font-medium text-white/70 sm:text-base">
+      <DashboardPageHeader
+        title="Links"
+        description={
+          <>
             Create and manage payment links for invoices, tips, projects, and
             open-ended requests.
-          </p>
-        </div>
-        <Button
-          variant="glass"
-          className="min-h-11 px-4"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          Create link
-        </Button>
-      </div>
+          </>
+        }
+        action={
+          <Button variant="glass" size="lg" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" aria-hidden="true" />
+            Create link
+          </Button>
+        }
+      />
 
       <section className="grid gap-4" aria-label="Payment links">
         {(loading || links.length > 0) && (
@@ -235,7 +233,7 @@ function GeneratedLinkCard({
   }
 
   return (
-    <Card appearance="glass" className="relative justify-between gap-4 p-4">
+    <Card appearance="glass" className="relative justify-between gap-4">
       <div className="grid gap-3">
         <div className="min-w-0 pr-12">
           <div className="flex flex-wrap items-center gap-2">
@@ -332,7 +330,9 @@ function GeneratedLinkCard({
         </div>
       </div>
 
-      <div className="truncate rounded-lg bg-white/7 px-3 py-2 font-mono text-sm text-white/85 ring-1 ring-white/12">
+      <div
+        className={`${glassInsetClass} truncate px-3 py-2 font-mono text-sm text-white/85`}
+      >
         {url.replace(/^https?:\/\//, "")}
       </div>
 
@@ -460,7 +460,7 @@ function LinkEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent appearance="glass" className="max-w-[520px]">
+      <DialogContent appearance="glass" size="md">
         <DialogTitle className="text-lg font-semibold">
           {mode === "create" ? "Create Link" : "Edit Link"}
         </DialogTitle>
@@ -472,7 +472,7 @@ function LinkEditorDialog({
             </Label>
             <textarea
               id={`${mode}-link-description`}
-              className="min-h-28 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-sm text-white outline-none placeholder:text-white/65 focus-visible:border-white/35 focus-visible:ring-2 focus-visible:ring-white/70"
+              className={`${glassFieldClass} min-h-28 rounded-lg border px-3 py-3 text-sm outline-none focus-visible:ring-2`}
               placeholder="Tell people what this payment is for..."
               maxLength={500}
               {...register("description")}
@@ -496,7 +496,7 @@ function LinkEditorDialog({
 
           <div className="grid gap-2">
             <Label className="text-white">Amount</Label>
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/7 p-1 ring-1 ring-white/12 backdrop-blur-md">
+            <div className={`${glassInsetClass} grid grid-cols-2 gap-1 p-1`}>
               {(["fixed", "open"] as const).map((modeKey) => (
                 <button
                   key={modeKey}

@@ -100,7 +100,7 @@ export function PinDialog({
         <DialogTitle className="text-lg font-semibold text-center">
           {title}
         </DialogTitle>
-        <DialogDescription className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4">
+        <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-center text-sm leading-4">
           {description}
         </DialogDescription>
 

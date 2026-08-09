@@ -33,6 +33,7 @@ import {
   releaseNoteToBridge,
 } from "../../lib/offramp";
 import { Button } from "../ui/button";
+import { glassInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
@@ -62,7 +63,7 @@ function paintAnchorWindow(
   try {
     win.document.title = title;
     win.document.body.style.cssText =
-      "margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,-apple-system,sans-serif;background:#0e0f0d;color:#fff;";
+      'margin:0;min-height:100vh;display:grid;place-items:center;font-family:"Aileron",system-ui,-apple-system,sans-serif;background:#0e0f0d;color:#fff;';
     win.document.body.innerHTML = `<div style="max-width:22rem;padding:2rem;text-align:center;line-height:1.5">
       <p style="font-size:0.95rem;font-weight:600;margin:0 0 0.5rem">${title}</p>
       <p style="font-size:0.85rem;color:rgba(255,255,255,0.65);margin:0">${body}</p>
@@ -288,7 +289,9 @@ export function OffRampContent({
   if (step === "select") {
     return (
       <div className="grid gap-4">
-        <div className="flex items-start gap-2 rounded-lg bg-white/8 px-3 py-2.5 text-xs text-white/70 ring-1 ring-white/12">
+        <div
+          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-white/70`}
+        >
           <Landmark className="mt-0.5 size-4 shrink-0 text-white/70" />
           <span>
             Cash out as local currency through{" "}
@@ -298,7 +301,7 @@ export function OffRampContent({
           </span>
         </div>
 
-        <div className="rounded-lg bg-white/8 p-4 ring-1 ring-white/15">
+        <div className={`${glassInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-sm text-white/60">Cashing out</span>
             <span className="font-mono text-xl font-semibold text-white tabular-nums">
@@ -345,7 +348,7 @@ export function OffRampContent({
   if (step === "interactive" && interactive) {
     return (
       <div className="grid gap-4">
-        <div className="rounded-lg bg-white/8 p-4 text-sm ring-1 ring-white/15">
+        <div className={`${glassInsetClass} p-4 text-sm`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-white/60">Cashing out</span>
             <span className="font-mono text-xl font-semibold text-white tabular-nums">

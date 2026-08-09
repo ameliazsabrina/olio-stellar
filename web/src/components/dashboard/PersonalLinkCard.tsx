@@ -4,6 +4,7 @@ import { Check, Copy, ExternalLink, QrCode, ReceiptText } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { glassInsetClass } from "../ui/glass";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 
 export function PersonalLinkCard({
@@ -29,17 +30,18 @@ export function PersonalLinkCard({
   return (
     <Card
       appearance="glass"
-      className="relative justify-between gap-4 p-5 sm:p-6"
+      density="comfortable"
+      className="relative justify-between gap-4"
     >
       <div className="pr-12">
-        <h2 className="font-heading text-lg font-semibold text-white">
+        <h2 className="type-product-panel-title text-white">
           Personal pay link
         </h2>
         <p className="text-sm text-white/65">Share to get paid</p>
       </div>
 
       <div className="grid min-h-0 gap-3">
-        <div className="flex items-center gap-3 rounded-lg bg-white/7 p-3 ring-1 ring-white/12 backdrop-blur-md">
+        <div className={`${glassInsetClass} flex items-center gap-3 p-3`}>
           <div className="flex size-10 shrink-0 rotate-2 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white">
             <ReceiptText className="size-5" aria-hidden="true" />
           </div>
