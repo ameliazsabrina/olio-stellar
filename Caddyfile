@@ -7,7 +7,7 @@
 	reverse_proxy web:3000
 }
 
-# Redirect the apex/www counterpart if you serve both. Uncomment and adjust:
-# www.{$DOMAIN} {
-# 	redir https://{$DOMAIN}{uri} permanent
-# }
+# Keep the apex domain canonical while serving a valid certificate for www.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
