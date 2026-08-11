@@ -36,8 +36,10 @@ hidden is the *link* back to who paid you.
 the exact same amount, someone could reasonably guess they're connected. Letting
 funds rest, or withdrawing different amounts, keeps things cleaner.
 
-❌ **We don't take custody of your money.** Olio can't freeze, spend, or lose your
-funds. That's a feature — but it also means recovery depends on your PIN and
+❌ **We don't take custody on our servers.** Your passkey controls spending from
+the on-chain pool, so Olio's app and servers can't spend your funds. The pool's
+2-of-3 governance can temporarily pause it during an emergency; sensitive
+changes require 48 hours' public notice. Recovery still depends on your PIN and
 passkey (see [Security & Recovery](security.md)).
 
 ❌ **We're not a tool for illicit activity.** Practical privacy means zero

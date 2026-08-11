@@ -24,9 +24,11 @@
 * [USDC & Cross-Chain Payments](usdc-and-cctp.md)
 * [Concepts](concepts.md)
 * [Security & Recovery](security.md)
+* [Multisig & Timelocked Governance](multisig-governance.md)
 
 ## More
 
 * [FAQs](faqs.md)
 * [Glossary](glossary.md)
 * [Developer Reference](reference.md)
+* [MoneyGram Playground certification](moneygram-playground-certification.md)

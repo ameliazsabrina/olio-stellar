@@ -7,10 +7,17 @@ what's still being hardened.
 
 Olio is **self-custodial**. That means:
 
-* We **can't** spend, freeze, or move your money.
+* The app and its servers **can't** spend or move your money.
 * We **can't** see your private balance — it's decrypted only in your browser.
 * We **don't** hold your bank details — those go straight to the anchor at
   cash-out.
+
+The pool contract does have limited governance and emergency controls. They are
+protected by a **2-of-3 multisig**, and sensitive changes must wait **48 hours**
+on-chain before they can take effect. The multisig can pause the pool
+immediately during an incident, which temporarily prevents deposits, transfers,
+and withdrawals. See [Multisig & Timelocked Governance](multisig-governance.md)
+for the exact powers and limits.
 
 The flip side: **your keys are your responsibility.** Which is why we built a
 recovery path.
@@ -35,12 +42,16 @@ your PIN in the Olio app itself.
 * The privacy link between who paid you and what you withdraw.
 * Custody — funds live in an on-chain pool, not on our servers.
 * Your identity at cash-out — a throwaway account sits between you and the anchor.
+* Governance — no single operator key can pause the pool or propose a sensitive
+  contract change.
 
 **We can't protect against:**
 
 * Losing your PIN *and* your device with no recovery set up.
 * You approving a payment you didn't mean to.
 * The stuff privacy can't hide by design (see below).
+* A temporary pool pause authorized by two governance signers during an
+  emergency.
 
 ## What's visible even with Olio
 

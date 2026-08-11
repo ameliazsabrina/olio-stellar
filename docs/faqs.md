@@ -51,8 +51,14 @@ things for you.
 
 ## Can Olio freeze or take my money?
 
-No. Olio is self-custodial — funds sit in an on-chain pool you control, not on our
-servers. We can't spend, freeze, or lose them.
+The app and its servers can't spend or take your funds. Your spending authority
+stays with your passkey and PIN, while funds sit in an on-chain pool rather than
+an Olio server account.
+
+For incident response, the pool's 2-of-3 governance can temporarily pause
+deposits, transfers, and withdrawals. Sensitive changes such as new contract
+code or proof rules require a public proposal and a 48-hour delay. See
+[Multisig & Timelocked Governance](multisig-governance.md).
 
 ## How do I cash out to my bank?
 

@@ -27,9 +27,11 @@ either one is yours.
 
 ## Self-custody & passkeys
 
-Olio is **self-custodial** — you hold the keys, not us. We can't spend your
-money, freeze it, or lose it for you. As the saying goes: *not your keys, not
-your coins.*
+Olio is **self-custodial** — you hold the keys that authorize spending, not us.
+The app and its servers can't spend your money. The pool's 2-of-3 governance can
+temporarily pause access during an emergency, while sensitive changes require a
+public proposal and a 48-hour delay. See
+[Multisig & Timelocked Governance](multisig-governance.md).
 
 Instead of a seed phrase, your account is protected by a **passkey** (your
 device's fingerprint/face unlock) plus a **6-digit PIN** for backup and recovery.

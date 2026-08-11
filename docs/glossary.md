@@ -32,8 +32,9 @@ transactions. No seed phrase required.
 **PIN** — Your 6-digit backup and recovery key. Keep it safe; Olio will never ask
 for it.
 
-**Self-custody** — You hold the keys; Olio can't spend, freeze, or lose your
-money. The trade-off is that recovery depends on you.
+**Self-custody** — You hold the keys that authorize spending; Olio's app and
+servers can't spend your money. Pool governance can temporarily pause access
+during an emergency. The trade-off is that recovery depends on you.
 
 **Shielded pool** — The shared "vault" where payments live as private notes,
 mixed together so nobody can link them to you.
