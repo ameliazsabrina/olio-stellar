@@ -44,6 +44,7 @@ export function HistoryDashboard() {
               loading={loading}
               title="All activity"
               showExport
+              appearance="linen"
             />
           )}
         </div>
@@ -79,12 +80,12 @@ function SummaryCard({
 }) {
   return (
     <Card appearance="glass" density="comfortable" className="gap-4">
-      <div className="flex size-11 items-center justify-center rounded-lg bg-white/12 text-white ring-1 ring-white/25">
+      <div className="flex size-11 items-center justify-center rounded-lg bg-brand-linen/12 text-brand-linen ring-1 ring-brand-linen/25">
         <Icon className="size-5" aria-hidden="true" />
       </div>
       <div>
-        <p className="text-sm font-medium text-white/65">{label}</p>
-        <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+        <p className="text-sm font-medium text-brand-linen/65">{label}</p>
+        <p className="mt-1 font-mono text-3xl font-semibold tracking-tight text-brand-linen tabular-nums">
           {value ?? "—"}
         </p>
       </div>
@@ -99,14 +100,14 @@ function LockedHistory({ onUnlock }: { onUnlock: () => void }) {
       density="comfortable"
       className="items-start gap-4"
     >
-      <div className="flex size-11 items-center justify-center rounded-lg bg-white/12 text-white ring-1 ring-white/25">
+      <div className="flex size-11 items-center justify-center rounded-lg bg-brand-linen/12 text-brand-linen ring-1 ring-brand-linen/25">
         <LockKeyhole className="size-5" aria-hidden="true" />
       </div>
       <div className="space-y-1">
-        <h2 className="type-product-panel-title text-white">
+        <h2 className="type-product-panel-title text-brand-linen">
           Unlock to view history
         </h2>
-        <p className="text-sm text-white/65">
+        <p className="text-sm text-brand-linen/65">
           Your PIN unlocks the private payment records stored on this device.
         </p>
       </div>

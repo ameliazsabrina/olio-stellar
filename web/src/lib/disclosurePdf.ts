@@ -5,15 +5,48 @@
 import type { jsPDF } from "jspdf";
 import type { DisclosureBundle } from "./disclosure";
 
-const PAPER = "#f5f3ea";
-const PANEL = "#fffdf7";
-const INK = "#20261a";
-const MUTED = "#6b6e5d";
-const OLIVE = "#4c5d34";
-const OLIVE_DEEP = "#333e22";
-const SAGE = "#e8e9dd";
-const LINE = "#d6d6c8";
-const OK = "#16784c";
+export const DISCLOSURE_PDF_PALETTE = {
+  obsidian: "#1A1F12",
+  linen: "#F5F3EA",
+  obsidianSecondary: "#20261A",
+} as const;
+
+function mixHex(foreground: string, background: string, ratio: number): string {
+  const channel = (color: string, offset: number) =>
+    Number.parseInt(color.slice(offset, offset + 2), 16);
+  const mixed = [1, 3, 5].map((offset) =>
+    Math.round(
+      channel(foreground, offset) * ratio +
+        channel(background, offset) * (1 - ratio),
+    ),
+  );
+  return `#${mixed.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+const PAGE = DISCLOSURE_PDF_PALETTE.linen;
+const PANEL = mixHex(
+  DISCLOSURE_PDF_PALETTE.obsidian,
+  DISCLOSURE_PDF_PALETTE.linen,
+  0.035,
+);
+const INK = DISCLOSURE_PDF_PALETTE.obsidian;
+const MUTED = mixHex(
+  DISCLOSURE_PDF_PALETTE.obsidian,
+  DISCLOSURE_PDF_PALETTE.linen,
+  0.62,
+);
+const OBSIDIAN = DISCLOSURE_PDF_PALETTE.obsidian;
+const SECONDARY_OBSIDIAN = DISCLOSURE_PDF_PALETTE.obsidianSecondary;
+const TINT = mixHex(
+  DISCLOSURE_PDF_PALETTE.obsidianSecondary,
+  DISCLOSURE_PDF_PALETTE.linen,
+  0.1,
+);
+const LINE = mixHex(
+  DISCLOSURE_PDF_PALETTE.obsidian,
+  DISCLOSURE_PDF_PALETTE.linen,
+  0.16,
+);
 const MARGIN = 56;
 
 function truncMiddle(value: string, keep = 12): string {
@@ -43,20 +76,8 @@ function displayDate(value: string): string {
   }).format(date);
 }
 
-async function loadBrandLogo(): Promise<Uint8Array | null> {
-  try {
-    const response = await fetch("/assets/olio-receipt-logo.png");
-    if (!response.ok) return null;
-    return new Uint8Array(await response.arrayBuffer());
-  } catch {
-    // Node-based PDF tests do not have a browser origin. They use the textual
-    // wordmark fallback while browser downloads receive the real Olio asset.
-    return null;
-  }
-}
-
 function fillPage(doc: jsPDF): void {
-  doc.setFillColor(PAPER);
+  doc.setFillColor(PAGE);
   doc.rect(
     0,
     0,
@@ -111,9 +132,9 @@ function drawTechnicalHeader(
 ): number {
   const width = doc.internal.pageSize.getWidth();
   fillPage(doc);
-  doc.setFillColor(OLIVE_DEEP);
+  doc.setFillColor(OBSIDIAN);
   doc.rect(0, 0, width, 10, "F");
-  drawWordmark(doc, logo, MARGIN, 34, OLIVE_DEEP);
+  drawWordmark(doc, logo, MARGIN, 34, OBSIDIAN);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
   doc.setTextColor(INK);
@@ -143,7 +164,9 @@ export async function renderDisclosurePdf(
 ): Promise<jsPDF> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const logo = await loadBrandLogo();
+  // Render the wordmark as PDF text so its color is guaranteed to be drawn
+  // from the official palette rather than inherited from a raster asset.
+  const logo = null;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const contentWidth = pageWidth - MARGIN * 2;
@@ -162,12 +185,12 @@ export async function renderDisclosurePdf(
 
   // Page 1: friendly receipt
   fillPage(doc);
-  doc.setFillColor(OLIVE_DEEP);
+  doc.setFillColor(OBSIDIAN);
   doc.rect(0, 0, pageWidth, 150, "F");
-  drawWordmark(doc, logo, MARGIN, 40, PAPER);
+  drawWordmark(doc, logo, MARGIN, 40, PAGE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-  doc.setTextColor(PAPER);
+  doc.setTextColor(PAGE);
   doc.text("PRIVATE PAYMENT RECEIPT", pageWidth - MARGIN, 57, {
     align: "right",
   });
@@ -177,13 +200,13 @@ export async function renderDisclosurePdf(
 
   doc.setFillColor(PANEL);
   doc.roundedRect(MARGIN, 180, contentWidth, 176, 14, 14, "F");
-  doc.setFillColor(SAGE);
+  doc.setFillColor(TINT);
   doc.roundedRect(MARGIN + 22, 202, 112, 25, 12, 12, "F");
-  doc.setFillColor(OK);
+  doc.setFillColor(SECONDARY_OBSIDIAN);
   doc.circle(MARGIN + 37, 214.5, 4, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
-  doc.setTextColor(OLIVE_DEEP);
+  doc.setTextColor(OBSIDIAN);
   doc.text("PAYMENT RECEIVED", MARGIN + 48, 218);
 
   doc.setFont("helvetica", "bold");
@@ -252,13 +275,13 @@ export async function renderDisclosurePdf(
     rowY += 76;
   }
 
-  doc.setFillColor(SAGE);
+  doc.setFillColor(TINT);
   doc.roundedRect(MARGIN, 588, contentWidth, 112, 12, 12, "F");
-  doc.setFillColor(OLIVE);
+  doc.setFillColor(SECONDARY_OBSIDIAN);
   doc.circle(MARGIN + 24, 616, 10, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(OLIVE_DEEP);
+  doc.setTextColor(OBSIDIAN);
   doc.text("Verified by Olio", MARGIN + 44, 614);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -323,11 +346,11 @@ export async function renderDisclosurePdf(
     "Confirm the recipient key maps to the Olio username shown on the receipt.",
   ];
   verificationSteps.forEach((step, index) => {
-    doc.setFillColor(OLIVE);
+    doc.setFillColor(SECONDARY_OBSIDIAN);
     doc.circle(MARGIN + 11, y - 3, 10, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
-    doc.setTextColor(PAPER);
+    doc.setTextColor(PAGE);
     doc.text(String(index + 1), MARGIN + 11, y, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
@@ -337,11 +360,11 @@ export async function renderDisclosurePdf(
     y += Math.max(38, lines.length * 12 + 14);
   });
 
-  doc.setFillColor(SAGE);
+  doc.setFillColor(TINT);
   doc.roundedRect(MARGIN, y + 4, contentWidth, 58, 10, 10, "F");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(OLIVE_DEEP);
+  doc.setTextColor(OBSIDIAN);
   const privacyNote = doc.splitTextToSize(
     "Privacy note: verification proves only this payment. The recipient's remaining balance and other transactions stay private.",
     contentWidth - 30,

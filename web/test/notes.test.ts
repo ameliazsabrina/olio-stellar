@@ -36,6 +36,7 @@ const deposit = (leafIndex: number) => ({
   commitment: new Uint8Array(),
   ephemeralPk: new Uint8Array(),
   ciphertext: new Uint8Array(),
+  receivedAt: new Date(2026, 7, leafIndex + 1).toISOString(),
 });
 
 function setMirror(
@@ -45,6 +46,7 @@ function setMirror(
   mirror.value = {
     deposits,
     spentNullifiers,
+    spentAtByNullifier: { "00": new Date(2026, 7, 3).toISOString() },
     hydrated: true,
     indexedAt: new Date().toISOString(),
     health: "healthy",
@@ -81,6 +83,12 @@ describe("scanMyNotes on-chain spent check", () => {
     const scan = await scanMyNotes(acct);
 
     expect(scan.notes.find((n) => n.leafIndex === 0)?.spent).toBe(true);
+    expect(scan.notes.find((n) => n.leafIndex === 0)?.receivedAt).toBe(
+      new Date(2026, 7, 1).toISOString(),
+    );
+    expect(scan.notes.find((n) => n.leafIndex === 0)?.spentAt).toBe(
+      new Date(2026, 7, 3).toISOString(),
+    );
     // Only leaf 1 (mirror-unspent) needs the on-chain round-trip.
     expect(mockIsSpent).toHaveBeenCalledTimes(1);
     expect(mockIsSpent.mock.calls[0]?.[0]?.[0]).toBe(1);

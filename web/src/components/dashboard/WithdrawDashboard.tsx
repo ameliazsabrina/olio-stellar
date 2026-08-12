@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -21,6 +21,7 @@ import { offRampEnabled } from "../../lib/anchor";
 import { LINKS_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
 import {
+  moneyGramCashInEnabled,
   moneyGramCashOutStatusEnabled,
   moneyGramRampStatus,
 } from "../../lib/moneygram-status";
@@ -50,6 +51,12 @@ import { DashboardPageHeader } from "./DashboardPageHeader";
 import { OffRampContent } from "./OffRampContent";
 import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
 import { useMyNotes } from "./useMyNotes";
+
+const MoneyGramActivity = lazy(() =>
+  import("./MoneyGramActivity").then((module) => ({
+    default: module.MoneyGramActivity,
+  })),
+);
 
 type WalletStep = "form" | "review" | "proving";
 type DialogView = "method" | "wallet" | "anchor";
@@ -304,20 +311,20 @@ export function WithdrawDashboard() {
             <div>
               <h2
                 id="payments-title"
-                className="font-heading text-xl font-semibold text-white"
+                className="font-heading text-xl font-semibold text-brand-linen"
               >
                 Private payments
               </h2>
-              <p className="mt-1 text-sm text-white/60">
+              <p className="mt-1 text-sm text-brand-linen/60">
                 Payments are withdrawn in full without revealing the deposit
                 that funded them.
               </p>
             </div>
             <div className="text-right">
-              <p className="font-mono text-lg font-semibold text-white tabular-nums">
+              <p className="font-mono text-lg font-semibold text-brand-linen tabular-nums">
                 {formatUsd(claimable)}
               </p>
-              <p className="text-xs text-white/65">
+              <p className="text-xs text-brand-linen/65">
                 {options.length} available
               </p>
             </div>
@@ -346,24 +353,14 @@ export function WithdrawDashboard() {
               />
             ))}
           </div>
-
-          <div className="mt-2 flex items-start gap-3 border-t border-white/12 px-1 pt-5 text-white/65">
-            <ShieldCheck
-              className="mt-0.5 size-5 shrink-0 text-white/75"
-              aria-hidden="true"
-            />
-            <div>
-              <h3 className="text-sm font-semibold text-white">
-                Private by design
-              </h3>
-              <p className="mt-1 text-sm leading-6">
-                A zero-knowledge proof releases only the selected payment. Your
-                other deposits and balance stay private.
-              </p>
-            </div>
-          </div>
         </section>
       )}
+
+      {moneyGramCashInEnabled ? (
+        <Suspense fallback={null}>
+          <MoneyGramActivity />
+        </Suspense>
+      ) : null}
 
       <Dialog
         open={target !== null}
@@ -373,18 +370,18 @@ export function WithdrawDashboard() {
       >
         <DialogContent
           appearance="glass"
-          size="lg"
+          size="md"
           className="gap-0 p-0"
           showCloseButton={false}
         >
-          <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-start gap-3 border-b border-white/12 p-5 sm:p-6">
+          <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-start gap-3 border-b border-brand-linen/12 p-5 sm:p-6">
             <div className="size-9">
               {target && showMethodBack ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="text-white/60 hover:bg-white/10 hover:text-white"
+                  className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
                   onClick={returnToMethods}
                   aria-label="Back to withdrawal methods"
                   title="Back to withdrawal methods"
@@ -395,7 +392,7 @@ export function WithdrawDashboard() {
             </div>
 
             <div className="min-w-0 pt-1 text-center">
-              <DialogTitle className="text-xl leading-7 text-white">
+              <DialogTitle className="text-xl leading-7 text-brand-linen">
                 {target?.kind === "all"
                   ? "Withdraw all payments"
                   : "Withdraw payment"}
@@ -403,10 +400,10 @@ export function WithdrawDashboard() {
               <DialogDescription className="mt-6">
                 {target ? (
                   <>
-                    <span className="block text-6xl font-medium tracking-tight text-white tabular-nums">
+                    <span className="block text-6xl font-medium tracking-tight text-brand-linen tabular-nums">
                       {formatWithdrawalUsd(selectedTotal)}
                     </span>
-                    <span className="mt-4 block text-xs text-white/60">
+                    <span className="mt-4 block text-xs text-brand-linen/60">
                       {target.kind === "all"
                         ? `across ${target.notes.length} private payments`
                         : "from one private payment"}
@@ -423,7 +420,7 @@ export function WithdrawDashboard() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="text-white/60 hover:bg-white/10 hover:text-white"
+                      className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
                     />
                   }
                 >
@@ -493,32 +490,34 @@ function PaymentCard({
       aria-label={`Withdraw private payment ${index + 1}, ${fromBaseUnits(note.amount)} USDC`}
     >
       <Card
-        appearance="glass"
+        appearance="linen"
         density="comfortable"
-        className="min-h-64 justify-between gap-5 ring-white/15 transition-colors duration-200 group-hover:bg-white/12 group-hover:ring-white/25 group-focus-visible:ring-2 group-focus-visible:ring-white/70"
+        className="min-h-64 justify-between gap-5 transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-0.5 group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-linen"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/65">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Private payment
             </p>
-            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-foreground tabular-nums">
               ${fromBaseUnits(note.amount)}
             </p>
-            <p className="mt-1 text-sm font-medium text-white/60">USDC</p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              USDC
+            </p>
           </div>
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/9 text-white ring-1 ring-white/15">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground ring-1 ring-border">
             <Banknote className="size-5" aria-hidden="true" />
           </div>
         </div>
 
         <div>
-          <div className="mb-4 h-px bg-white/12" />
+          <div className="mb-4 h-px bg-border" />
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-white/65">
+            <span className="text-sm font-medium text-muted-foreground">
               Ready to withdraw
             </span>
-            <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
               Choose method
               <ArrowRight
                 className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
@@ -549,25 +548,25 @@ function AllPaymentsCard({
       aria-label={`Withdraw all ${notes.length} payments, ${fromBaseUnits(total)} USDC total`}
     >
       <Card
-        appearance="glass"
+        appearance="linen"
         density="comfortable"
-        className="relative min-h-64 justify-between gap-4 ring-white/20 transition-colors duration-200 group-hover:bg-white/14 group-hover:ring-white/30 group-focus-visible:ring-2 group-focus-visible:ring-white/70"
+        className="relative min-h-64 justify-between gap-4 transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-translate-y-0.5 group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-linen"
       >
         <div className="relative z-10 max-w-[58%]">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/65">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             All payments
           </p>
-          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-foreground tabular-nums">
             ${fromBaseUnits(total)}
           </p>
-          <p className="mt-1 text-sm font-medium text-white/60">
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
             USDC · {notes.length} payments
           </p>
         </div>
 
         <AllPaymentsSketch />
 
-        <div className="relative z-10 flex items-center gap-1.5 text-sm font-semibold text-white">
+        <div className="relative z-10 flex items-center gap-1.5 text-sm font-semibold text-foreground">
           Withdraw together
           <ArrowRight
             className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
@@ -582,7 +581,7 @@ function AllPaymentsCard({
 function AllPaymentsSketch() {
   return (
     <svg
-      className="pointer-events-none absolute -right-3 top-8 h-32 w-40 overflow-visible text-white/70 transition-transform duration-500 ease-out motion-safe:group-hover:-rotate-2 motion-safe:group-hover:scale-[1.035]"
+      className="pointer-events-none absolute -right-3 top-8 h-32 w-40 overflow-visible text-foreground/70 transition-transform duration-500 ease-out motion-safe:group-hover:-rotate-2 motion-safe:group-hover:scale-[1.035]"
       viewBox="0 0 190 150"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -590,7 +589,7 @@ function AllPaymentsSketch() {
     >
       <path
         d="M20 116C52 91 88 82 124 90C144 94 160 104 174 121"
-        className="stroke-gold/65 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-1 motion-safe:group-hover:-translate-y-1"
+        className="stroke-foreground/65 transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-1 motion-safe:group-hover:-translate-y-1"
         strokeDasharray="6 9"
         strokeLinecap="round"
         strokeWidth="1.7"
@@ -614,23 +613,23 @@ function AllPaymentsSketch() {
           width="76"
           height="82"
           rx="11"
-          className="fill-white/5"
+          className="fill-foreground/5"
           strokeWidth="2"
           transform="rotate(6 104 68)"
         />
         <path
           d="M84 53L124 57M82 70L129 75M80 87L111 91"
-          className="stroke-white/40"
+          className="stroke-foreground/40"
           strokeLinecap="round"
           strokeWidth="1.6"
           transform="rotate(6 104 68)"
         />
       </g>
       <g
-        className="stroke-gold transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 motion-safe:group-hover:-translate-y-2"
+        className="stroke-foreground transition-transform duration-500 ease-out motion-safe:group-hover:translate-x-2 motion-safe:group-hover:-translate-y-2"
         strokeWidth="2"
       >
-        <circle cx="144" cy="104" r="24" className="fill-white/5" />
+        <circle cx="144" cy="104" r="24" className="fill-foreground/5" />
         <path
           d="M151 91C145 87 137 89 136 95C135 101 141 103 146 104C151 106 155 109 154 115C153 121 144 124 138 120M145 84V90M144 120V127"
           strokeLinecap="round"
@@ -640,7 +639,7 @@ function AllPaymentsSketch() {
         cx="31"
         cy="55"
         r="8"
-        className="stroke-white/30"
+        className="stroke-foreground/30"
         strokeWidth="1.4"
       />
     </svg>
@@ -661,25 +660,27 @@ function WithdrawalMethodPicker({
 
   return (
     <fieldset className="grid gap-3">
-      <legend className="mb-1 text-sm font-semibold text-white">
+      <legend className="mb-1 text-sm font-semibold text-brand-linen">
         How would you like to withdraw?
       </legend>
       <button
         type="button"
         onClick={onWallet}
-        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-white/18 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70`}
+        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-brand-linen/18 p-4 text-left transition-colors duration-200 hover:border-brand-linen/30 hover:bg-brand-linen/12 focus-visible:ring-2 focus-visible:ring-brand-linen/70`}
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
           <Wallet className="size-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-white">Stellar wallet</span>
-          <span className="mt-1 block text-xs leading-5 text-white/60">
+          <span className="block font-semibold text-brand-linen">
+            Stellar wallet
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-brand-linen/60">
             Private and on-chain. Send to a G… or C… Stellar address.
           </span>
         </span>
         <ArrowRight
-          className="size-4 shrink-0 text-white/65"
+          className="size-4 shrink-0 text-brand-linen/65"
           aria-hidden="true"
         />
       </button>
@@ -688,16 +689,16 @@ function WithdrawalMethodPicker({
         type="button"
         onClick={onAnchor}
         disabled={bulk || !moneyGramCashOutEnabled}
-        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-white/18 p-4 text-left transition-colors duration-200 hover:border-white/30 hover:bg-white/12 focus-visible:ring-2 focus-visible:ring-white/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-white/18 disabled:hover:bg-white/8`}
+        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-brand-linen/18 p-4 text-left transition-colors duration-200 hover:border-brand-linen/30 hover:bg-brand-linen/12 focus-visible:ring-2 focus-visible:ring-brand-linen/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-brand-linen/18 disabled:hover:bg-brand-linen/8`}
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
           <Landmark className="size-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-white">
+          <span className="block font-semibold text-brand-linen">
             MoneyGram cash pickup
           </span>
-          <span className="mt-1 block text-xs leading-5 text-white/60">
+          <span className="mt-1 block text-xs leading-5 text-brand-linen/60">
             {bulk
               ? "Cash anchors process one private payment at a time."
               : moneyGramRampStatus === "whitelisting"
@@ -708,7 +709,7 @@ function WithdrawalMethodPicker({
           </span>
         </span>
         <ArrowRight
-          className="size-4 shrink-0 text-white/65"
+          className="size-4 shrink-0 text-brand-linen/65"
           aria-hidden="true"
         />
       </button>
@@ -747,7 +748,7 @@ function WalletWithdrawal({
     return (
       <form className="grid gap-5" onSubmit={onReview} noValidate>
         <div className="grid gap-2">
-          <Label className="text-white" htmlFor="withdraw-destination">
+          <Label className="text-brand-linen" htmlFor="withdraw-destination">
             Destination wallet
           </Label>
           <Input
@@ -771,7 +772,10 @@ function WalletWithdrawal({
               {fieldError}
             </p>
           ) : (
-            <p id="withdraw-destination-hint" className="text-xs text-white/60">
+            <p
+              id="withdraw-destination-hint"
+              className="text-xs text-brand-linen/60"
+            >
               Enter the external Stellar address that should receive the funds.
             </p>
           )}
@@ -792,22 +796,22 @@ function WalletWithdrawal({
         <BackButton label="Edit details" onClick={onBack} />
         <div className={`${glassInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm text-white/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+            <span className="text-sm text-brand-linen/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
               {fromBaseUnits(amount)} USDC
             </span>
           </div>
           {paymentCount ? (
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/12 pt-4">
-              <span className="text-sm text-white/60">Payments</span>
-              <span className="text-sm font-medium text-white">
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-linen/12 pt-4">
+              <span className="text-sm text-brand-linen/60">Payments</span>
+              <span className="text-sm font-medium text-brand-linen">
                 {paymentCount} separate proofs
               </span>
             </div>
           ) : null}
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/12 pt-4">
-            <span className="text-sm text-white/60">To</span>
-            <span className="font-mono text-sm font-medium text-white">
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-linen/12 pt-4">
+            <span className="text-sm text-brand-linen/60">To</span>
+            <span className="font-mono text-sm font-medium text-brand-linen">
               {shortAddress(destination.trim())}
             </span>
           </div>
@@ -836,11 +840,11 @@ function WalletWithdrawal({
           className="size-4 motion-safe:animate-spin"
           aria-hidden="true"
         />
-        <div className="text-sm font-semibold text-white">
+        <div className="text-sm font-semibold text-brand-linen">
           Generating proof and releasing funds…
         </div>
       </div>
-      <div className="max-w-sm text-sm text-white/65">
+      <div className="max-w-sm text-sm text-brand-linen/65">
         The zero-knowledge proof is built in your browser. This can take a few
         seconds.
       </div>
@@ -859,7 +863,7 @@ function BackButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-white/70 hover:bg-white/8 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70"
+      className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-brand-linen/70 hover:bg-brand-linen/8 hover:text-brand-linen focus-visible:ring-2 focus-visible:ring-brand-linen/70"
     >
       <ArrowLeft className="size-4" aria-hidden="true" />
       {label}
@@ -870,14 +874,14 @@ function BackButton({
 function LockedState({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div className="grid place-items-center gap-4 py-10 text-center">
-      <div className="flex size-12 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+      <div className="flex size-12 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
         <LockKeyhole className="size-6" aria-hidden="true" />
       </div>
       <div className="space-y-1">
-        <h2 className="font-heading text-lg font-semibold text-white">
+        <h2 className="font-heading text-lg font-semibold text-brand-linen">
           Unlock to cash out
         </h2>
-        <p className="max-w-sm text-sm text-white/65">
+        <p className="max-w-sm text-sm text-brand-linen/65">
           Your PIN unlocks the private notes stored on this device.
         </p>
       </div>
@@ -891,14 +895,14 @@ function LockedState({ onUnlock }: { onUnlock: () => void }) {
 function EmptyState() {
   return (
     <div className="grid place-items-center gap-4 py-10 text-center">
-      <div className="flex size-12 items-center justify-center rounded-lg bg-white/10 text-white ring-1 ring-white/15">
+      <div className="flex size-12 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
         <Banknote className="size-6" aria-hidden="true" />
       </div>
       <div className="space-y-1">
-        <h2 className="font-heading text-lg font-semibold text-white">
+        <h2 className="font-heading text-lg font-semibold text-brand-linen">
           No payments to cash out
         </h2>
-        <p className="max-w-sm text-sm text-white/65">
+        <p className="max-w-sm text-sm text-brand-linen/65">
           Share a payment link first. Private payments you receive will appear
           here.
         </p>
@@ -925,7 +929,7 @@ function LoadingState() {
       {["first", "second", "third"].map((key) => (
         <div
           key={key}
-          className="min-h-64 rounded-xl bg-white/8 ring-1 ring-white/15 backdrop-blur-xl"
+          className="min-h-64 rounded-xl bg-brand-linen/8 ring-1 ring-brand-linen/15 backdrop-blur-xl"
           aria-hidden="true"
         />
       ))}

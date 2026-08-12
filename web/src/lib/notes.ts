@@ -69,6 +69,8 @@ export type MyNote = {
   amount: bigint;
   salt: bigint;
   spent: boolean;
+  receivedAt?: string;
+  spentAt?: string;
 };
 export type ScanResult = {
   notes: MyNote[];
@@ -98,6 +100,7 @@ async function scanMirrorForAccount(
 ): Promise<ScanResult> {
   const deposits = mirror.deposits;
   const spentNullifiers = new Set(mirror.spentNullifiers);
+  const spentAtByNullifier = mirror.spentAtByNullifier ?? {};
   const leaves: bigint[] = [];
   for (const d of deposits) leaves[d.leafIndex] = fromBE(d.commitment);
 
@@ -135,13 +138,18 @@ async function scanMirrorForAccount(
     }
     if (debug)
       console.info(`[olio] leaf ${d.leafIndex}: MINE, amount=${dec.amount}`);
-    const nullifierBytes = toBE32(await nullifier(acct.ownerSecret, d.leafIndex));
-    const spent = spentNullifiers.has(bytesToHex(nullifierBytes));
+    const nullifierBytes = toBE32(
+      await nullifier(acct.ownerSecret, d.leafIndex),
+    );
+    const nullifierHex = bytesToHex(nullifierBytes);
+    const spent = spentNullifiers.has(nullifierHex);
     const note: MyNote = {
       leafIndex: d.leafIndex,
       amount: dec.amount,
       salt: dec.salt,
       spent,
+      receivedAt: d.receivedAt,
+      spentAt: spent ? spentAtByNullifier[nullifierHex] : undefined,
     };
     notes.push(note);
     if (!spent) unverified.push({ note, nullifierBytes });

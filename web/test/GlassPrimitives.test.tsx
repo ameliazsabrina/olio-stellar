@@ -15,11 +15,10 @@ describe("glass primitives", () => {
 
     const button = screen.getByRole("button", { name: "Continue" });
     expect(button).toHaveClass(
-      "rounded-lg",
+      "rounded-full",
       "surface-glass-control",
       "theme-glass",
       "text-white",
-      "hover:bg-white/20",
       "hover:text-white",
       "focus-visible:ring-white/70",
     );
@@ -35,12 +34,27 @@ describe("glass primitives", () => {
     expect(screen.getByLabelText("Amount")).toHaveClass(
       "surface-glass-field",
       "theme-glass",
+      "rounded-full",
       "text-white",
     );
     expect(screen.getByLabelText("Amount").parentElement).toHaveClass(
-      "rounded-2xl",
+      "rounded-[1.5rem]",
       "surface-glass-panel",
       "theme-glass",
+    );
+  });
+
+  it("provides an Obsidian-on-Linen semantic card surface", () => {
+    render(<Card appearance="linen">Linen summary</Card>);
+
+    expect(screen.getByText("Linen summary")).toHaveClass(
+      "surface-linen-panel",
+      "theme-linen",
+      "text-foreground",
+      "ring-border",
+    );
+    expect(screen.getByText("Linen summary")).not.toHaveClass(
+      "!bg-brand-linen",
     );
   });
 
@@ -49,7 +63,7 @@ describe("glass primitives", () => {
       <>
         <Card density="comfortable">Summary</Card>
         <Dialog open>
-          <DialogContent size="lg">
+          <DialogContent appearance="glass" size="lg">
             <DialogTitle>Large dialog</DialogTitle>
           </DialogContent>
         </Dialog>
@@ -60,8 +74,16 @@ describe("glass primitives", () => {
       "data-density",
       "comfortable",
     );
-    expect(screen.getByRole("dialog", { name: "Large dialog" })).toHaveClass(
+    const dialog = screen.getByRole("dialog", { name: "Large dialog" });
+    expect(dialog).toHaveClass(
+      "rounded-3xl",
+      "surface-glass-popover",
       "sm:max-w-xl",
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "rounded-full",
+      "surface-glass-control",
+      "theme-glass",
     );
   });
 

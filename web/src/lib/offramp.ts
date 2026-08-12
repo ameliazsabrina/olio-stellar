@@ -6,13 +6,19 @@ import type { AnchorInfo } from "./anchor";
 // Re-exported here so existing off-ramp callers keep importing from ./offramp.
 export {
   type Bridge,
+  bridgeUsdcBalance,
   clearPersistedBridge,
   createBridge,
+  dismissRampSession,
+  listRampSessions,
   listStrandedBridges,
   persistBridge,
+  persistRampSession,
   provisionBridge,
+  type RampSession,
   releaseNoteToBridge,
   type StrandedBridge,
+  updateRampSession,
 } from "./bridge";
 
 export type { AnchorInfo };

@@ -72,6 +72,8 @@ function wallet(overrides: Record<string, unknown> = {}) {
     username: null,
     usernameResolved: false,
     sessionReady: true,
+    accountUnlocked: true,
+    promptUnlock: vi.fn(),
     openUsernameModal: mocks.openUsernameModal,
     ...overrides,
   };
@@ -173,8 +175,26 @@ describe("Dashboard route", () => {
         name: /dashboard: hi, alice/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/private balance/i)).toBeInTheDocument();
-    expect(screen.getByText(/personal pay link/i)).toBeInTheDocument();
+    expect(screen.getByText("My Balance")).toBeInTheDocument();
+    const withdrawCard = screen.getByRole("link", { name: "Open Withdraw" });
+    const proofsCard = screen.getByRole("link", {
+      name: "Open Payment proofs",
+    });
+    expect(withdrawCard).toHaveAttribute("href", "/withdraw");
+    expect(proofsCard).toHaveAttribute("href", "/history");
+    for (const card of [withdrawCard, proofsCard]) {
+      expect(card.querySelector("a, button")).toBeNull();
+    }
+    expect(
+      screen.getAllByRole("button", { name: "Create a payment link" }),
+    ).toHaveLength(2);
+    expect(await screen.findByRole("link", { name: "Open link" })).toHaveClass(
+      "bg-primary",
+      "!text-primary-foreground",
+    );
+    expect(
+      screen.getByRole("button", { name: "Account settings, coming soon" }),
+    ).toBeDisabled();
     expect(screen.queryByText("DEPOSIT_FORM")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /claim your username/i }),

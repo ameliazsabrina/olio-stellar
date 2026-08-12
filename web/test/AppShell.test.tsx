@@ -47,6 +47,28 @@ beforeEach(() => {
 });
 
 describe("AppShell MoneyGram announcement", () => {
+  it("keeps the product marker off the landing page", () => {
+    mocks.pathname = "/";
+    const { container } = render(<AppShell>Landing content</AppShell>);
+
+    expect(container.querySelector(".theme-product")).toBeNull();
+    expect(container.querySelector("[data-product-theme]")).toBeNull();
+  });
+
+  it.each([
+    "/dashboard",
+    "/pay/alice",
+    "/not-protected",
+  ])("marks product route %s for scoped and portal theming", (pathname) => {
+    mocks.pathname = pathname;
+    const { container } = render(<AppShell>Product content</AppShell>);
+
+    expect(container.querySelector("[data-product-theme]")).toHaveClass(
+      "theme-product",
+      "contents",
+    );
+  });
+
   it("does not introduce a second main landmark", () => {
     render(
       <AppShell>

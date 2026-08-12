@@ -17,7 +17,7 @@ import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { glassInsetClass } from "../ui/glass";
+import { glassSegmentedClass } from "../ui/glass";
 import { DiscloseDialog } from "./DiscloseDialog";
 
 type ActivityEvent = {
@@ -78,6 +78,7 @@ export function ActivityFeed({
   showSeeAll = false,
   showExport = false,
   title = "History",
+  appearance = "glass",
   className,
 }: {
   notes: MyNote[];
@@ -86,6 +87,7 @@ export function ActivityFeed({
   showSeeAll?: boolean;
   showExport?: boolean;
   title?: string;
+  appearance?: "glass" | "linen";
   className?: string;
 }) {
   const [tab, setTab] = useState<Tab>("All");
@@ -103,16 +105,21 @@ export function ActivityFeed({
 
   return (
     <Card
-      appearance="glass"
+      appearance={appearance}
       density="comfortable"
       id="activity"
       className={cn("gap-5", className)}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="type-product-panel-title text-white">{title}</h2>
+        <h2 className="type-product-panel-title text-foreground">{title}</h2>
         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           <fieldset
-            className={cn(glassInsetClass, "flex w-fit items-center gap-1 p-1")}
+            className={cn(
+              appearance === "glass"
+                ? glassSegmentedClass
+                : "rounded-xl bg-secondary ring-1 ring-border",
+              "flex w-fit items-center gap-1 p-1",
+            )}
           >
             <legend className="sr-only">Filter activity</legend>
             {TABS.map((t) => (
@@ -121,36 +128,49 @@ export function ActivityFeed({
                 type="button"
                 aria-pressed={tab === t}
                 onClick={() => setTab(t)}
-                className={`min-h-10 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                className={`min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   tab === t
-                    ? "bg-white/14 text-white shadow-sm shadow-ink/10"
-                    : "text-white/60 hover:text-white"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t}
               </button>
             ))}
           </fieldset>
+          {showExport ? (
+            <Button
+              type="button"
+              variant={appearance === "linen" ? "default" : "glass"}
+              size="sm"
+              className="min-h-10"
+              onClick={() => exportCsv(filtered)}
+              disabled={loading || filtered.length === 0}
+            >
+              <Download className="size-3.5" aria-hidden="true" />
+              Export
+            </Button>
+          ) : null}
         </div>
       </div>
 
       <section
         className={
           limit === undefined
-            ? "max-h-80 overflow-y-auto overscroll-contain rounded-lg pr-1 focus-visible:ring-2 focus-visible:ring-white/70"
+            ? "max-h-80 overflow-y-auto overscroll-contain rounded-lg pr-1 focus-visible:ring-2 focus-visible:ring-ring/70"
             : "rounded-lg"
         }
         tabIndex={!loading && scrollable ? 0 : undefined}
         aria-label="Activity history"
       >
-        <ul className="flex flex-col divide-y divide-white/20">
+        <ul className="flex flex-col divide-y divide-border">
           {loading && (
             <li className="grid gap-3 py-2" aria-label="Loading history">
               {Array.from({ length: skeletonCount }, (_, item) => item).map(
                 (item) => (
                   <div
                     key={item}
-                    className="h-16 rounded-lg bg-white/8 motion-safe:animate-pulse"
+                    className="h-16 rounded-lg bg-secondary motion-safe:animate-pulse"
                   />
                 ),
               )}
@@ -158,7 +178,7 @@ export function ActivityFeed({
           )}
 
           {!loading && filtered.length === 0 && (
-            <li className="py-5 text-sm text-white/65">
+            <li className="py-5 text-sm text-muted-foreground">
               {tab === "Cashed out"
                 ? "Nothing cashed out yet."
                 : tab === "Received"
@@ -173,9 +193,9 @@ export function ActivityFeed({
                 key={event.id}
                 className="flex min-h-16 items-center gap-3 py-3"
               >
-                <div className="relative flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/30 bg-white/14 text-white">
+                <div className="relative flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-foreground">
                   <ReceiptText className="size-5" aria-hidden="true" />
-                  <span className="absolute -top-1 -left-1 flex size-5 items-center justify-center rounded-full bg-white text-ink ring-2 ring-ink/50">
+                  <span className="absolute -top-1 -left-1 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background/50">
                     {event.kind === "incoming" ? (
                       <ArrowDownLeft className="size-3" aria-hidden="true" />
                     ) : (
@@ -184,16 +204,16 @@ export function ActivityFeed({
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-white">
+                  <div className="text-sm font-medium text-foreground">
                     {event.kind === "incoming"
                       ? "Payment received"
                       : "Cashed out"}
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2">
                     <Badge
-                      appearance="glass"
+                      appearance={appearance === "glass" ? "glass" : "default"}
                       variant="outline"
-                      className="border-white/15 text-[10px] text-white/65"
+                      className="text-[10px] text-muted-foreground"
                     >
                       private note
                     </Badge>
@@ -203,8 +223,8 @@ export function ActivityFeed({
                   <div
                     className={`text-right font-mono text-sm font-semibold ${
                       event.kind === "incoming"
-                        ? "rounded-md bg-ok px-2 py-1 text-white ring-1 ring-white/20"
-                        : "text-white"
+                        ? "rounded-md bg-ok px-2 py-1 text-brand-linen ring-1 ring-border"
+                        : "text-foreground"
                     }`}
                   >
                     {event.kind === "incoming" ? "+" : "−"}
@@ -212,9 +232,9 @@ export function ActivityFeed({
                   </div>
                   {event.kind === "incoming" && (
                     <Button
-                      variant="glass"
+                      variant={appearance === "linen" ? "default" : "glass"}
                       size="icon"
-                      className="size-10 bg-white/18 text-white ring-white/35 hover:bg-white/25"
+                      className="size-10"
                       onClick={() => setDiscloseLeaf(event.leafIndex)}
                       aria-label={`Prove payment`}
                       title="Generate a per-payment proof (PDF)"
@@ -231,7 +251,7 @@ export function ActivityFeed({
       {showSeeAll ? (
         <div className="mt-auto flex justify-end">
           <Button
-            variant="glass"
+            variant={appearance === "linen" ? "default" : "glass"}
             size="sm"
             className="min-h-10"
             nativeButton={false}

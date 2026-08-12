@@ -3,40 +3,27 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PersonalLinkCard } from "../src/components/dashboard/PersonalLinkCard";
 
-describe("payment link share dialog", () => {
-  it("shows the payment URL, QR code, and social share actions", async () => {
+describe("personal payment link actions", () => {
+  it("shows the payment URL and opens the branded QR action", async () => {
     const user = userEvent.setup();
     const payLink = "https://olio.example/pay/olio";
     render(<PersonalLinkCard username="olio" payLink={payLink} />);
 
+    expect(screen.getByText("olio.example/pay/olio")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open payment link" }),
+    ).toHaveAttribute("href", payLink);
+
     const trigger = screen.getByRole("button", {
-      name: "Share personal payment link",
+      name: "Show payment QR code",
     });
     await user.click(trigger);
 
     const dialog = screen.getByRole("dialog", {
-      name: "Share payment link",
+      name: "Payment link QR code",
     });
-    expect(dialog).toHaveTextContent("olio.example/pay/olio");
-    expect(dialog.querySelector('path[fill="#20261a"]')).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Share on Facebook" }),
-    ).toHaveAttribute(
-      "href",
-      expect.stringContaining(encodeURIComponent(payLink)),
-    );
-    expect(
-      screen.getByRole("link", { name: "Share on X" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Share on WhatsApp" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Share on Telegram" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Share on LinkedIn" }),
-    ).toBeInTheDocument();
+    expect(dialog.querySelector('path[fill="#1A1F12"]')).toBeInTheDocument();
+    expect(dialog.querySelector('path[fill="#F5F3EA"]')).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
 

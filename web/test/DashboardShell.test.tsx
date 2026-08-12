@@ -31,58 +31,38 @@ describe("DashboardShell navigation", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
-  it("moves dashboard navigation and account controls into a hamburger menu on mobile", async () => {
+  it("uses an unframed wordmark and grouped account controls without duplicate route navigation", async () => {
     const user = userEvent.setup();
     render(
-      <DashboardShell navigation header={<h1>Dashboard</h1>}>
+      <DashboardShell navigation>
         <div>Dashboard content</div>
       </DashboardShell>,
     );
 
-    const menuButton = screen.getByRole("button", {
-      name: "Open dashboard navigation",
-    });
-    expect(menuButton.closest("nav")).toHaveClass("sm:hidden");
-
-    const desktopNavigation = screen
-      .getAllByRole("navigation", { name: "Dashboard navigation" })
-      .find((navigation) => navigation.classList.contains("sm:grid"));
-    expect(desktopNavigation).toHaveClass("hidden", "sm:grid");
-
-    await user.click(menuButton);
-
-    for (const label of ["Overview", "Links", "Cash out", "History"]) {
-      expect(
-        await screen.findByRole("menuitem", { name: label }),
-      ).toBeInTheDocument();
-    }
-    expect(screen.getByRole("menuitem", { name: "Overview" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("menuitem", { name: "Links" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Olio home" })).toHaveAttribute(
       "href",
-      "/links",
+      "/",
     );
-    expect(screen.getByRole("menuitem", { name: "Cash out" })).toHaveAttribute(
-      "href",
-      "/withdraw",
-    );
-    expect(screen.getByRole("menuitem", { name: "History" })).toHaveAttribute(
-      "href",
-      "/history",
-    );
-    expect(screen.getAllByText("@toreno")).toHaveLength(2);
+    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("menuitem", { name: "Settings" }),
-    ).toBeInTheDocument();
+      screen.getByRole("switch", {
+        name: "Use dark dashboard theme",
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Settings" })).toBeDisabled();
     expect(
-      screen.getByRole("menuitem", { name: "Sign out" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("navigation", { name: "Dashboard navigation" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /@toreno/ })).toHaveClass(
-      "hidden",
-      "sm:flex",
+    await user.click(
+      screen.getByRole("button", { name: "@toreno account menu" }),
+    );
+    expect(
+      await screen.findByRole("menuitem", { name: "Sign out" }),
+    ).toHaveClass(
+      "bg-brand-linen/10",
+      "!text-brand-linen",
+      "focus:!text-brand-linen",
     );
   });
 
@@ -95,11 +75,9 @@ describe("DashboardShell navigation", () => {
     const accountMenu = document.querySelector(
       "#dashboard-account-menu-trigger",
     );
-    const desktopNavigation = screen
-      .getAllByRole("navigation", { name: "Dashboard navigation" })
-      .find((navigation) => navigation.classList.contains("sm:grid"));
-
-    expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Back to dashboard" }),
+    ).toBeNull();
     expect(screen.getByRole("link", { name: "Olio home" })).toHaveAttribute(
       "href",
       "/",
@@ -116,16 +94,10 @@ describe("DashboardShell navigation", () => {
       accountMenu,
     );
     expect(
-      screen
-        .getAllByRole("navigation", { name: "Dashboard navigation" })
-        .find((navigation) => navigation.classList.contains("sm:grid")),
-    ).toBe(desktopNavigation);
-    expect(screen.getByRole("button", { name: "Go back" })).toBeInTheDocument();
+      screen.getByRole("link", { name: "Back to dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
     expect(screen.queryByRole("link", { name: "Olio home" })).toBeNull();
-    expect(screen.getByRole("button", { name: "History" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByText("History")).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("History content")).toBeInTheDocument();
   });
 });

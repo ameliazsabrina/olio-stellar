@@ -33,7 +33,7 @@ export default function PayPage() {
         aria-label="Loading payment page"
       >
         <Loader
-          className="size-8 text-white motion-safe:animate-spin"
+          className="size-8 text-brand-linen motion-safe:animate-spin"
           aria-hidden="true"
         />
       </div>
@@ -42,10 +42,10 @@ export default function PayPage() {
   if (linkId && !link) {
     return (
       <Card appearance="glass" className="gap-3 p-6">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-brand-linen">
           Payment link unavailable
         </h2>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-brand-linen/60">
           This link may have been archived, deleted, or mistyped.
         </p>
       </Card>
@@ -54,10 +54,10 @@ export default function PayPage() {
   if (!account) {
     return (
       <Card appearance="glass" className="gap-3 p-6">
-        <h2 className="text-lg font-semibold text-white">
+        <h2 className="text-lg font-semibold text-brand-linen">
           @{username} not found
         </h2>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-brand-linen/60">
           No Olio account is registered for this username on testnet.
         </p>
       </Card>
@@ -67,8 +67,8 @@ export default function PayPage() {
   return (
     <>
       <section className="grid gap-2 pt-4">
-        <h1 className="text-3xl font-bold text-white">Pay @{username}</h1>
-        <p className="text-sm text-white/65">
+        <h1 className="text-3xl font-bold text-brand-linen">Pay @{username}</h1>
+        <p className="text-sm text-brand-linen/65">
           Your payment becomes a confidential note only the recipient can
           discover and spend.
         </p>
@@ -80,7 +80,7 @@ export default function PayPage() {
         link={link === "loading" ? null : link}
       />
 
-      <p className="pt-8 text-center text-xs text-white/50">
+      <p className="pt-8 text-center text-xs text-brand-linen/50">
         Unlinkable receipt · encrypted to the recipient · Built on Stellar
       </p>
     </>

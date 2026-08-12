@@ -96,14 +96,14 @@ function CctpPayFormInner({
   return (
     <div className="grid gap-2">
       {chain === "solana" ? (
-        <div className="flex justify-start [&_.wallet-adapter-button]:rounded-xl [&_.wallet-adapter-button]:bg-white/15 [&_.wallet-adapter-button]:text-white [&_.wallet-adapter-button]:ring-1 [&_.wallet-adapter-button]:ring-white/25 [&_.wallet-adapter-button]:backdrop-blur-xl [&_.wallet-adapter-button:hover]:bg-white/20">
+        <div className="flex justify-start [&_.wallet-adapter-button]:rounded-xl [&_.wallet-adapter-button]:bg-brand-linen/15 [&_.wallet-adapter-button]:text-brand-linen [&_.wallet-adapter-button]:ring-1 [&_.wallet-adapter-button]:ring-brand-linen/25 [&_.wallet-adapter-button]:backdrop-blur-xl [&_.wallet-adapter-button:hover]:bg-brand-linen/20">
           <WalletMultiButton />
         </div>
       ) : null}
 
       <form className="grid gap-2" onSubmit={onSubmit}>
         <label
-          className="text-sm font-semibold text-white"
+          className="text-sm font-semibold text-brand-linen"
           htmlFor="cctp-amount"
         >
           {chain === "solana"
@@ -137,7 +137,7 @@ function CctpPayFormInner({
             {busy ? "Working…" : "Pay via CCTP"}
           </Button>
         </div>
-        <span className="text-xs text-white/55">
+        <span className="text-xs text-brand-linen/55">
           {busy ? phaseLabel : idleHint}
         </span>
         <ToastFeedback

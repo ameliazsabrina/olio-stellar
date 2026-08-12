@@ -4,7 +4,6 @@ import { Check, Copy, ExternalLink, QrCode, ReceiptText } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { glassInsetClass } from "../ui/glass";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 
 export function PersonalLinkCard({
@@ -15,9 +14,7 @@ export function PersonalLinkCard({
 }) {
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const qrTriggerRef = useRef<HTMLButtonElement>(null);
-  const shareTriggerRef = useRef<HTMLButtonElement>(null);
   const displayLink = payLink.replace(/^https?:\/\//, "");
 
   async function handleCopy() {
@@ -29,23 +26,23 @@ export function PersonalLinkCard({
 
   return (
     <Card
-      appearance="glass"
+      appearance="linen"
       density="comfortable"
       className="relative justify-between gap-4"
     >
       <div className="pr-12">
-        <h2 className="type-product-panel-title text-white">
+        <h2 className="type-product-panel-title text-foreground">
           Personal pay link
         </h2>
-        <p className="text-sm text-white/65">Share to get paid</p>
+        <p className="text-sm text-muted-foreground">Share to get paid</p>
       </div>
 
       <div className="grid min-h-0 gap-3">
-        <div className={`${glassInsetClass} flex items-center gap-3 p-3`}>
-          <div className="flex size-10 shrink-0 rotate-2 items-center justify-center rounded-lg border border-white/15 bg-white/8 text-white">
+        <div className="flex items-center gap-3 rounded-xl bg-secondary p-3 ring-1 ring-border">
+          <div className="flex size-10 shrink-0 rotate-2 items-center justify-center rounded-lg border border-border bg-background text-foreground">
             <ReceiptText className="size-5" aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-white">
+          <div className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-foreground">
             {displayLink || "Link unavailable"}
           </div>
         </div>
@@ -53,7 +50,7 @@ export function PersonalLinkCard({
         <div className="grid grid-cols-3 gap-1">
           <Button
             size="icon"
-            variant="glass"
+            variant="default"
             className="w-full"
             onClick={handleCopy}
             disabled={!payLink}
@@ -69,7 +66,7 @@ export function PersonalLinkCard({
           <Button
             ref={qrTriggerRef}
             size="icon"
-            variant="glass"
+            variant="default"
             className="w-full"
             onClick={() => setQrOpen(true)}
             disabled={!payLink}
@@ -81,7 +78,7 @@ export function PersonalLinkCard({
           </Button>
           <Button
             size="icon"
-            variant="glass"
+            variant="default"
             className="w-full"
             nativeButton={false}
             disabled={!payLink}
@@ -95,14 +92,12 @@ export function PersonalLinkCard({
       </div>
 
       {payLink ? (
-        <>
-          <PaymentQrDialog
-            open={qrOpen}
-            onOpenChange={setQrOpen}
-            url={payLink}
-            triggerRef={qrTriggerRef}
-          />
-        </>
+        <PaymentQrDialog
+          open={qrOpen}
+          onOpenChange={setQrOpen}
+          url={payLink}
+          triggerRef={qrTriggerRef}
+        />
       ) : null}
     </Card>
   );

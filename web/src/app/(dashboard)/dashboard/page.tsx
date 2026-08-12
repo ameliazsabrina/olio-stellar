@@ -22,6 +22,16 @@ export default function DashboardPage() {
 }
 
 function DashboardLoadingState() {
+  const tiles = [
+    "order-1 lg:col-span-3 lg:col-start-1 lg:row-start-1",
+    "order-2 md:col-span-2 lg:col-span-6 lg:col-start-4 lg:row-start-1",
+    "order-3 lg:col-span-3 lg:col-start-10 lg:row-start-1",
+    "order-4 lg:col-span-3 lg:col-start-1 lg:row-start-2",
+    "order-5 lg:col-span-3 lg:col-start-4 lg:row-start-2",
+    "order-6 lg:col-span-3 lg:col-start-7 lg:row-start-2",
+    "order-7 lg:col-span-3 lg:col-start-10 lg:row-start-2",
+  ];
+
   return (
     <div
       className="motion-safe:animate-pulse"
@@ -29,81 +39,20 @@ function DashboardLoadingState() {
       aria-busy="true"
       aria-label="Loading your private dashboard"
     >
-      <div className="mb-7 space-y-3">
-        <div className="h-12 w-52 max-w-full rounded-lg bg-white/12 sm:h-14 sm:w-64" />
-        <div className="h-4 w-96 max-w-full rounded-full bg-white/8" />
-      </div>
-
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)] lg:gap-x-6 lg:gap-y-5 xl:gap-x-7">
-        <div className="grid min-w-0 gap-5">
-          <Card appearance="glass" className="gap-0 p-0">
-            <div className="grid gap-7 p-5 sm:p-7">
-              <div className="flex items-start justify-between gap-4">
-                <div className="grid gap-3">
-                  <div className="h-4 w-40 rounded-full bg-white/10" />
-                  <div className="h-11 w-36 rounded-lg bg-white/10" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="size-11 rounded-xl bg-white/15 ring-1 ring-white/25" />
-                  <div className="size-11 rounded-xl bg-white/15 ring-1 ring-white/25" />
-                </div>
-              </div>
-
-              <div className="grid gap-3">
-                <div className="h-4 w-14 rounded-full bg-white/8" />
-                <div className="flex min-h-16 items-center gap-3 rounded-lg bg-white/7 p-3 ring-1 ring-white/12">
-                  <div className="size-11 shrink-0 rounded-lg bg-white/10" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-4 w-24 rounded-full bg-white/10" />
-                    <div className="h-3 w-20 rounded-full bg-white/8" />
-                  </div>
-                  <div className="h-4 w-20 rounded-full bg-white/10" />
-                </div>
-              </div>
-            </div>
+      <div className="dashboard-bento mx-auto grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12 lg:grid-rows-2 lg:gap-5">
+        {tiles.map((className, index) => (
+          <Card
+            key={className}
+            appearance={
+              index === 2 || index === 3 || index === 6 ? "glass" : "linen"
+            }
+            className={`${className} min-h-72 gap-4 rounded-[2.25rem] p-7`}
+          >
+            <div className="h-7 w-32 rounded-full bg-current/10" />
+            <div className="h-16 rounded-2xl bg-current/8" />
+            <div className="mt-auto h-11 w-36 rounded-full bg-current/10" />
           </Card>
-
-          <Card appearance="glass" className="justify-between gap-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <div className="h-5 w-36 rounded-full bg-white/10" />
-              <div className="h-4 w-28 rounded-full bg-white/8" />
-            </div>
-            <div className="grid gap-3">
-              <div className="flex min-h-16 items-center gap-3 rounded-lg bg-white/7 p-3 ring-1 ring-white/12">
-                <div className="size-10 shrink-0 rounded-lg bg-white/10" />
-                <div className="h-4 w-56 max-w-full rounded-full bg-white/10" />
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                {[0, 1, 2].map((item) => (
-                  <div
-                    key={item}
-                    className="h-10 rounded-xl bg-white/15 ring-1 ring-white/25"
-                  />
-                ))}
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        <Card appearance="glass" className="gap-5 p-5 sm:p-6 lg:self-stretch">
-          <div className="flex items-center justify-between gap-3">
-            <div className="h-5 w-20 rounded-full bg-white/10" />
-            <div className="h-9 w-24 rounded-xl bg-white/15 ring-1 ring-white/25" />
-          </div>
-          <div className="h-12 w-64 max-w-full rounded-lg bg-white/7 ring-1 ring-white/12" />
-          <div className="divide-y divide-white/10">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="flex items-center gap-3 py-3.5">
-                <div className="size-10 shrink-0 rounded-lg bg-white/10" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-4 w-32 rounded-full bg-white/10" />
-                  <div className="h-3 w-20 rounded-full bg-white/8" />
-                </div>
-                <div className="h-4 w-24 rounded-full bg-white/10" />
-              </div>
-            ))}
-          </div>
-        </Card>
+        ))}
       </div>
 
       <p className="sr-only">

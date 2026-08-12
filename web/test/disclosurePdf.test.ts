@@ -1,7 +1,10 @@
 // @vitest-environment node
 
 import type { DisclosureBundle } from "../src/lib/disclosure";
-import { renderDisclosurePdf } from "../src/lib/disclosurePdf";
+import {
+  DISCLOSURE_PDF_PALETTE,
+  renderDisclosurePdf,
+} from "../src/lib/disclosurePdf";
 
 const bundle: DisclosureBundle = {
   version: 1,
@@ -23,6 +26,14 @@ const bundle: DisclosureBundle = {
 };
 
 describe("renderDisclosurePdf", () => {
+  it("uses only the official base palette for disclosure branding", () => {
+    expect(DISCLOSURE_PDF_PALETTE).toEqual({
+      obsidian: "#1A1F12",
+      linen: "#F5F3EA",
+      obsidianSecondary: "#20261A",
+    });
+  });
+
   it("produces a non-empty PDF document", async () => {
     const doc = await renderDisclosurePdf(bundle);
     const bytes = new Uint8Array(doc.output("arraybuffer") as ArrayBuffer);

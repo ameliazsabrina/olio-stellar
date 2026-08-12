@@ -25,6 +25,9 @@ export const moneyGramCashOutStatusEnabled =
     networkPassphrase === Networks.TESTNET) ||
   (moneyGramRampStatus === "live" && networkPassphrase === Networks.PUBLIC);
 
+export const moneyGramCashInEnabled =
+  moneyGramRampStatus === "sandbox" && networkPassphrase === Networks.TESTNET;
+
 export const moneyGramBannerCopy =
   moneyGramRampStatus === "whitelisting"
     ? "MoneyGram cash-out is coming to Olio. Sandbox access is being reviewed. Stellar wallet withdrawals remain available."

@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileCheck, Loader, ShieldCheck } from "lucide-react";
+import { Download, Loader } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { fromBaseUnits } from "../../lib/crypto";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../../lib/disclosure";
 import { downloadDisclosurePdf } from "../../lib/disclosurePdf";
 import { getAccount, scanMyNotes } from "../../lib/notes";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { glassInsetClass } from "../ui/glass";
@@ -74,12 +75,12 @@ export function DiscloseDialog({
         </DialogTitle>
 
         {step === "building" && (
-          <div className="flex items-center justify-center gap-3 py-8 text-center">
+          <div className="flex items-center justify-center gap-2 py-8 text-center">
             <Loader
-              className="size-8 motion-safe:animate-spin text-olive"
+              className="size-4 text-brand-linen/70 motion-safe:animate-spin"
               aria-hidden="true"
             />
-            <div className="text-sm font-medium text-ink">
+            <div className="text-sm font-medium text-brand-linen">
               Preparing your receipt…
             </div>
           </div>
@@ -100,35 +101,29 @@ export function DiscloseDialog({
 
         {step === "ready" && bundle && (
           <div className="grid gap-4">
-            <div className={`${glassInsetClass} p-4`}>
+            <div className={cn(glassInsetClass, "rounded-2xl p-4")}>
               <div className="flex items-baseline justify-between">
-                <span className="text-sm text-muted-text">
+                <span className="text-sm text-brand-linen/65">
                   Payment received
                 </span>
-                <span className="font-heading text-2xl font-semibold text-ink">
+                <span className="font-heading text-2xl font-semibold text-brand-linen">
                   {fromBaseUnits(BigInt(bundle.amount))} USDC
                 </span>
               </div>
-              <dl className="mt-3 grid gap-1.5 border-t border-line pt-3 text-xs">
+              <dl className="mt-3 grid gap-1.5 border-t border-brand-linen/15 pt-3 text-xs">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-text">Recipient</dt>
-                  <dd className="font-medium text-ink">
+                  <dt className="text-brand-linen/65">Recipient</dt>
+                  <dd className="font-medium text-brand-linen">
                     {bundle.username ? `@${bundle.username}` : "—"}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-text">Payment reference</dt>
-                  <dd className="font-mono text-ink">#{bundle.leafIndex}</dd>
+                  <dt className="text-brand-linen/65">Payment reference</dt>
+                  <dd className="font-mono text-brand-linen">
+                    #{bundle.leafIndex}
+                  </dd>
                 </div>
               </dl>
-            </div>
-
-            <div className="flex items-start gap-2 rounded-lg bg-sage/50 px-3 py-2.5 text-xs text-olive-deep">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-olive" />
-              <span>
-                The receipt confirms this payment without revealing your balance
-                or any other payment activity.
-              </span>
             </div>
 
             <Button

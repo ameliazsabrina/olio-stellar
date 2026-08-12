@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
-  Settings,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -58,7 +57,7 @@ function IdentityChip() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="group flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-white/35 bg-panel/55 px-3 py-2 font-sans text-xs font-medium text-secondary-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-panel/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none group-data-[collapsible=icon]:backdrop-blur-none group-data-[collapsible=icon]:hover:bg-transparent">
+      <DropdownMenuTrigger className="group flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-brand-linen/35 bg-brand-linen/55 px-3 py-2 font-sans text-xs font-medium text-secondary-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-brand-linen/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:shadow-none group-data-[collapsible=icon]:backdrop-blur-none group-data-[collapsible=icon]:hover:bg-transparent">
         <AtSign
           className="hidden size-4 shrink-0 group-data-[collapsible=icon]:block"
           aria-hidden="true"
@@ -73,8 +72,7 @@ function IdentityChip() {
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" sideOffset={8} className="min-w-40">
         <DropdownMenuItem
-          variant="destructive"
-          className="min-h-10 cursor-pointer px-3 py-2"
+          className="min-h-10 cursor-pointer bg-brand-obsidian-secondary px-3 py-2 !text-brand-linen focus:bg-brand-obsidian focus:!text-brand-linen [&_svg]:!text-brand-linen"
           onClick={disconnect}
         >
           <LogOut aria-hidden="true" />
@@ -103,7 +101,7 @@ export function DashboardSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-white/30 [&_[data-slot=sidebar-inner]]:bg-panel/30 [&_[data-slot=sidebar-inner]]:shadow-lg [&_[data-slot=sidebar-inner]]:shadow-ink/5 [&_[data-slot=sidebar-inner]]:backdrop-blur-xl group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:bg-transparent group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:shadow-none group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:backdrop-blur-none"
+      className="border-brand-linen/30 [&_[data-slot=sidebar-inner]]:bg-brand-linen/30 [&_[data-slot=sidebar-inner]]:shadow-lg [&_[data-slot=sidebar-inner]]:shadow-brand-obsidian/5 [&_[data-slot=sidebar-inner]]:backdrop-blur-xl group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:bg-transparent group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:shadow-none group-data-[collapsible=icon]:[&_[data-slot=sidebar-inner]]:backdrop-blur-none"
     >
       <SidebarHeader className="flex-row items-center justify-between px-3 pt-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
         <Link
@@ -118,7 +116,7 @@ export function DashboardSidebar() {
             className="size-14"
           />
         </Link>
-        <SidebarTrigger className="size-10 shrink-0 rounded-lg bg-panel/40 text-olive-deep hover:bg-panel/70 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:hover:bg-transparent" />
+        <SidebarTrigger className="size-10 shrink-0 rounded-lg bg-brand-linen/40 text-brand-obsidian-secondary hover:bg-brand-linen/70 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:hover:bg-transparent" />
       </SidebarHeader>
 
       <SidebarContent className="px-2 pt-0 pb-4">
@@ -147,7 +145,7 @@ export function DashboardSidebar() {
                       (href === HISTORY_PATH &&
                         activeHref.startsWith(HISTORY_PATH))
                     }
-                    className="data-[active=true]:bg-olive-deep data-[active=true]:text-paper data-[active=true]:hover:bg-olive-deep data-[active=true]:hover:text-paper group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-olive-deep"
+                    className="data-[active=true]:bg-brand-obsidian-secondary data-[active=true]:text-brand-linen data-[active=true]:hover:bg-brand-obsidian-secondary data-[active=true]:hover:text-brand-linen group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-brand-obsidian-secondary"
                   >
                     <Icon aria-hidden="true" />
                     <span>{label}</span>
@@ -161,15 +159,15 @@ export function DashboardSidebar() {
 
       <SidebarFooter className="gap-4 px-4 pb-6 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2">
         <IdentityChip />
-        <div className="flex gap-4 px-1 text-xs text-muted-text group-data-[collapsible=icon]:hidden">
-          <a href="/docs" className="hover:text-olive-deep">
+        <div className="flex gap-4 px-1 text-xs text-brand-linen group-data-[collapsible=icon]:hidden">
+          <a href="/docs" className="hover:text-brand-obsidian-secondary">
             Docs
           </a>
           <a
             href="https://x.com"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-olive-deep"
+            className="hover:text-brand-obsidian-secondary"
           >
             X (Twitter)
           </a>

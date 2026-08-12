@@ -32,6 +32,24 @@ export function createBridge(): Bridge {
 // secret (keyed by the SEP-24 transaction id) right before releasing and clear
 // it once the withdrawal completes, so an interrupted off-ramp is recoverable.
 const BRIDGE_STORE_PREFIX = "olio.offramp.bridge.";
+const RAMP_SESSION_PREFIX = "olio.moneygram.ramp.v1.";
+
+export type RampFlowKind = "cash-out" | "cash-in";
+export type RampSession = {
+  version: 1;
+  ref: string;
+  mgiId: string;
+  kind: RampFlowKind;
+  secret?: string;
+  publicKey: string;
+  amount: string;
+  status: string;
+  createdAt: number;
+  updatedAt: number;
+  stellarHash?: string;
+  externalTransactionId?: string;
+  moreInfoUrl?: string;
+};
 
 export type StrandedBridge = {
   ref: string;
@@ -41,6 +59,73 @@ export type StrandedBridge = {
   destination?: string;
   at: number;
 };
+
+export function persistRampSession(
+  bridge: Bridge,
+  input: {
+    mgiId: string;
+    kind: RampFlowKind;
+    amount: bigint;
+    status?: string;
+  },
+): RampSession {
+  const now = Date.now();
+  const record: RampSession = {
+    version: 1,
+    ref: input.mgiId,
+    mgiId: input.mgiId,
+    kind: input.kind,
+    secret: bridge.keypair.secret(),
+    publicKey: bridge.publicKey,
+    amount: input.amount.toString(),
+    status: input.status ?? "incomplete",
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(
+        RAMP_SESSION_PREFIX + input.mgiId,
+        JSON.stringify(record),
+      );
+      window.dispatchEvent(new Event("olio:ramp-session"));
+    } catch {}
+  }
+  return record;
+}
+
+export function updateRampSession(
+  mgiId: string,
+  patch: Partial<Omit<RampSession, "version" | "ref" | "mgiId" | "createdAt">>,
+): RampSession | null {
+  if (typeof localStorage === "undefined") return null;
+  const raw = localStorage.getItem(RAMP_SESSION_PREFIX + mgiId);
+  if (!raw) return null;
+  try {
+    const current = JSON.parse(raw) as RampSession;
+    const next = { ...current, ...patch, updatedAt: Date.now() };
+    localStorage.setItem(RAMP_SESSION_PREFIX + mgiId, JSON.stringify(next));
+    window.dispatchEvent(new Event("olio:ramp-session"));
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+export function listRampSessions(): RampSession[] {
+  if (typeof localStorage === "undefined") return [];
+  const sessions: RampSession[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(RAMP_SESSION_PREFIX)) continue;
+    try {
+      const value = JSON.parse(localStorage.getItem(key) ?? "") as RampSession;
+      if (value.version === 1 && value.publicKey && value.mgiId)
+        sessions.push(value);
+    } catch {}
+  }
+  return sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+}
 
 export function persistBridge(
   bridge: Bridge,
@@ -68,6 +153,25 @@ export function clearPersistedBridge(ref: string): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.removeItem(BRIDGE_STORE_PREFIX + ref);
+    const key = RAMP_SESSION_PREFIX + ref;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const session = JSON.parse(raw) as RampSession;
+      const { secret: _secret, ...evidence } = session;
+      localStorage.setItem(
+        key,
+        JSON.stringify({ ...evidence, updatedAt: Date.now() }),
+      );
+    }
+    window.dispatchEvent(new Event("olio:ramp-session"));
+  } catch {}
+}
+
+export function dismissRampSession(ref: string): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(RAMP_SESSION_PREFIX + ref);
+    window.dispatchEvent(new Event("olio:ramp-session"));
   } catch {}
 }
 
@@ -83,6 +187,16 @@ export function listStrandedBridges(): StrandedBridge[] {
       const rec = JSON.parse(localStorage.getItem(key) ?? "");
       if (rec?.secret && rec?.publicKey) out.push(rec as StrandedBridge);
     } catch {}
+  }
+  for (const session of listRampSessions()) {
+    if (!session.secret) continue;
+    out.push({
+      ref: session.ref,
+      secret: session.secret,
+      publicKey: session.publicKey,
+      amount: session.amount,
+      at: session.createdAt,
+    });
   }
   return out;
 }

@@ -14,10 +14,10 @@ import {
   simulateRead,
 } from "../../../lib/stellar";
 import {
+  type DepositDoc,
   getDeposits,
   getIndexerState,
   getSpentNullifiers,
-  type DepositDoc,
 } from "../../db/mongo";
 import { DepositIndexGapError } from "./deposits.errors";
 import type { DepositOutput, PoolSnapshotOutput } from "./deposits.schema";
@@ -338,6 +338,7 @@ export async function getPoolSnapshot(
     spentNullifiers: spentDocs.map((doc) => ({
       nullifierHex: doc._id,
       ledger: doc.ledger,
+      ts: doc.ts.toISOString(),
     })),
     index: {
       poolId,

@@ -2,6 +2,8 @@
 
 import {
   Banknote,
+  Check,
+  Copy,
   ExternalLink,
   Landmark,
   Loader,
@@ -15,22 +17,26 @@ import {
   authenticate,
   fetchAnchorInfo,
   fetchWithdrawLimits,
+  isTrustedCommitResult,
   pollSep24Until,
   Sep24PollTimeoutError,
   type Sep24Transaction,
   sendWithdrawalPayment,
   startInteractiveWithdraw,
+  validateAnchorPreflight,
   type WithdrawLimits,
 } from "../../lib/anchor";
 import { fromBaseUnits, toBaseUnits } from "../../lib/crypto";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   type Bridge,
+  bridgeUsdcBalance,
   clearPersistedBridge,
   createBridge,
-  persistBridge,
+  persistRampSession,
   provisionBridge,
   releaseNoteToBridge,
+  updateRampSession,
 } from "../../lib/offramp";
 import { Button } from "../ui/button";
 import { glassInsetClass } from "../ui/glass";
@@ -63,10 +69,10 @@ function paintAnchorWindow(
   try {
     win.document.title = title;
     win.document.body.style.cssText =
-      'margin:0;min-height:100vh;display:grid;place-items:center;font-family:"Aileron",system-ui,-apple-system,sans-serif;background:#0e0f0d;color:#fff;';
+      'margin:0;min-height:100vh;display:grid;place-items:center;font-family:"Aileron",system-ui,-apple-system,sans-serif;background:#1A1F12;color:#F5F3EA;';
     win.document.body.innerHTML = `<div style="max-width:22rem;padding:2rem;text-align:center;line-height:1.5">
       <p style="font-size:0.95rem;font-weight:600;margin:0 0 0.5rem">${title}</p>
-      <p style="font-size:0.85rem;color:rgba(255,255,255,0.65);margin:0">${body}</p>
+      <p style="font-size:0.85rem;color:rgba(245,243,234,0.65);margin:0">${body}</p>
     </div>`;
   } catch {}
 }
@@ -93,6 +99,7 @@ export function OffRampContent({
     url: string;
   } | null>(null);
   const [settled, setSettled] = useState<Sep24Transaction | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const [limits, setLimits] = useState<WithdrawLimits | null>(null);
 
@@ -133,6 +140,23 @@ export function OffRampContent({
   useEffect(() => {
     onBusyChange?.(step !== "select" && step !== "done");
   }, [step, onBusyChange]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    const onMessage = (event: MessageEvent) => {
+      if (isTrustedCommitResult(event, interactive.info, interactive.id)) {
+        setSettled(event.data.payload.transaction);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [interactive]);
+
+  async function copy(value: string, label: string) {
+    await navigator.clipboard?.writeText(value);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 1500);
+  }
 
   async function start() {
     // Pre-flight against the anchor's advertised limits so we never provision a
@@ -178,7 +202,7 @@ export function OffRampContent({
       const amount = fromBaseUnits(note.amount);
 
       // 1 · verify the configured anchor before spending sponsor XLM.
-      const info = await fetchAnchorInfo();
+      const { info } = await validateAnchorPreflight();
 
       // 2 · one-time bridge account (XLM + trustline). No USDC moves yet.
       setPrepPhase("fund");
@@ -229,7 +253,12 @@ export function OffRampContent({
           throw new Error("That payment is no longer available.");
         // Persist the bridge secret BEFORE spending, so an interrupted settle
         // leaves the funds recoverable instead of stranded on a lost key.
-        persistBridge(bridge, id, currentNote.amount);
+        persistRampSession(bridge, {
+          mgiId: id,
+          kind: "cash-out",
+          amount: currentNote.amount,
+          status: ready.status,
+        });
         await releaseNoteToBridge({
           signer: getSigner(),
           acct,
@@ -238,7 +267,8 @@ export function OffRampContent({
           bridge,
         });
         released = true;
-        await sendWithdrawalPayment(bridge.keypair, ready);
+        const stellarHash = await sendWithdrawalPayment(bridge.keypair, ready);
+        updateRampSession(id, { stellarHash });
         paymentSent = true;
       }
 
@@ -250,7 +280,8 @@ export function OffRampContent({
           id,
           (tx) =>
             tx.status === "pending_user_transfer_complete" ||
-            tx.status === "completed",
+            tx.status === "completed" ||
+            tx.status === "refunded",
         );
       } catch (pollError) {
         // The on-chain payment is final even if the anchor takes longer to
@@ -262,9 +293,22 @@ export function OffRampContent({
           throw pollError;
         }
       }
-      // The bridge was drained by the successful anchor payment. A later cash
-      // pickup is tracked by the SEP-24 transaction, not by the bridge secret.
-      clearPersistedBridge(id);
+      updateRampSession(id, {
+        status: final.status,
+        externalTransactionId: final.external_transaction_id,
+        moreInfoUrl: final.more_info_url,
+        ...(final.stellar_transaction_id
+          ? { stellarHash: final.stellar_transaction_id }
+          : {}),
+      });
+      // pending_user_transfer_complete can still be cancelled. Keep the key and
+      // evidence until pickup completes or a refund is actually recovered.
+      if (
+        final.status === "completed" &&
+        (await bridgeUsdcBalance(bridge.publicKey)) === 0n
+      ) {
+        clearPersistedBridge(id);
+      }
       setSettled(final);
       setStep("done");
       await onComplete?.();
@@ -290,12 +334,12 @@ export function OffRampContent({
     return (
       <div className="grid gap-4">
         <div
-          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-white/70`}
+          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-brand-linen/70`}
         >
-          <Landmark className="mt-0.5 size-4 shrink-0 text-white/70" />
+          <Landmark className="mt-0.5 size-4 shrink-0 text-brand-linen/70" />
           <span>
             Cash out as local currency through{" "}
-            <b className="font-semibold text-white">{anchorLabel()}</b>.
+            <b className="font-semibold text-brand-linen">{anchorLabel()}</b>.
             Identity and pickup details are handled by the anchor — they never
             touch Olio.
           </span>
@@ -303,8 +347,8 @@ export function OffRampContent({
 
         <div className={`${glassInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm text-white/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+            <span className="text-sm text-brand-linen/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
               {fromBaseUnits(note.amount)} USDC
             </span>
           </div>
@@ -328,16 +372,16 @@ export function OffRampContent({
   if (step === "preparing") {
     return (
       <div className="grid place-items-center gap-3 py-8 text-center">
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-2">
           <Loader
-            className="size-8 motion-safe:animate-spin"
+            className="size-5 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-white">
+          <div className="text-sm font-semibold text-brand-linen">
             {PREP_LABEL[prepPhase] ?? "Preparing…"}
           </div>
         </div>
-        <div className="max-w-sm text-sm text-white/65">
+        <div className="max-w-sm text-sm text-brand-linen/65">
           A zero-knowledge proof is generated in your browser before any funds
           move. This can take a few seconds.
         </div>
@@ -350,13 +394,13 @@ export function OffRampContent({
       <div className="grid gap-4">
         <div className={`${glassInsetClass} p-4 text-sm`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-white/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-white tabular-nums">
+            <span className="text-brand-linen/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
               {fromBaseUnits(note.amount)} USDC
             </span>
           </div>
         </div>
-        <p className="text-sm text-white/65">
+        <p className="text-sm text-brand-linen/65">
           Finish in the secure {anchorLabel()} window: verify your identity and
           choose where to collect your cash. This screen updates automatically
           once you're done.
@@ -377,7 +421,7 @@ export function OffRampContent({
           <ExternalLink className="size-4" aria-hidden="true" />
           Open secure {anchorLabel()} window
         </Button>
-        <div className="flex items-center justify-center gap-2 text-xs text-white/60">
+        <div className="flex items-center justify-center gap-2 text-xs text-brand-linen/60">
           <Loader
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
@@ -396,11 +440,11 @@ export function OffRampContent({
             className="size-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-white">
+          <div className="text-sm font-semibold text-brand-linen">
             Sending your payout to the anchor…
           </div>
         </div>
-        <div className="max-w-sm text-sm text-white/65">
+        <div className="max-w-sm text-sm text-brand-linen/65">
           Completing the on-chain transfer. Hang tight.
         </div>
       </div>
@@ -414,16 +458,43 @@ export function OffRampContent({
           <ShieldCheck className="size-6" aria-hidden="true" />
         </div>
         <div className="space-y-1">
-          <h2 className="font-heading text-xl font-semibold text-white">
+          <h2 className="font-heading text-xl font-semibold text-brand-linen">
             Cash-out submitted
           </h2>
-          <p className="max-w-md text-sm text-white/65">
-            {settled?.status === "completed"
-              ? `Your withdrawal through ${anchorLabel()} is complete.`
-              : settled?.external_transaction_id
-                ? `Show reference ${settled.external_transaction_id} when collecting your cash.`
-                : `Your Stellar payment was submitted to ${anchorLabel()}. Open the anchor status page for pickup details.`}
+          <p className="max-w-md text-sm text-brand-linen/65">
+            {settled?.status === "refunded"
+              ? "MoneyGram refunded this cash-out. Returned USDC will appear in the recovery panel as soon as it reaches the saved account."
+              : settled?.status === "completed"
+                ? `Your withdrawal through ${anchorLabel()} is complete.`
+                : settled?.external_transaction_id
+                  ? `Show reference ${settled.external_transaction_id} when collecting your cash.`
+                  : `Your Stellar payment was submitted to ${anchorLabel()}. Open the anchor status page for pickup details.`}
           </p>
+          {interactive?.id ? (
+            <Button variant="ghost" onClick={() => copy(interactive.id, "mgi")}>
+              {copied === "mgi" ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+              MGI transaction ID: {interactive.id}
+            </Button>
+          ) : null}
+          {settled?.external_transaction_id ? (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                copy(settled.external_transaction_id ?? "", "reference")
+              }
+            >
+              {copied === "reference" ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+              Reference: {settled.external_transaction_id}
+            </Button>
+          ) : null}
           {settled?.more_info_url ? (
             <Button
               variant="glass"

@@ -68,6 +68,13 @@ export type AnchorInfo = {
   signingKey: string;
 };
 
+function assertEndpointForDomain(endpoint: string, domain: string): void {
+  const url = new URL(endpoint);
+  if (url.hostname !== domain) {
+    throw new Error("Anchor metadata points to a mismatched domain.");
+  }
+}
+
 /// Resolve the anchor's SEP-1 metadata and assert it advertises the endpoints
 /// SEP-10 + SEP-24 require. `NETWORK_PASSPHRASE` on the anchor must match ours.
 export async function fetchAnchorInfo(
@@ -82,8 +89,10 @@ export async function fetchAnchorInfo(
   const transferServer = toml.TRANSFER_SERVER_SEP0024;
   const signingKey = toml.SIGNING_KEY;
   if (!webAuthEndpoint || !transferServer || !signingKey) {
-    throw new Error("Anchor does not support the SEP-24 off-ramp.");
+    throw new Error("Anchor does not support SEP-10 and SEP-24.");
   }
+  assertEndpointForDomain(webAuthEndpoint, domain);
+  assertEndpointForDomain(transferServer, domain);
   if (
     toml.NETWORK_PASSPHRASE &&
     toml.NETWORK_PASSPHRASE !== networkPassphrase
@@ -116,6 +125,62 @@ export async function fetchAnchorInfo(
     transferServer: transferServer.replace(/\/+$/, ""),
     signingKey,
   };
+}
+
+export type Sep24AssetInfo = {
+  enabled?: boolean;
+  min_amount?: number;
+  max_amount?: number;
+};
+
+export type Sep24Info = {
+  deposit?: Record<string, Sep24AssetInfo>;
+  withdraw?: Record<string, Sep24AssetInfo>;
+};
+
+export async function fetchSep24Info(info: AnchorInfo): Promise<Sep24Info> {
+  const res = await fetch(`${info.transferServer}/info`);
+  if (!res.ok) throw new Error(`Could not validate SEP-24 (${res.status}).`);
+  return (await res.json()) as Sep24Info;
+}
+
+/** Fail-closed deployment/runtime preflight for the configured MoneyGram anchor. */
+export async function validateAnchorPreflight(options?: {
+  requireDeposit?: boolean;
+}): Promise<{ info: AnchorInfo; sep24: Sep24Info }> {
+  if (!anchorHomeDomain || !offRampAssetIssuer || !sep10ClientDomain) {
+    throw new Error(
+      "MoneyGram requires an anchor URL, USDC issuer, and allowlisted client domain.",
+    );
+  }
+  const clientToml = await StellarToml.Resolver.resolve(sep10ClientDomain, {
+    allowHttp: horizonUrl.startsWith("http://"),
+  });
+  if (
+    !clientToml.SIGNING_KEY ||
+    (clientToml.NETWORK_PASSPHRASE &&
+      clientToml.NETWORK_PASSPHRASE !== networkPassphrase)
+  ) {
+    throw new Error(
+      "The client domain does not advertise a signing key for this network.",
+    );
+  }
+  const info = await fetchAnchorInfo();
+  const sep24 = await fetchSep24Info(info);
+  if (
+    sep24.withdraw?.[offRampAssetCode]?.enabled === false ||
+    !sep24.withdraw?.[offRampAssetCode]
+  ) {
+    throw new Error(`Anchor does not enable ${offRampAssetCode} withdrawals.`);
+  }
+  if (
+    options?.requireDeposit &&
+    (sep24.deposit?.[offRampAssetCode]?.enabled === false ||
+      !sep24.deposit?.[offRampAssetCode])
+  ) {
+    throw new Error(`Anchor does not enable ${offRampAssetCode} deposits.`);
+  }
+  return { info, sep24 };
 }
 
 // --- SEP-10: web authentication ---------------------------------------------
@@ -190,14 +255,7 @@ export async function fetchWithdrawLimits(
   assetCode = offRampAssetCode,
 ): Promise<WithdrawLimits> {
   try {
-    const res = await fetch(`${info.transferServer}/info`);
-    if (!res.ok) return {};
-    const json = (await res.json()) as {
-      withdraw?: Record<
-        string,
-        { enabled?: boolean; min_amount?: number; max_amount?: number }
-      >;
-    };
+    const json = await fetchSep24Info(info);
     const entry = json.withdraw?.[assetCode];
     if (!entry || entry.enabled === false) return {};
     return { min: entry.min_amount, max: entry.max_amount };
@@ -228,22 +286,43 @@ export type Sep24Status =
   | "too_large"
   | "error";
 
+export type Sep24Refund = {
+  id?: string;
+  amount?: string;
+  amount_fee?: string;
+  status?: string;
+  started_at?: string;
+  completed_at?: string;
+};
+
 export type Sep24Transaction = {
   id: string;
+  kind?: "deposit" | "withdrawal";
   status: Sep24Status;
+  to?: string;
   amount_in?: string;
   amount_out?: string;
   amount_fee?: string;
   withdraw_anchor_account?: string;
   withdraw_memo?: string;
   withdraw_memo_type?: "text" | "id" | "hash";
+  deposit_memo?: string;
+  deposit_memo_type?: "text" | "id" | "hash";
   external_transaction_id?: string;
   stellar_transaction_id?: string;
   more_info_url?: string;
   message?: string;
+  started_at?: string;
+  updated_at?: string;
+  completed_at?: string;
+  refunds?: {
+    amount_refunded?: string;
+    amount_fee?: string;
+    payments?: Sep24Refund[];
+  };
 };
 
-export type InteractiveWithdraw = { id: string; url: string };
+export type InteractiveTransaction = { id: string; url: string };
 
 /// Kick off an interactive SEP-24 withdrawal. The anchor returns a hosted URL
 /// where the user completes KYC and enters bank details — none of which ever
@@ -253,7 +332,7 @@ export async function startInteractiveWithdraw(
   token: string,
   account: string,
   amount: string,
-): Promise<InteractiveWithdraw> {
+): Promise<InteractiveTransaction> {
   const res = await fetch(
     `${info.transferServer}/transactions/withdraw/interactive`,
     {
@@ -295,6 +374,49 @@ export async function startInteractiveWithdraw(
   return { id: json.id, url: json.url };
 }
 
+export async function startInteractiveDeposit(
+  info: AnchorInfo,
+  token: string,
+  account: string,
+  amount: string,
+): Promise<InteractiveTransaction> {
+  const res = await fetch(
+    `${info.transferServer}/transactions/deposit/interactive`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        asset_code: offRampAssetCode,
+        account,
+        amount,
+        lang: "en",
+        wallet_name: "Olio",
+        wallet_url:
+          typeof window === "undefined" ? undefined : window.location.origin,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const reason = await res
+      .clone()
+      .json()
+      .then((b: { error?: string }) => b?.error)
+      .catch(() => undefined);
+    throw new Error(
+      reason
+        ? `Anchor rejected the deposit: ${reason}`
+        : `Anchor rejected the deposit (${res.status}).`,
+    );
+  }
+  const json = (await res.json()) as { id?: string; url?: string };
+  if (!json.id || !json.url)
+    throw new Error("Anchor did not return an interactive URL.");
+  return { id: json.id, url: json.url };
+}
+
 export async function getSep24Transaction(
   info: AnchorInfo,
   token: string,
@@ -304,7 +426,7 @@ export async function getSep24Transaction(
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
-    throw new Error(`Could not read withdrawal status (${res.status}).`);
+    throw new Error(`Could not read SEP-24 status (${res.status}).`);
   }
   const { transaction } = (await res.json()) as {
     transaction: Sep24Transaction;
@@ -318,8 +440,30 @@ const SEP24_FAILURE_STATUSES = new Set<Sep24Status>([
   "no_market",
   "too_small",
   "too_large",
+]);
+
+export const SEP24_TERMINAL_SUCCESS_STATUSES = new Set<Sep24Status>([
+  "completed",
   "refunded",
 ]);
+
+export function isTrustedCommitResult(
+  event: Pick<MessageEvent, "origin" | "data">,
+  info: AnchorInfo,
+  expectedId: string,
+): event is MessageEvent<{
+  type: "COMMIT_RESULT";
+  payload: { transaction: Sep24Transaction };
+}> {
+  const expectedOrigin = new URL(info.transferServer).origin;
+  const transaction = event.data?.payload?.transaction;
+  return (
+    event.origin === expectedOrigin &&
+    event.data?.type === "COMMIT_RESULT" &&
+    transaction?.id === expectedId &&
+    typeof transaction?.status === "string"
+  );
+}
 
 export class Sep24PollTimeoutError extends Error {
   constructor(

@@ -27,16 +27,16 @@ export function PaymentQrDialog({
       <DialogContent
         showCloseButton={false}
         finalFocus={triggerRef}
-        overlayClassName="bg-ink/80"
+        overlayClassName="bg-brand-obsidian/85"
         className="w-auto max-w-[calc(100%-2rem)] bg-transparent p-0 shadow-none ring-0 backdrop-blur-none sm:max-w-none"
       >
         <DialogTitle className="sr-only">Payment link QR code</DialogTitle>
-        <div className="size-[min(18rem,calc(100dvw-2rem),calc(100dvh-2rem))] sm:size-[min(20rem,calc(100dvw-2rem),calc(100dvh-2rem))]">
+        <div className="size-[min(18rem,calc(100dvw-2rem),calc(100dvh-2rem))] bg-brand-linen p-4 sm:size-[min(20rem,calc(100dvw-2rem),calc(100dvh-2rem))]">
           <QRCodeSVG
             value={url}
             size={320}
-            fgColor="#ffffff"
-            bgColor="transparent"
+            fgColor="#1A1F12"
+            bgColor="#F5F3EA"
             className="size-full"
           />
         </div>

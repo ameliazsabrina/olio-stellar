@@ -27,16 +27,16 @@ export default function NotFound() {
           aria-labelledby="not-found-title"
         >
           <div className="max-w-xl">
-            <p className="mb-3 text-sm font-semibold tracking-wide text-white/60">
+            <p className="mb-3 text-sm font-semibold tracking-wide text-brand-linen/60">
               Error 404
             </p>
             <h1
               id="not-found-title"
-              className="font-heading text-4xl font-bold tracking-tight text-white sm:text-5xl"
+              className="font-heading text-4xl font-bold tracking-tight text-brand-linen sm:text-5xl"
             >
               Page not found.
             </h1>
-            <p className="mt-3 max-w-lg text-sm leading-6 font-medium text-white/70 sm:text-base sm:leading-7">
+            <p className="mt-3 max-w-lg text-sm leading-6 font-medium text-brand-linen/70 sm:text-base sm:leading-7">
               We could not find the page you were looking for. Check the address
               or head back to a familiar place.
             </p>
@@ -51,7 +51,7 @@ export default function NotFound() {
                   variant: "glass",
                   size: "lg",
                   className:
-                    "w-full bg-white/25 ring-white/45 hover:bg-white/30 sm:w-auto",
+                    "w-full bg-brand-linen/25 ring-brand-linen/45 hover:bg-brand-linen/30 sm:w-auto",
                 })}
               >
                 <ArrowLeft aria-hidden="true" />

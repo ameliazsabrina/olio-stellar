@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const moneyGramBanner =
     protectedRoute && moneyGramBannerCopy ? (
       <StickyBanner
-        className="z-[80] min-h-10 border-b border-ed-gold/30 bg-ed-dark-2 px-12 py-2 text-center text-sm font-medium text-ed-cream"
+        className="z-[80] min-h-10 border-b border-brand-linen/30 bg-brand-obsidian-secondary px-12 py-2 text-center text-sm font-medium text-brand-linen"
         hideOnScroll={false}
       >
         <p role="status" aria-label="MoneyGram integration status">
@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             href="https://www.moneygram.com/us/en/ramps"
             target="_blank"
             rel="noreferrer"
-            className="font-semibold text-ed-cream underline decoration-ed-cream/70 underline-offset-2 transition-colors hover:text-ed-cream/80"
+            className="font-semibold text-brand-linen underline decoration-brand-linen/70 underline-offset-2 transition-colors hover:text-brand-linen/80"
           >
             Get to know about MoneyGram
           </a>
@@ -63,6 +63,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   if (pathname === "/" || protectedRoute) {
+    if (pathname !== "/") {
+      return (
+        <div className="theme-product contents" data-product-theme="">
+          {moneyGramBanner}
+          <div className="block w-full m-0 p-0">{children}</div>
+          {usernameModal}
+          {pinModal}
+        </div>
+      );
+    }
+
     return (
       <>
         {moneyGramBanner}
@@ -75,26 +86,32 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (isPay) {
     return (
-      <DashboardBackground>
-        <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
-          <header className="mb-0 flex min-w-0 items-center justify-center">
-            <Link href="/" aria-label="Olio home">
-              <Image
-                src="/assets/olio-white.svg"
-                alt="Olio"
-                width={40}
-                height={40}
-                className="size-16"
-              />
-            </Link>
-          </header>
-          <div className="grid flex-1 content-center gap-5 py-8">
-            {children}
-          </div>
-        </DashboardShell>
-      </DashboardBackground>
+      <div className="theme-product contents" data-product-theme="">
+        <DashboardBackground>
+          <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
+            <header className="mb-0 flex min-w-0 items-center justify-center">
+              <Link href="/" aria-label="Olio home">
+                <Image
+                  src="/assets/olio-white.svg"
+                  alt="Olio"
+                  width={40}
+                  height={40}
+                  className="size-16"
+                />
+              </Link>
+            </header>
+            <div className="grid flex-1 content-center gap-5 py-8">
+              {children}
+            </div>
+          </DashboardShell>
+        </DashboardBackground>
+      </div>
     );
   }
 
-  return children;
+  return (
+    <div className="theme-product contents" data-product-theme="">
+      {children}
+    </div>
+  );
 }

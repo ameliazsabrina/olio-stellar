@@ -1,6 +1,6 @@
 import { api } from "../trpc/client";
 import { hexToBytes } from "./crypto";
-import { networkPassphrase, poolId, type DepositEvent } from "./stellar";
+import { type DepositEvent, networkPassphrase, poolId } from "./stellar";
 
 const DB_NAME = "olio-pool-mirror";
 const STORE_NAME = "mirrors";
@@ -10,6 +10,7 @@ export type PoolMirror = {
   scope: string;
   deposits: DepositEvent[];
   spentNullifiers: string[];
+  spentAtByNullifier?: Record<string, string>;
   publishedLedger: number;
   publishedLeafIndex: number;
   indexedAt: string;
@@ -29,6 +30,7 @@ function emptyMirror(): PoolMirror {
     scope: scopeKey(),
     deposits: [],
     spentNullifiers: [],
+    spentAtByNullifier: {},
     publishedLedger: 0,
     publishedLeafIndex: -1,
     indexedAt: new Date(0).toISOString(),
@@ -119,15 +121,21 @@ async function fetchAndMerge(): Promise<PoolMirror> {
       commitment: hexToBytes(row.commitmentHex),
       ephemeralPk: hexToBytes(row.ephemeralPkHex),
       ciphertext: hexToBytes(row.ciphertextHex),
+      receivedAt: row.ts,
     });
   }
   const spent = new Set(base.spentNullifiers);
-  for (const row of snapshot.spentNullifiers) spent.add(row.nullifierHex);
+  const spentAtByNullifier = { ...base.spentAtByNullifier };
+  for (const row of snapshot.spentNullifiers) {
+    spent.add(row.nullifierHex);
+    spentAtByNullifier[row.nullifierHex] = row.ts;
+  }
 
   const merged: PoolMirror = {
     scope: responseScope,
     deposits: [...deposits.values()].sort((a, b) => a.leafIndex - b.leafIndex),
     spentNullifiers: [...spent],
+    spentAtByNullifier,
     publishedLedger: snapshot.index.publishedLedger,
     publishedLeafIndex: snapshot.index.publishedLeafIndex,
     indexedAt: snapshot.index.indexedAt,

@@ -151,18 +151,18 @@ export function TransakOffRampContent({
     return (
       <div className="grid gap-4">
         <div
-          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-white/70`}
+          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-brand-linen/70`}
         >
-          <Building2 className="mt-0.5 size-4 shrink-0 text-white/70" />
+          <Building2 className="mt-0.5 size-4 shrink-0 text-brand-linen/70" />
           <span>
             Cash out to your bank or e-wallet through{" "}
-            <b className="font-semibold text-white">Transak</b>. Identity and
-            payout details are verified by Transak — they never touch Olio.
+            <b className="font-semibold text-brand-linen">Transak</b>. Identity
+            and payout details are verified by Transak — they never touch Olio.
           </span>
         </div>
 
         <fieldset className="grid gap-2">
-          <legend className="mb-1 text-sm font-medium text-white">
+          <legend className="mb-1 text-sm font-medium text-brand-linen">
             Payment to cash out
           </legend>
           <div className="grid gap-2">
@@ -174,18 +174,18 @@ export function TransakOffRampContent({
                   type="button"
                   onClick={() => setSelectedLeaf(note.leafIndex)}
                   aria-pressed={active}
-                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
+                  className={`flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-brand-linen/70 ${
                     active
-                      ? "border-white/40 bg-white/16"
-                      : "border-white/15 bg-white/7 hover:border-white/25 hover:bg-white/10"
+                      ? "border-brand-linen/40 bg-brand-linen/16"
+                      : "border-brand-linen/15 bg-brand-linen/7 hover:border-brand-linen/25 hover:bg-brand-linen/10"
                   }`}
                 >
-                  <span className="flex items-center gap-2 text-sm text-white">
+                  <span className="flex items-center gap-2 text-sm text-brand-linen">
                     <span
                       className={`grid size-5 place-items-center rounded-full border ${
                         active
-                          ? "border-white bg-white text-ink"
-                          : "border-white/35"
+                          ? "border-brand-linen bg-brand-linen text-brand-obsidian"
+                          : "border-brand-linen/35"
                       }`}
                       aria-hidden="true"
                     >
@@ -193,14 +193,14 @@ export function TransakOffRampContent({
                     </span>
                     Payment
                   </span>
-                  <span className="font-mono text-sm font-semibold text-white tabular-nums">
+                  <span className="font-mono text-sm font-semibold text-brand-linen tabular-nums">
                     {fromBaseUnits(note.amount)} USDC
                   </span>
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-brand-linen/60">
             Each payment is cashed out in full. To move a smaller amount,
             receive it as a separate payment.
           </p>
@@ -229,11 +229,11 @@ export function TransakOffRampContent({
             className="size-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-white">
+          <div className="text-sm font-semibold text-brand-linen">
             {PREP_LABEL[prepPhase] ?? "Preparing…"}
           </div>
         </div>
-        <div className="max-w-sm text-sm text-white/65">
+        <div className="max-w-sm text-sm text-brand-linen/65">
           A one-time payout account is prepared before any funds move. This can
           take a few seconds.
         </div>
@@ -246,18 +246,18 @@ export function TransakOffRampContent({
       <div className="grid gap-4">
         <div className={`${glassInsetClass} p-4 text-sm`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-white/60">Cashing out</span>
-            <span className="font-heading text-2xl font-semibold text-white">
+            <span className="text-brand-linen/60">Cashing out</span>
+            <span className="font-heading text-2xl font-semibold text-brand-linen">
               {selected ? fromBaseUnits(selected.amount) : ""} USDC
             </span>
           </div>
         </div>
-        <p className="text-sm text-white/65">
+        <p className="text-sm text-brand-linen/65">
           Finish in the secure Transak window: verify your identity and enter
           where the cash should land. This screen updates automatically once
           Transak is ready.
         </p>
-        <div className="flex items-center justify-center gap-2 text-xs text-white/60">
+        <div className="flex items-center justify-center gap-2 text-xs text-brand-linen/60">
           <Loader
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
@@ -276,11 +276,11 @@ export function TransakOffRampContent({
             className="size-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-white">
+          <div className="text-sm font-semibold text-brand-linen">
             Sending your payout to Transak…
           </div>
         </div>
-        <div className="max-w-sm text-sm text-white/65">
+        <div className="max-w-sm text-sm text-brand-linen/65">
           Completing the on-chain transfer. Hang tight.
         </div>
       </div>
@@ -294,10 +294,10 @@ export function TransakOffRampContent({
           <ShieldCheck className="size-6" aria-hidden="true" />
         </div>
         <div className="space-y-1">
-          <h2 className="font-heading text-xl font-semibold text-white">
+          <h2 className="font-heading text-xl font-semibold text-brand-linen">
             Cash-out submitted
           </h2>
-          <p className="max-w-md text-sm text-white/65">
+          <p className="max-w-md text-sm text-brand-linen/65">
             {settled?.cryptoAmount
               ? `${settled.cryptoAmount} USDC on its way to your bank via Transak.`
               : "Your withdrawal is being processed by Transak."}{" "}

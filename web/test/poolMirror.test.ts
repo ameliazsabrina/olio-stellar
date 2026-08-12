@@ -30,7 +30,13 @@ function response(
         ts: new Date().toISOString(),
       },
     ],
-    spentNullifiers: [{ nullifierHex, ledger: publishedLedger }],
+    spentNullifiers: [
+      {
+        nullifierHex,
+        ledger: publishedLedger,
+        ts: new Date(2026, 7, leafIndex + 1).toISOString(),
+      },
+    ],
     index: {
       poolId: "CPOOL",
       networkPassphrase: "Test SDF Network ; September 2015",
@@ -70,6 +76,10 @@ describe("poolMirror", () => {
     expect(first.deposits).toHaveLength(1);
     expect(second.deposits.map((row) => row.leafIndex)).toEqual([0, 1]);
     expect(second.spentNullifiers).toEqual([firstNullifier, secondNullifier]);
+    expect(second.spentAtByNullifier).toMatchObject({
+      [firstNullifier]: new Date(2026, 7, 1).toISOString(),
+      [secondNullifier]: new Date(2026, 7, 2).toISOString(),
+    });
   });
 
   it("deduplicates concurrent refreshes", async () => {

@@ -83,7 +83,11 @@ describe("getPoolSnapshot", () => {
     });
     expect(snapshot.deposits).toHaveLength(1);
     expect(snapshot.spentNullifiers).toEqual([
-      { nullifierHex: "aa".repeat(32), ledger: 25 },
+      {
+        nullifierHex: "aa".repeat(32),
+        ledger: 25,
+        ts: indexedAt.toISOString(),
+      },
     ]);
     expect(snapshot.index.health).toBe("healthy");
     expect(mocks.fetchPoolEventsSince).not.toHaveBeenCalled();

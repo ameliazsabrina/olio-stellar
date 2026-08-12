@@ -27,6 +27,7 @@ export const poolSnapshotOutput = z.object({
     .object({
       nullifierHex: z.string().regex(/^[0-9a-f]{64}$/),
       ledger: z.number().int().nonnegative(),
+      ts: z.string(),
     })
     .array(),
   index: z.object({

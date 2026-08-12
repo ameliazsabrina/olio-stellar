@@ -22,12 +22,12 @@ export default function DashboardWithdrawPage() {
         aria-label="Loading cash-out page"
       >
         <div className="mb-8 space-y-3">
-          <div className="h-12 w-56 max-w-full rounded-lg bg-white/12" />
-          <div className="h-4 w-96 max-w-full rounded-full bg-white/8" />
+          <div className="h-12 w-56 max-w-full rounded-lg bg-brand-linen/12" />
+          <div className="h-4 w-96 max-w-full rounded-full bg-brand-linen/8" />
         </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.6fr)]">
-          <div className="h-96 rounded-xl bg-white/8 ring-1 ring-white/15" />
-          <div className="h-64 rounded-xl bg-white/8 ring-1 ring-white/15" />
+          <div className="h-96 rounded-xl bg-brand-linen/8 ring-1 ring-brand-linen/15" />
+          <div className="h-64 rounded-xl bg-brand-linen/8 ring-1 ring-brand-linen/15" />
         </div>
       </div>
     );

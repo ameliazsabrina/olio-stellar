@@ -60,7 +60,7 @@ export const StickyBanner = ({
             type="button"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-ed-cream transition-colors hover:bg-ed-cream/10 focus-visible:ring-2 focus-visible:ring-ed-cream/60"
+            className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-brand-linen transition-colors hover:bg-brand-linen/10 focus-visible:ring-2 focus-visible:ring-brand-linen/60"
             onClick={() => setDismissed(true)}
             aria-label="Dismiss announcement"
           >

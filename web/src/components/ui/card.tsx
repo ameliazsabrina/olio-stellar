@@ -12,7 +12,7 @@ function Card({
 }: React.ComponentProps<"div"> & {
   size?: "default" | "sm";
   density?: "compact" | "default" | "comfortable" | "spacious";
-  appearance?: "default" | "glass";
+  appearance?: "default" | "glass" | "linen";
 }) {
   return (
     <div
@@ -22,6 +22,8 @@ function Card({
       className={cn(
         "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-2xl bg-card/90 p-(--card-spacing) text-sm text-card-foreground shadow-sm ring-1 ring-border/70 backdrop-blur-md [--card-spacing:--spacing(4)] has-[>img:first-child]:pt-0 data-[density=compact]:[--card-spacing:--spacing(3)] data-[density=comfortable]:[--card-spacing:--spacing(5)] data-[density=spacious]:[--card-spacing:--spacing(6)] *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
         appearance === "glass" && glassPanelClass,
+        appearance === "linen" &&
+          "surface-linen-panel theme-linen rounded-[1.625rem] text-foreground ring-1 ring-border",
         className,
       )}
       {...props}

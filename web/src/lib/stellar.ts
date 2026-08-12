@@ -369,6 +369,7 @@ export type DepositEvent = {
   commitment: Uint8Array;
   ephemeralPk: Uint8Array;
   ciphertext: Uint8Array;
+  receivedAt?: string;
 };
 
 export type SpentEvent = {
@@ -467,6 +468,7 @@ export async function scanDeposits(): Promise<DepositEvent[]> {
         commitment: hexToBytes(r.commitmentHex),
         ephemeralPk: hexToBytes(r.ephemeralPkHex),
         ciphertext: hexToBytes(r.ciphertextHex),
+        receivedAt: r.ts,
       }))
       .sort((a, b) => a.leafIndex - b.leafIndex);
   } catch {

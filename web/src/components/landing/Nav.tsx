@@ -91,8 +91,7 @@ export function EditionsTopNav() {
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-ed-line" />
               <DropdownMenuItem
-                variant="destructive"
-                className="cursor-pointer px-2.5 py-2"
+                className="cursor-pointer bg-ed-cream/[0.1] px-2.5 py-2 !text-ed-cream focus:bg-ed-cream/[0.16] focus:!text-ed-cream [&_svg]:!text-ed-cream"
                 onClick={disconnect}
               >
                 <LogOut aria-hidden="true" />

@@ -16,7 +16,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="min-h-full font-sans">
-      <body className="min-h-full bg-paper text-ink antialiased font-sans">
+      <body className="min-h-full bg-background text-foreground antialiased font-sans">
         <a
           href="#main-content"
           className="sr-only z-[100] rounded-lg bg-panel px-4 py-2 text-sm font-semibold text-ink shadow-lg focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"

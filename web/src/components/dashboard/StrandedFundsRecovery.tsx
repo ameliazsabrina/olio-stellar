@@ -109,6 +109,12 @@ export function StrandedFundsRecovery({
 
   useEffect(() => {
     void load();
+    const interval = window.setInterval(() => void load(), 5000);
+    window.addEventListener("olio:ramp-session", load);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("olio:ramp-session", load);
+    };
   }, [load]);
 
   useEffect(() => {
@@ -180,17 +186,14 @@ export function StrandedFundsRecovery({
             <p className="type-caption uppercase text-warning-text/65">
               Recovery needed
             </p>
-            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-white tabular-nums">
+            <p className="mt-2 font-mono text-3xl font-semibold tracking-tight text-brand-linen tabular-nums">
               {formatUsd(total)}
             </p>
-            {/* <p className="mt-1 text-sm font-medium text-amber-50/65 max-w-[15ch]">
-              USDC from an interrupted cash-out
-            </p> */}
           </div>
 
           <RecoverySketch />
 
-          <p className="relative z-10 max-w-[20ch] text-sm leading-5 text-white/65">
+          <p className="relative z-10 max-w-[20ch] text-sm leading-5 text-brand-linen/65">
             The payout didn&apos;t finish, but your funds are safe on a recovery
             account.
           </p>
@@ -198,7 +201,7 @@ export function StrandedFundsRecovery({
           <Button
             type="button"
             variant="glass"
-            className="relative z-10 w-full bg-warning-surface text-white ring-warning-border hover:bg-warning-surface/80"
+            className="relative z-10 w-full bg-warning-surface text-brand-linen ring-warning-border hover:bg-warning-surface/80"
             onClick={() => setOpen(true)}
           >
             Recover funds
@@ -219,10 +222,10 @@ export function StrandedFundsRecovery({
                 <CheckCircle2 className="size-7" aria-hidden="true" />
               </span>
               <div>
-                <DialogTitle className="text-xl text-white">
+                <DialogTitle className="text-xl text-brand-linen">
                   Funds recovered
                 </DialogTitle>
-                <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-white/65">
+                <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-brand-linen/65">
                   {formatUsd(success.amount)} USDC is ready to claim in{" "}
                   {shortKey(success.destination)}.
                 </DialogDescription>
@@ -231,7 +234,7 @@ export function StrandedFundsRecovery({
                 type="button"
                 variant="glass"
                 size="lg"
-                className="w-full bg-white/18 ring-white/30"
+                className="w-full bg-brand-linen/18 ring-brand-linen/30"
                 onClick={() => {
                   if (rows.length > 0) {
                     setSuccess(null);
@@ -246,23 +249,23 @@ export function StrandedFundsRecovery({
           ) : (
             <>
               <DialogHeader className="pr-8">
-                <DialogTitle className="text-xl text-white">
+                <DialogTitle className="text-xl text-brand-linen">
                   Recover your funds
                 </DialogTitle>
-                <DialogDescription className="leading-5 text-white/65">
+                <DialogDescription className="leading-5 text-brand-linen/65">
                   Move the USDC from an interrupted cash-out to a Stellar wallet
                   you control.
                 </DialogDescription>
               </DialogHeader>
 
               <div className={`${glassInsetClass} rounded-xl p-4`}>
-                <p className="text-xs font-medium tracking-wide text-white/65 uppercase">
+                <p className="text-xs font-medium tracking-wide text-brand-linen/65 uppercase">
                   Recoverable
                 </p>
-                <p className="mt-1 font-mono text-3xl font-semibold text-white tabular-nums">
+                <p className="mt-1 font-mono text-3xl font-semibold text-brand-linen tabular-nums">
                   {total === null ? "…" : formatUsd(total)}
                 </p>
-                <p className="mt-1 text-xs text-white/65">
+                <p className="mt-1 text-xs text-brand-linen/65">
                   {rows.length} interrupted payout
                   {rows.length === 1 ? "" : "s"}
                 </p>
@@ -270,13 +273,13 @@ export function StrandedFundsRecovery({
 
               <div className="grid gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm text-white">
+                  <Label className="text-sm text-brand-linen">
                     Destination wallet
                   </Label>
                   {!editingDestination && hasDefaultDestination ? (
                     <button
                       type="button"
-                      className="text-xs font-semibold text-white/65 underline-offset-4 hover:text-white hover:underline"
+                      className="text-xs font-semibold text-brand-linen/65 underline-offset-4 hover:text-brand-linen hover:underline"
                       onClick={() => setEditingDestination(true)}
                     >
                       Use another address
@@ -288,14 +291,14 @@ export function StrandedFundsRecovery({
                   <div
                     className={`${glassInsetClass} flex items-center gap-3 p-3`}
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen">
                       <Wallet className="size-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">
+                      <p className="text-sm font-semibold text-brand-linen">
                         Current wallet
                       </p>
-                      <p className="truncate font-mono text-xs text-white/65">
+                      <p className="truncate font-mono text-xs text-brand-linen/65">
                         {shortKey(destination)}
                       </p>
                     </div>
@@ -319,7 +322,7 @@ export function StrandedFundsRecovery({
                     {hasDefaultDestination ? (
                       <button
                         type="button"
-                        className="w-fit text-xs font-semibold text-white/65 underline-offset-4 hover:text-white hover:underline"
+                        className="w-fit text-xs font-semibold text-brand-linen/65 underline-offset-4 hover:text-brand-linen hover:underline"
                         onClick={() => {
                           setValue("destination", defaultDestination, {
                             shouldValidate: true,
@@ -345,14 +348,14 @@ export function StrandedFundsRecovery({
                   return (
                     <li
                       key={row.ref}
-                      className="grid gap-3 rounded-xl border border-white/12 bg-white/5 p-3"
+                      className="grid gap-3 rounded-xl border border-brand-linen/12 bg-brand-linen/5 p-3"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs text-white/65">
+                          <p className="text-xs text-brand-linen/65">
                             Cash-out amount
                           </p>
-                          <p className="flex items-center gap-2 font-mono text-base font-semibold text-white tabular-nums">
+                          <p className="flex items-center gap-2 font-mono text-base font-semibold text-brand-linen tabular-nums">
                             {amount === null && (
                               <Loader
                                 className="size-4 motion-safe:animate-spin"
@@ -362,13 +365,13 @@ export function StrandedFundsRecovery({
                             {amount ?? "Checking…"}
                           </p>
                         </div>
-                        <span className="text-xs text-white/65">
+                        <span className="text-xs text-brand-linen/65">
                           {empty ? "No funds found" : "Ready to recover"}
                         </span>
                       </div>
 
                       {row.destination ? (
-                        <p className="text-xs text-white/65">
+                        <p className="text-xs text-brand-linen/65">
                           Originally headed to {shortKey(row.destination)}
                         </p>
                       ) : null}
@@ -384,7 +387,7 @@ export function StrandedFundsRecovery({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="w-full text-white/65 hover:bg-white/8 hover:text-white"
+                          className="w-full text-brand-linen/65 hover:bg-brand-linen/8 hover:text-brand-linen"
                           onClick={() => dismiss(row)}
                         >
                           Remove recovered record
@@ -394,7 +397,7 @@ export function StrandedFundsRecovery({
                           type="button"
                           variant="glass"
                           size="lg"
-                          className="w-full bg-white/18 ring-white/30"
+                          className="w-full bg-brand-linen/18 ring-brand-linen/30"
                           disabled={isPending || row.balance === null}
                           onClick={handleSubmit((data) =>
                             reclaim(row, data.destination),
@@ -414,8 +417,8 @@ export function StrandedFundsRecovery({
                         </Button>
                       )}
 
-                      <details className="group text-xs text-white/65">
-                        <summary className="cursor-pointer font-medium text-white/70 hover:text-white/85">
+                      <details className="group text-xs text-brand-linen/65">
+                        <summary className="cursor-pointer font-medium text-brand-linen/70 hover:text-brand-linen/85">
                           Technical details
                         </summary>
                         <p className="mt-2 break-all font-mono">
@@ -428,9 +431,9 @@ export function StrandedFundsRecovery({
               </ul>
 
               <details
-                className={`${glassInsetClass} px-3 py-2.5 text-xs text-white/65`}
+                className={`${glassInsetClass} px-3 py-2.5 text-xs text-brand-linen/65`}
               >
-                <summary className="cursor-pointer font-semibold text-white/70">
+                <summary className="cursor-pointer font-semibold text-brand-linen/70">
                   How recovery works
                 </summary>
                 <p className="mt-2 leading-5">
@@ -450,7 +453,7 @@ export function StrandedFundsRecovery({
 function RecoverySketch() {
   return (
     <svg
-      className="pointer-events-none absolute -right-2 top-7 h-32 w-40 overflow-visible text-amber-50/75 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:-rotate-2 motion-safe:group-hover/recovery:scale-[1.035]"
+      className="pointer-events-none absolute -right-2 top-7 h-32 w-40 overflow-visible text-brand-linen/75 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:-rotate-2 motion-safe:group-hover/recovery:scale-[1.035]"
       viewBox="0 0 190 150"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -458,7 +461,7 @@ function RecoverySketch() {
     >
       <path
         d="M24 111C50 88 78 81 107 87C132 92 151 103 170 124"
-        className="stroke-amber-200/45 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-1"
+        className="stroke-brand-linen/45 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-1"
         strokeDasharray="6 9"
         strokeLinecap="round"
         strokeWidth="1.7"
@@ -474,27 +477,27 @@ function RecoverySketch() {
           width="76"
           height="82"
           rx="12"
-          className="fill-amber-100/5"
+          className="fill-brand-linen/5"
           strokeWidth="2"
           transform="rotate(-6 73 76)"
         />
         <path
           d="M54 58L91 54M53 75L96 71M52 92L80 89"
-          className="stroke-amber-50/45"
+          className="stroke-brand-linen/45"
           strokeWidth="1.6"
           transform="rotate(-6 73 76)"
         />
       </g>
       <path
         d="M107 70H126M120 62L128 70L120 78"
-        className="stroke-amber-200/65 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-2"
+        className="stroke-brand-linen/65 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-2"
         strokeDasharray="3 5"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
       />
       <g
-        className="stroke-amber-100 transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-2"
+        className="stroke-brand-linen transition-transform duration-500 ease-out motion-safe:group-hover/recovery:translate-x-1 motion-safe:group-hover/recovery:-translate-y-2"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -506,7 +509,7 @@ function RecoverySketch() {
           width="54"
           height="42"
           rx="10"
-          className="fill-amber-100/5"
+          className="fill-brand-linen/5"
         />
         <circle cx="154" cy="85" r="3" />
         <path d="M154 88V96" />
@@ -515,7 +518,7 @@ function RecoverySketch() {
         cx="27"
         cy="60"
         r="8"
-        className="stroke-amber-100/35"
+        className="stroke-brand-linen/35"
         strokeWidth="1.4"
       />
     </svg>

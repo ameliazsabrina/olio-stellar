@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import { glassInsetClass } from "../../../components/ui/glass";
+import { glassSegmentedClass } from "../../../components/ui/glass";
 import { Input } from "../../../components/ui/input";
 import { ToastFeedback } from "../../../components/ui/toast-feedback";
 import type { CctpChain } from "../../../features/cctpPayer/hooks/useCctpDeposit";
@@ -146,26 +146,28 @@ export function PayForm({
   return (
     <Card appearance="glass" density="spacious" className="gap-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="type-product-panel-title text-white">
+        <h2 className="type-product-panel-title text-brand-linen">
           {lockedAmount ? "Requested amount" : "Amount"}
         </h2>
         {link?.label ? (
-          <span className="truncate text-sm text-white/60">{link.label}</span>
+          <span className="truncate text-sm text-brand-linen/60">
+            {link.label}
+          </span>
         ) : null}
       </div>
 
       {cctpEnabled && (
-        <div className={cn(glassInsetClass, "grid grid-cols-2 gap-1 p-1")}>
+        <div className={cn(glassSegmentedClass, "grid grid-cols-2 gap-1 p-1")}>
           <button
             type="button"
             onClick={() => {
               setStatus(null);
               setMethod("stellar");
             }}
-            className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
+            className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand-linen/70 ${
               method === "stellar"
-                ? "bg-white/15 text-white ring-1 ring-white/20"
-                : "text-white/55 hover:bg-white/8 hover:text-white"
+                ? "bg-brand-linen/15 text-brand-linen ring-1 ring-brand-linen/20"
+                : "text-brand-linen/55 hover:bg-brand-linen/8 hover:text-brand-linen"
             }`}
           >
             <Image
@@ -180,10 +182,10 @@ export function PayForm({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={`group flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/70 ${
+              className={`group flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand-linen/70 ${
                 method === "cctp"
-                  ? "bg-white/15 text-white ring-1 ring-white/20"
-                  : "text-white/55 hover:bg-white/8 hover:text-white"
+                  ? "bg-brand-linen/15 text-brand-linen ring-1 ring-brand-linen/20"
+                  : "text-brand-linen/55 hover:bg-brand-linen/8 hover:text-brand-linen"
               }`}
               aria-label="Select another chain"
             >
@@ -200,7 +202,7 @@ export function PayForm({
               className="p-2"
             >
               <DropdownMenuItem
-                className="min-h-12 cursor-pointer gap-3 px-3 text-white focus:bg-white/14 focus:text-white"
+                className="min-h-12 cursor-pointer gap-3 px-3 text-brand-linen focus:bg-brand-linen/14 focus:text-brand-linen"
                 onClick={() => {
                   setStatus(null);
                   setCctpChain("solana");
@@ -218,7 +220,7 @@ export function PayForm({
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled
-                className="min-h-12 gap-3 px-3 text-white/60 opacity-100 data-disabled:opacity-100"
+                className="min-h-12 gap-3 px-3 text-brand-linen/60 opacity-100 data-disabled:opacity-100"
               >
                 <Image
                   src="/assets/eth.png"
@@ -229,7 +231,7 @@ export function PayForm({
                 />
                 <span className="grid gap-0.5">
                   <span>EVM Chains</span>
-                  <span className="text-xs font-normal text-white/45">
+                  <span className="text-xs font-normal text-brand-linen/45">
                     (under development)
                   </span>
                 </span>
@@ -248,7 +250,10 @@ export function PayForm({
         />
       ) : (
         <form className="grid gap-2" onSubmit={onSubmit}>
-          <label className="text-sm font-semibold text-white" htmlFor="amount">
+          <label
+            className="text-sm font-semibold text-brand-linen"
+            htmlFor="amount"
+          >
             USDC
           </label>
           <div className="flex flex-wrap items-center gap-3">
@@ -295,7 +300,7 @@ export function PayForm({
               </Button>
             )}
           </div>
-          <span className="text-xs text-white/55">
+          <span className="text-xs text-brand-linen/55">
             {address
               ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)} — gasless, you only need USDC.`
               : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}

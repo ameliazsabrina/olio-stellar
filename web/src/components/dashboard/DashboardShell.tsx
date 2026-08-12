@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  ArrowDownToLine,
-  ChevronDown,
-  ChevronLeft,
-  History,
-  LayoutDashboard,
-  Link2,
-  LogOut,
-  Menu,
-  Settings,
-} from "lucide-react";
+import { ChevronLeft, LogOut, Moon, Palette } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,29 +12,21 @@ import {
   WITHDRAW_PATH,
 } from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { glassButtonClass } from "../ui/glass";
 import { useWallet } from "../WalletProvider";
+import { useDashboardTheme } from "./DashboardBackground";
 
-const DASHBOARD_ACTIONS = [
-  { label: "Overview", icon: LayoutDashboard, href: DASHBOARD_PATH },
-  { label: "Links", icon: Link2, href: LINKS_PATH },
-  {
-    label: "Cash out",
-    icon: ArrowDownToLine,
-    href: WITHDRAW_PATH,
-  },
-  { label: "History", icon: History, href: HISTORY_PATH },
-] as const;
+const PAGE_LABELS: Record<string, string> = {
+  [DASHBOARD_PATH]: "Overview",
+  [LINKS_PATH]: "Links",
+  [WITHDRAW_PATH]: "Cash out",
+  [HISTORY_PATH]: "History",
+};
 
 export function DashboardShell({
   children,
@@ -56,11 +38,11 @@ export function DashboardShell({
   navigation?: boolean;
 }) {
   return (
-    <div className="relative min-h-svh overflow-x-clip text-white">
+    <div className="relative min-h-svh overflow-x-clip text-brand-linen">
       <main
         id="main-content"
         className={cn(
-          "relative isolate mx-auto w-full max-w-7xl px-(--dashboard-gutter) py-7 sm:py-9 lg:py-10",
+          "relative isolate mx-auto w-full max-w-7xl px-(--dashboard-gutter) py-5 sm:py-6 lg:py-7",
           contentClassName,
         )}
       >
@@ -74,161 +56,107 @@ export function DashboardShell({
 function DashboardNavigation() {
   const pathname = usePathname();
   const { username, disconnect } = useWallet();
-  const showBack = pathname !== DASHBOARD_PATH;
+  const { theme, toggleTheme } = useDashboardTheme();
+  const currentLabel = PAGE_LABELS[pathname] ?? "Overview";
+  const isOverview = pathname === DASHBOARD_PATH;
+  const identity = username ? `@${username}` : "Account";
 
   return (
-    <header className="mb-7 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 pt-4 sm:mb-9 sm:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-5">
-      <div className="min-h-11">
-        {showBack ? (
-          <Button
-            type="button"
-            variant="glass"
-            size="icon"
-            className="size-11"
-            onClick={() => window.history.back()}
-            aria-label="Go back"
-            title="Go back"
+    <header className="sticky top-4 z-50 mb-12 flex items-center justify-between gap-4 sm:top-5 lg:mb-20">
+      <div className="flex min-w-0 items-center gap-3">
+        {isOverview ? (
+          <Link
+            href="/"
+            aria-label="Olio home"
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
           >
-            <ChevronLeft className="size-5" aria-hidden="true" />
-          </Button>
-        ) : (
-          <Link href="/" aria-label="Olio home" className="block size-14">
             <Image
               src="/assets/olio-white.svg"
               alt=""
-              width={48}
-              height={48}
-              className="size-14"
+              width={72}
+              height={72}
+              className="size-16 sm:size-[4.5rem]"
             />
           </Link>
+        ) : (
+          <Link
+            href={DASHBOARD_PATH}
+            className="flex size-11 items-center justify-center rounded-full bg-brand-linen/12 text-brand-linen ring-1 ring-brand-linen/20 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
+            aria-label="Back to dashboard"
+            title="Back to dashboard"
+          >
+            <ChevronLeft className="size-5" aria-hidden="true" />
+          </Link>
         )}
+        {!isOverview ? (
+          <span
+            className="truncate font-heading text-lg font-semibold text-brand-linen"
+            aria-current="page"
+          >
+            {currentLabel}
+          </span>
+        ) : null}
       </div>
 
-      <nav
-        aria-label="Dashboard navigation"
-        className="justify-self-end sm:hidden"
-      >
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={theme === "painting"}
+          aria-label={
+            theme === "painting"
+              ? "Use dark dashboard theme"
+              : "Use painting dashboard theme"
+          }
+          title={theme === "painting" ? "Use dark theme" : "Use painting"}
+          onClick={toggleTheme}
+          className="relative flex h-11 w-[4.25rem] items-center rounded-full bg-brand-linen/16 p-1 text-brand-linen ring-1 ring-brand-linen/25 backdrop-blur-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
+        >
+          <span
+            className={`flex size-9 items-center justify-center rounded-full bg-brand-linen text-brand-obsidian transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+              theme === "painting" ? "translate-x-6" : "translate-x-0"
+            }`}
+          >
+            {theme === "painting" ? (
+              <Palette className="size-4" aria-hidden="true" />
+            ) : (
+              <Moon className="size-4" aria-hidden="true" />
+            )}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          disabled
+          className="hidden min-h-11 cursor-not-allowed rounded-full bg-brand-linen/16 px-5 text-sm font-medium text-brand-linen/70 ring-1 ring-brand-linen/20 backdrop-blur-md sm:block"
+          title="Settings coming soon"
+        >
+          Settings
+        </button>
+
         <DropdownMenu>
           <DropdownMenuTrigger
-            id="dashboard-nav-menu-trigger"
-            className={cn(
-              glassButtonClass,
-              "flex size-11 items-center justify-center transition-colors focus-visible:ring-2",
-            )}
-            aria-label="Open dashboard navigation"
+            id="dashboard-account-menu-trigger"
+            className="flex size-11 items-center justify-center rounded-full bg-brand-linen/20 text-sm font-semibold uppercase text-brand-linen ring-1 ring-brand-linen/25 backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
+            aria-label={`${identity} account menu`}
           >
-            <Menu className="size-5" aria-hidden="true" />
+            {username?.slice(0, 1) || "O"}
           </DropdownMenuTrigger>
           <DropdownMenuContent
             appearance="glass"
             align="end"
             sideOffset={8}
-            className="min-w-52"
+            className="min-w-48"
           >
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="flex items-center gap-2 px-2 py-2 text-white">
-                <span className="flex size-7 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase">
-                  {username?.slice(0, 1) || "O"}
-                </span>
-                <span className="max-w-36 truncate">
-                  {username ? `@${username}` : "Account"}
-                </span>
-              </DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            {DASHBOARD_ACTIONS.map(({ label, icon: Icon, href }) => {
-              const current = pathname === href;
-              return (
-                <DropdownMenuItem
-                  key={href}
-                  render={<Link href={href} />}
-                  aria-current={current ? "page" : undefined}
-                  className={cn(
-                    "min-h-11",
-                    current && "bg-white/15 text-white",
-                  )}
-                  onClick={(event) => {
-                    if (!current) return;
-                    event.preventDefault();
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                >
-                  <Icon aria-hidden="true" />
-                  {label}
-                </DropdownMenuItem>
-              );
-            })}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
-              <Settings aria-hidden="true" /> Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={disconnect}>
+            <DropdownMenuItem
+              className="cursor-pointer bg-brand-linen/10 !text-brand-linen focus:bg-brand-linen/18 focus:!text-brand-linen [&_svg]:!text-brand-linen"
+              onClick={disconnect}
+            >
               <LogOut aria-hidden="true" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </nav>
-
-      <nav
-        aria-label="Dashboard navigation"
-        className="order-3 col-span-full hidden grid-cols-4 gap-2 sm:col-start-1 sm:grid lg:order-none lg:col-span-1 lg:col-start-2"
-      >
-        {DASHBOARD_ACTIONS.map(({ label, icon: Icon, href }) => {
-          const current = pathname === href;
-          return (
-            <Button
-              key={href}
-              nativeButton={false}
-              render={<Link href={href} />}
-              variant="glass"
-              onClick={(event) => {
-                if (!current) return;
-                event.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              aria-current={current ? "page" : undefined}
-              className={cn(
-                "min-h-11 justify-center gap-2 px-3 text-sm whitespace-nowrap",
-                current && "bg-white/25 ring-white/50 hover:bg-white/25",
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span>{label}</span>
-            </Button>
-          );
-        })}
-      </nav>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          id="dashboard-account-menu-trigger"
-          className={cn(
-            glassButtonClass,
-            "hidden min-h-11 items-center justify-self-end gap-2 px-3 text-sm font-semibold transition-colors focus-visible:ring-2 sm:col-start-3 sm:flex lg:col-start-3",
-          )}
-        >
-          <span className="flex size-7 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase text-white">
-            {username?.slice(0, 1) || "O"}
-          </span>
-          <span className="max-w-32 truncate">
-            {username ? `@${username}` : "Account"}
-          </span>
-          <ChevronDown className="size-4" aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          appearance="glass"
-          align="end"
-          sideOffset={8}
-          className="min-w-48"
-        >
-          {/* <DropdownMenuItem render={<Link href="/dashboard#settings" />}>
-            <Settings aria-hidden="true" /> Settings
-          </DropdownMenuItem> */}
-          <DropdownMenuItem variant="destructive" onClick={disconnect}>
-            <LogOut aria-hidden="true" /> Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </div>
     </header>
   );
 }

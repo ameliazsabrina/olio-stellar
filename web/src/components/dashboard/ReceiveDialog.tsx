@@ -1,14 +1,24 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, AtSign, Check, Copy, Link2, Loader } from "lucide-react";
+import {
+  ArrowLeft,
+  AtSign,
+  Banknote,
+  Check,
+  Copy,
+  Link2,
+  Loader,
+} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { useCreatePaymentLink } from "../../features/paymentLinks/hooks/useCreatePaymentLink";
 import type { PaymentLink } from "../../features/paymentLinks/types";
+import { moneyGramCashInEnabled } from "../../lib/moneygram-status";
 import { payUrl } from "../../lib/paymentLinks";
+import { cn } from "../../lib/utils";
 import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
@@ -16,7 +26,13 @@ import { glassFieldClass, glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { ToastFeedback } from "../ui/toast-feedback";
 
-type Step = "method" | "configure" | "creating" | "done";
+const MoneyGramDepositContent = lazy(() =>
+  import("./MoneyGramDepositContent").then((module) => ({
+    default: module.MoneyGramDepositContent,
+  })),
+);
+
+type Step = "method" | "configure" | "creating" | "done" | "moneygram";
 type CreateLinkFormInput = z.input<typeof createLinkFormInput>;
 type CreateLinkFormOutput = z.output<typeof createLinkFormInput>;
 
@@ -121,25 +137,27 @@ export function ReceiveDialog({
         className="w-[calc(100%-2rem)] min-w-0 sm:w-full"
       >
         <DialogTitle className="flex items-center gap-2">
-          {step === "configure" && (
+          {(step === "configure" || step === "moneygram") && (
             <button
               type="button"
               onClick={() => {
                 setSubmitError(null);
                 setStep("method");
               }}
-              className="text-muted-text hover:text-ink"
+              className="rounded-full p-1 text-brand-linen/65 transition-colors hover:bg-brand-linen/10 hover:text-brand-linen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70"
               aria-label="Back"
             >
               <ArrowLeft className="size-4" />
             </button>
           )}
-          Receive privately
+          {step === "moneygram"
+            ? "Add cash with MoneyGram"
+            : "Receive privately"}
         </DialogTitle>
 
         {step === "method" && (
           <div className="grid gap-3">
-            <p className="text-sm text-muted-text">
+            <p className="text-sm text-brand-linen/65">
               How do you want to get paid?
             </p>
             <button
@@ -148,38 +166,88 @@ export function ReceiveDialog({
                 setSubmitError(null);
                 setStep("configure");
               }}
-              className={`${glassInsetClass} flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70`}
+              className={cn(
+                glassInsetClass,
+                "flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-brand-linen/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70",
+              )}
             >
-              <Link2 className="size-5 text-olive" aria-hidden="true" />
+              <Link2
+                className="size-5 text-brand-linen/70"
+                aria-hidden="true"
+              />
               <div>
-                <div className="text-sm font-medium text-ink">
+                <div className="text-sm font-medium text-brand-linen">
                   Create a link or QR
                 </div>
-                <div className="text-xs text-muted-text">
+                <div className="text-xs text-brand-linen/60">
                   Share a link, with an amount, or open-ended
                 </div>
               </div>
             </button>
+            {moneyGramCashInEnabled ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitError(null);
+                  setStep("moneygram");
+                }}
+                className={cn(
+                  glassInsetClass,
+                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-brand-linen/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70",
+                )}
+              >
+                <Banknote
+                  className="size-5 text-brand-linen/70"
+                  aria-hidden="true"
+                />
+                <div>
+                  <div className="text-sm font-medium text-brand-linen">
+                    Add cash with MoneyGram
+                  </div>
+                  <div className="text-xs text-brand-linen/60">
+                    Sandbox certification flow
+                  </div>
+                </div>
+              </button>
+            ) : null}
             <button
               type="button"
               disabled
-              className={`${glassInsetClass} flex items-center gap-3 px-4 py-3 text-left opacity-60`}
+              className={cn(
+                glassInsetClass,
+                "flex cursor-not-allowed items-center gap-3 rounded-2xl px-4 py-3 text-left text-brand-linen/45",
+              )}
             >
-              <AtSign className="size-5 text-muted-text" aria-hidden="true" />
+              <AtSign className="size-5" aria-hidden="true" />
               <div>
-                <div className="text-sm font-medium text-ink">
+                <div className="text-sm font-medium">
                   Request from a username
                 </div>
-                <div className="text-xs text-muted-text">Coming soon</div>
+                <div className="text-xs">Coming soon</div>
               </div>
             </button>
           </div>
         )}
 
+        {step === "moneygram" && (
+          <Suspense
+            fallback={
+              <div className="py-8 text-center text-sm text-brand-linen/65">
+                Loading MoneyGram…
+              </div>
+            }
+          >
+            <MoneyGramDepositContent onBack={() => setStep("method")} />
+          </Suspense>
+        )}
+
         {step === "configure" && (
           <form className="grid gap-3" onSubmit={create}>
             <input type="hidden" {...register("username")} />
-            <label htmlFor="receive-slug" className="text-sm text-ink">
+            <label
+              htmlFor="receive-slug"
+              className="text-sm text-brand-linen/70"
+            >
               Link name
             </label>
             <Input
@@ -191,8 +259,12 @@ export function ReceiveDialog({
               {...register("slug")}
             />
 
-            <label htmlFor="receive-amount" className="text-sm text-ink">
-              Amount (USDC) <span className="text-muted-text">— optional</span>
+            <label
+              htmlFor="receive-amount"
+              className="text-sm text-brand-linen/70"
+            >
+              Amount (USDC){" "}
+              <span className="text-brand-linen/60">— optional</span>
             </label>
             <Input
               appearance="glass"
@@ -204,12 +276,19 @@ export function ReceiveDialog({
               {...register("amount")}
             />
 
-            <label htmlFor="receive-description" className="text-sm text-ink">
-              Description <span className="text-muted-text">— optional</span>
+            <label
+              htmlFor="receive-description"
+              className="text-sm text-brand-linen/70"
+            >
+              Description{" "}
+              <span className="text-brand-linen/60">— optional</span>
             </label>
             <textarea
               id="receive-description"
-              className={`${glassFieldClass} min-h-24 rounded-lg border px-3 py-3 text-sm outline-none focus-visible:ring-2`}
+              className={cn(
+                glassFieldClass,
+                "min-h-24 rounded-xl border px-3 py-3 text-sm outline-none focus-visible:ring-2",
+              )}
               placeholder="What's it for? (e.g. Invoice #12)"
               autoComplete="off"
               maxLength={500}
@@ -253,24 +332,26 @@ export function ReceiveDialog({
         {step === "creating" && (
           <div className="flex items-center justify-center gap-3 py-8 text-center">
             <Loader
-              className="size-8 motion-safe:animate-spin text-olive"
+              className="size-8 text-brand-linen/70 motion-safe:animate-spin"
               aria-hidden="true"
             />
-            <div className="text-sm font-medium text-ink">Creating link…</div>
+            <div className="text-sm font-medium text-brand-linen">
+              Creating link…
+            </div>
           </div>
         )}
 
         {step === "done" && link && (
           <div className="grid min-w-0 max-w-full gap-3 overflow-hidden">
-            <div className="text-sm text-muted-text">
+            <div className="text-sm text-brand-linen/65">
               {link.amount
                 ? "Share this link to get paid the exact amount."
                 : "Share this link — the payer chooses the amount."}
               {link.description ? ` · ${link.description}` : ""}
             </div>
 
-            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-lg border border-line bg-sage/40 px-3 py-2.5">
-              <div className="min-w-0 flex-1 truncate font-mono text-sm text-ink">
+            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-xl border border-brand-linen/15 bg-brand-linen/8 px-3 py-2.5">
+              <div className="min-w-0 flex-1 truncate font-mono text-sm text-brand-linen">
                 {url.replace(/^https?:\/\//, "")}
               </div>
               <Button
@@ -281,19 +362,22 @@ export function ReceiveDialog({
                 title="Copy link"
               >
                 {copied ? (
-                  <Check className="size-4 text-ok" aria-hidden="true" />
+                  <Check
+                    className="size-4 text-brand-linen"
+                    aria-hidden="true"
+                  />
                 ) : (
                   <Copy className="size-4" aria-hidden="true" />
                 )}
               </Button>
             </div>
 
-            <div className="flex max-w-full justify-center overflow-hidden rounded-lg border border-line bg-white p-4">
+            <div className="flex max-w-full justify-center overflow-hidden rounded-xl border border-brand-linen/20 bg-brand-linen p-4">
               <QRCodeSVG
                 value={url}
                 size={168}
-                fgColor="#20261a"
-                bgColor="#ffffff"
+                fgColor="#1A1F12"
+                bgColor="#F5F3EA"
                 className="h-auto max-w-full"
               />
             </div>

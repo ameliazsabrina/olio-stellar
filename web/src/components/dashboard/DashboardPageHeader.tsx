@@ -21,8 +21,8 @@ export function DashboardPageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="type-product-page-title text-white">{title}</h1>
-        <p className="type-supporting mt-2 max-w-2xl text-white/70 sm:text-base">
+        <h1 className="type-product-page-title text-brand-linen">{title}</h1>
+        <p className="type-supporting mt-2 max-w-2xl text-brand-linen/70 sm:text-base">
           {description}
         </p>
       </div>

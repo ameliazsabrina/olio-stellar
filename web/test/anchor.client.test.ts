@@ -171,3 +171,146 @@ it("does not return a non-matching status when polling times out", async () => {
     ),
   ).rejects.toBeInstanceOf(Sep24PollTimeoutError);
 });
+
+it("posts the SEP-24 deposit payload and parses its interactive response", async () => {
+  vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", Networks.TESTNET);
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      id: "deposit-15",
+      url: "https://anchor.example/deposit/15",
+    }),
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("window", { location: { origin: "https://olio.example" } });
+  const { startInteractiveDeposit } = await import("../src/lib/anchor");
+  const info = {
+    homeDomain: "anchor.example",
+    webAuthEndpoint: "https://anchor.example/auth",
+    transferServer: "https://anchor.example/sep24",
+    signingKey: Keypair.random().publicKey(),
+  };
+
+  await expect(
+    startInteractiveDeposit(info, "token", "GDESTINATION", "15"),
+  ).resolves.toEqual({
+    id: "deposit-15",
+    url: "https://anchor.example/deposit/15",
+  });
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://anchor.example/sep24/transactions/deposit/interactive",
+    expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ Authorization: "Bearer token" }),
+      body: JSON.stringify({
+        asset_code: "USDC",
+        account: "GDESTINATION",
+        amount: "15",
+        lang: "en",
+        wallet_name: "Olio",
+        wallet_url: "https://olio.example",
+      }),
+    }),
+  );
+});
+
+it("treats refunded as a successful poll outcome and retains refund details", async () => {
+  vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", Networks.TESTNET);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        transaction: {
+          id: "refund-1",
+          kind: "withdrawal",
+          status: "refunded",
+          refunds: {
+            amount_refunded: "15",
+            payments: [{ id: "repayment-1", amount: "15" }],
+          },
+        },
+      }),
+    }),
+  );
+  const { pollSep24Until } = await import("../src/lib/anchor");
+  const tx = await pollSep24Until(
+    {
+      homeDomain: "anchor.example",
+      webAuthEndpoint: "https://anchor.example/auth",
+      transferServer: "https://anchor.example/sep24",
+      signingKey: Keypair.random().publicKey(),
+    },
+    "token",
+    "refund-1",
+    (value) => value.status === "refunded",
+    { timeoutMs: 0 },
+  );
+  expect(tx.refunds?.payments?.[0]?.id).toBe("repayment-1");
+});
+
+it("accepts COMMIT_RESULT only from the anchor origin for the expected transaction", async () => {
+  const { isTrustedCommitResult } = await import("../src/lib/anchor");
+  const info = {
+    homeDomain: "anchor.example",
+    webAuthEndpoint: "https://anchor.example/auth",
+    transferServer: "https://anchor.example/sep24",
+    signingKey: Keypair.random().publicKey(),
+  };
+  const data = {
+    type: "COMMIT_RESULT",
+    payload: {
+      transaction: { id: "deposit-1", status: "pending_user_transfer_start" },
+    },
+  };
+  expect(
+    isTrustedCommitResult(
+      { origin: "https://anchor.example", data } as MessageEvent,
+      info,
+      "deposit-1",
+    ),
+  ).toBe(true);
+  expect(
+    isTrustedCommitResult(
+      { origin: "https://evil.example", data } as MessageEvent,
+      info,
+      "deposit-1",
+    ),
+  ).toBe(false);
+  expect(
+    isTrustedCommitResult(
+      { origin: "https://anchor.example", data } as MessageEvent,
+      info,
+      "other",
+    ),
+  ).toBe(false);
+});
+
+it("rejects SEP-1 metadata whose endpoints point at another domain", async () => {
+  vi.spyOn(StellarToml.Resolver, "resolve").mockResolvedValue({
+    NETWORK_PASSPHRASE: Networks.TESTNET,
+    SIGNING_KEY: Keypair.random().publicKey(),
+    WEB_AUTH_ENDPOINT: "https://evil.example/auth",
+    TRANSFER_SERVER_SEP0024: "https://anchor.example/sep24",
+    CURRENCIES: [{ code: "USDC", issuer: "issuer", status: "test" }],
+  });
+  vi.stubEnv("NEXT_PUBLIC_USDC_ISSUER", "issuer");
+  const { fetchAnchorInfo } = await import("../src/lib/anchor");
+  await expect(fetchAnchorInfo("https://anchor.example")).rejects.toThrow(
+    "mismatched domain",
+  );
+});
+
+it("fails preflight when the client domain has no signing key", async () => {
+  vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", Networks.TESTNET);
+  vi.stubEnv("NEXT_PUBLIC_SEP24_ANCHOR_URL", "https://anchor.example");
+  vi.stubEnv("NEXT_PUBLIC_SEP10_CLIENT_DOMAIN", "olio.example");
+  vi.stubEnv("NEXT_PUBLIC_USDC_ISSUER", "issuer");
+  vi.spyOn(StellarToml.Resolver, "resolve").mockResolvedValue({
+    NETWORK_PASSPHRASE: Networks.TESTNET,
+  });
+  const { validateAnchorPreflight } = await import("../src/lib/anchor");
+  await expect(validateAnchorPreflight()).rejects.toThrow(
+    "client domain does not advertise a signing key",
+  );
+});
