@@ -4,8 +4,8 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
-import { useRef, useState } from "react";
-import { StellarWalletModal } from "./StellarWalletModal";
+import { useRef } from "react";
+import { useWallet } from "../WalletProvider";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -18,7 +18,7 @@ const MENU = [
 
 export function Hero() {
   const rootRef = useRef<HTMLElement | null>(null);
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const { signIn } = useWallet();
 
   useGSAP(
     () => {
@@ -207,7 +207,9 @@ export function Hero() {
             <button
               type="button"
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ed-cream bg-ed-cream px-3 text-center text-sm font-semibold tracking-[0.02em] text-[#1a1f12] transition-opacity hover:opacity-85 sm:px-5"
-              onClick={() => setWalletModalOpen(true)}
+              onClick={() => {
+                signIn();
+              }}
             >
               Try Now
             </button>
@@ -236,10 +238,6 @@ export function Hero() {
           </ul>
         </div>
       </div>
-      <StellarWalletModal
-        open={walletModalOpen}
-        onClose={() => setWalletModalOpen(false)}
-      />
     </section>
   );
 }

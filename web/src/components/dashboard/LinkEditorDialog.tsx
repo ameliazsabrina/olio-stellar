@@ -11,7 +11,13 @@ import { fromBaseUnits } from "../../lib/crypto";
 import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
 import { api } from "../../trpc/client";
 import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { glassFieldClass, glassSegmentedClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -134,9 +140,16 @@ export function LinkEditorDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent appearance="glass" size="md">
-        <DialogTitle className="text-lg font-semibold">
-          {mode === "create" ? "Create Link" : "Edit Link"}
-        </DialogTitle>
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "create" ? "Create link" : "Edit link"}
+          </DialogTitle>
+          <DialogDescription>
+            {mode === "create"
+              ? "Set what the payment is for and whether the amount is fixed."
+              : "Update the payment details people see when they open this link."}
+          </DialogDescription>
+        </DialogHeader>
         <form className="grid gap-4" onSubmit={submit}>
           <input type="hidden" {...register("username")} />
           <div className="grid gap-2">

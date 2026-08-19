@@ -1,3 +1,4 @@
+import { env } from "../env";
 import {
   bytesToHex,
   commitment,
@@ -21,6 +22,7 @@ import { isSpent } from "./stellar";
 const OWNER_KEY = "olio.ownerSecret";
 const VIEW_KEY = "olio.viewSecret";
 const USERNAME_KEY = "olio.username";
+const IDENTITY_KEY = "olio.privyUserId";
 
 export type LocalAccount = { ownerSecret: bigint; viewSk: Uint8Array };
 
@@ -38,6 +40,21 @@ export function getAccount(): LocalAccount | null {
 /// decide whether a restored session still needs to unlock its master.
 export function hasLocalAccount(): boolean {
   return getAccount() !== null;
+}
+
+export function clearLocalAccount(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(OWNER_KEY);
+  window.localStorage.removeItem(VIEW_KEY);
+  window.localStorage.removeItem(USERNAME_KEY);
+}
+
+export function syncLocalAccountIdentity(privyUserId: string | null): void {
+  if (typeof window === "undefined") return;
+  const previous = window.localStorage.getItem(IDENTITY_KEY);
+  if (previous !== privyUserId) clearLocalAccount();
+  if (privyUserId) window.localStorage.setItem(IDENTITY_KEY, privyUserId);
+  else window.localStorage.removeItem(IDENTITY_KEY);
 }
 
 /// Derive the deterministic note secrets from the recoverable master and cache
@@ -105,7 +122,7 @@ async function scanMirrorForAccount(
   for (const d of deposits) leaves[d.leafIndex] = fromBE(d.commitment);
 
   const myPk = await ownerPk(acct.ownerSecret);
-  const debug = process.env.NODE_ENV !== "production";
+  const debug = env.NODE_ENV !== "production";
   if (debug) {
     // Derived pubkeys must equal what's registered for your username in the
     // registry/Mongo. If these don't match, the payer encrypted to keys this

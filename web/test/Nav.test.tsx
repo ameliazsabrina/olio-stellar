@@ -5,13 +5,14 @@ import userEvent from "@testing-library/user-event";
 const mocks = vi.hoisted(() => ({
   useWallet: vi.fn(),
   openUsernameModal: vi.fn(),
+  signIn: vi.fn(),
 }));
 
 vi.mock("../src/components/WalletProvider", () => ({
   useWallet: mocks.useWallet,
 }));
-vi.mock("../src/components/landing/StellarWalletModal", () => ({
-  StellarWalletModal: () => null,
+vi.mock("../src/components/SignInModal", () => ({
+  SignInModal: () => null,
 }));
 vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("next/navigation", () => ({
@@ -27,6 +28,7 @@ function wallet(overrides: Record<string, unknown> = {}) {
     username: null,
     usernameResolved: false,
     openUsernameModal: mocks.openUsernameModal,
+    signIn: mocks.signIn,
     disconnect: vi.fn(),
     ...overrides,
   };
@@ -49,6 +51,15 @@ describe("EditionsTopNav", () => {
     expect(nav).toHaveClass("data-[scrolled=true]:bg-none");
     expect(nav).toHaveClass("data-[scrolled=true]:bg-ed-dark-2/88");
     expect(nav?.className).not.toContain("data-[scrolled=true]:from-ed-dark-2");
+  });
+
+  it("opens Privy's login modal directly", async () => {
+    mocks.useWallet.mockReturnValue(wallet());
+    render(<EditionsTopNav />);
+
+    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
   });
 
   it("shows the loader before the sign-in label while connecting", () => {

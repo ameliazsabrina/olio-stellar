@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppShell } from "../components/AppShell";
+import { PrivyAppProvider } from "../components/PrivyAppProvider";
 import { Toaster } from "../components/ui/sonner";
 import { WalletProvider } from "../components/WalletProvider";
 import { TRPCReactProvider } from "../trpc/react";
@@ -23,11 +24,13 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <TRPCReactProvider>
-          <WalletProvider>
-            <AppShell>{children}</AppShell>
-          </WalletProvider>
-        </TRPCReactProvider>
+        <PrivyAppProvider>
+          <TRPCReactProvider>
+            <WalletProvider>
+              <AppShell>{children}</AppShell>
+            </WalletProvider>
+          </TRPCReactProvider>
+        </PrivyAppProvider>
         <Toaster />
       </body>
     </html>

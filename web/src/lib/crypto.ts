@@ -10,10 +10,11 @@ import { x25519 } from "@noble/curves/ed25519.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { buildPoseidon } from "circomlibjs";
+import { env } from "../env";
 
 export const R =
   21888242871839275222246405745257275088548364400416034343698204186575808495617n;
-export const TREE_DEPTH = Number(process.env.NEXT_PUBLIC_POOL_DEPTH ?? 20);
+export const TREE_DEPTH = env.NEXT_PUBLIC_POOL_DEPTH;
 export const USDC_DECIMALS = 7;
 
 // --- Poseidon singleton -----------------------------------------------------

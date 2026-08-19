@@ -10,6 +10,7 @@ import {
   TransactionBuilder,
   WebAuth,
 } from "@stellar/stellar-sdk";
+import { env } from "../env";
 import { api } from "../trpc/client";
 import { isMainnet, networkPassphrase } from "./stellar";
 
@@ -18,7 +19,7 @@ import { isMainnet, networkPassphrase } from "./stellar";
 // SEP-1 stellar.toml at the configured home domain. Testnet defaults point at
 // the SDF reference anchor, whose USDC issuer happens to match our pool asset
 // (see NEXT_PUBLIC_USDC_ISSUER), so a withdrawal settles end-to-end on testnet.
-const configuredAnchorUrl = process.env.NEXT_PUBLIC_SEP24_ANCHOR_URL;
+const configuredAnchorUrl = env.NEXT_PUBLIC_SEP24_ANCHOR_URL;
 export const anchorHomeDomain = (
   configuredAnchorUrl === undefined
     ? isMainnet
@@ -26,18 +27,13 @@ export const anchorHomeDomain = (
       : "https://testanchor.stellar.org"
     : configuredAnchorUrl
 ).replace(/\/+$/, "");
-export const offRampAssetCode =
-  process.env.NEXT_PUBLIC_SEP24_ASSET_CODE || "USDC";
-export const offRampAssetIssuer = process.env.NEXT_PUBLIC_USDC_ISSUER || "";
-export const sep10ClientDomain = (
-  process.env.NEXT_PUBLIC_SEP10_CLIENT_DOMAIN || ""
-)
+export const offRampAssetCode = env.NEXT_PUBLIC_SEP24_ASSET_CODE;
+export const offRampAssetIssuer = env.NEXT_PUBLIC_USDC_ISSUER || "";
+export const sep10ClientDomain = (env.NEXT_PUBLIC_SEP10_CLIENT_DOMAIN || "")
   .replace(/^https?:\/\//, "")
   .replace(/\/+$/, "");
-export const horizonUrl =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org";
-const configuredFriendbotUrl = process.env.NEXT_PUBLIC_FRIENDBOT_URL;
+export const horizonUrl = env.NEXT_PUBLIC_STELLAR_HORIZON_URL;
+const configuredFriendbotUrl = env.NEXT_PUBLIC_FRIENDBOT_URL;
 export const friendbotUrl =
   configuredFriendbotUrl === undefined
     ? isMainnet

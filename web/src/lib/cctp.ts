@@ -5,6 +5,7 @@
 // as a note encrypted to the payee. Addresses are Circle's testnet deployments.
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { env } from "../env";
 
 export const CCTP_STELLAR_DOMAIN = 27;
 
@@ -27,13 +28,13 @@ export function cctpBinding(
 // Circle's Stellar (Soroban) CCTP V2 testnet contracts.
 export const cctpStellar = {
   tokenMessengerMinter:
-    process.env.NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER ||
+    env.NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER ||
     "CDNG7HXAPBWICI2E3AUBP3YZWZELJLYSB6F5CC7WLDTLTHVM74SLRTHP",
   messageTransmitter:
-    process.env.NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER ||
+    env.NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER ||
     "CBJ6MTCKKZG73PMDZCJMSFRD7DQEMI4FKDH7CGDSV4W6FHCRBCQAVVJY",
   forwarder:
-    process.env.NEXT_PUBLIC_CCTP_FORWARDER ||
+    env.NEXT_PUBLIC_CCTP_FORWARDER ||
     "CA66Q2WFBND6V4UEB7RD4SAXSVIWMD6RA4X3U32ELVFGXV5PJK4T4VSZ",
 };
 
@@ -42,8 +43,7 @@ export const cctpStellar = {
 // as a contract id, so this must be a contract — not a G-account. Its C-address
 // is public so the payer's burn can target it; the operator that forwards its
 // balance into the pool is server-only (CCTP_OPERATOR_SECRET).
-export const cctpIntakeContract =
-  process.env.NEXT_PUBLIC_CCTP_INTAKE_CONTRACT || "";
+export const cctpIntakeContract = env.NEXT_PUBLIC_CCTP_INTAKE_CONTRACT || "";
 
 export type EvmSource = {
   domain: number;
@@ -119,16 +119,10 @@ export const solanaSource: SolanaSource = {
   name: "Solana Devnet",
   // Circle's CCTP-burnable devnet USDC faucet mint (faucet.circle.com).
   usdcMint:
-    process.env.NEXT_PUBLIC_SOLANA_USDC_MINT ||
+    env.NEXT_PUBLIC_SOLANA_USDC_MINT ||
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   tokenMessengerMinter: "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
   messageTransmitter: "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
-  rpcUrl:
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com",
+  rpcUrl: env.NEXT_PUBLIC_SOLANA_RPC_URL,
   explorerTx: "https://explorer.solana.com/tx/",
 };
-
-// Circle Iris attestation service (sandbox for testnet).
-export const irisBaseUrl = (
-  process.env.CIRCLE_IRIS_URL || "https://iris-api-sandbox.circle.com"
-).replace(/\/+$/, "");

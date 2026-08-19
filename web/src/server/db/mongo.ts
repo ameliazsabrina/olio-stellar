@@ -1,4 +1,5 @@
 import { type Binary, type Collection, type Db, MongoClient } from "mongodb";
+import { getServerEnv } from "../../env.server";
 
 export type DepositDoc = {
   _id: number;
@@ -63,11 +64,10 @@ export type PaymentLinkDoc = {
 };
 
 export type UserDoc = {
-  _id: string;
-  address: string;
-  contractId: string;
-  credentialId?: string;
-  secp256r1PubKey?: Binary;
+  _id: string; // Olio C-address
+  privyUserId: string;
+  privyWalletId: string;
+  privyWalletAddress: string;
   encryptedMaster?: Binary;
   masterSalt?: Binary;
   kdfParams?: { m: number; t: number; p: number };
@@ -85,13 +85,14 @@ let clientPromise: Promise<MongoClient> | undefined;
 function getClient(): Promise<MongoClient> {
   if (clientPromise) return clientPromise;
 
-  const configuredUri = process.env.MONGODB_URI?.trim();
-  if (process.env.NODE_ENV === "production" && !configuredUri) {
+  const serverEnv = getServerEnv();
+  const configuredUri = serverEnv.MONGODB_URI;
+  if (serverEnv.NODE_ENV === "production" && !configuredUri) {
     throw new Error("MONGODB_URI must be configured in production.");
   }
   const uri = configuredUri || "mongodb://localhost:27017/olio";
 
-  if (process.env.NODE_ENV === "development") {
+  if (serverEnv.NODE_ENV === "development") {
     // Reuse the connection across HMR reloads in dev.
     if (!global._olioMongoClientPromise) {
       global._olioMongoClientPromise = new MongoClient(uri).connect();

@@ -73,9 +73,19 @@ describe("StrandedFundsRecovery", () => {
 
     await user.click(screen.getByRole("button", { name: "Recover funds" }));
 
-    expect(
-      screen.getByRole("dialog", { name: "Recover your funds" }),
-    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Recover your funds" });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog).toHaveClass(
+      "max-h-[calc(100dvh-2rem)]",
+      "max-w-[calc(100%-2rem)]",
+      "rounded-3xl",
+      "sm:max-w-lg",
+    );
+    expect(dialog).not.toHaveClass(
+      "max-sm:bottom-0",
+      "max-sm:max-w-none",
+      "max-sm:rounded-b-none",
+    );
     expect(screen.getByText("Current wallet")).toBeInTheDocument();
 
     await user.click(

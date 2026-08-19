@@ -21,7 +21,13 @@ import { payUrl } from "../../lib/paymentLinks";
 import { cn } from "../../lib/utils";
 import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
 import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { glassFieldClass, glassInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { ToastFeedback } from "../ui/toast-feedback";
@@ -134,32 +140,43 @@ export function ReceiveDialog({
       <DialogContent
         appearance="glass"
         size="md"
-        className="w-[calc(100%-2rem)] min-w-0 sm:w-full"
       >
-        <DialogTitle className="flex items-center gap-2">
-          {(step === "configure" || step === "moneygram") && (
-            <button
-              type="button"
-              onClick={() => {
-                setSubmitError(null);
-                setStep("method");
-              }}
-              className="rounded-full p-1 text-brand-linen/65 transition-colors hover:bg-brand-linen/10 hover:text-brand-linen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70"
-              aria-label="Back"
-            >
-              <ArrowLeft className="size-4" />
-            </button>
-          )}
-          {step === "moneygram"
-            ? "Add cash with MoneyGram"
-            : "Receive privately"}
-        </DialogTitle>
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            {(step === "configure" || step === "moneygram") && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSubmitError(null);
+                  setStep("method");
+                }}
+                className="-ml-2 shrink-0 rounded-full text-brand-linen/65 hover:bg-brand-linen/10 hover:text-brand-linen"
+                aria-label="Back"
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+              </Button>
+            )}
+            <DialogTitle>
+              {step === "moneygram"
+                ? "Add cash with MoneyGram"
+                : "Receive privately"}
+            </DialogTitle>
+          </div>
+          <DialogDescription>
+            {step === "method" && "Choose how you want to receive funds."}
+            {step === "configure" &&
+              "Create a shareable payment link with an optional fixed amount."}
+            {step === "creating" && "Your private payment link is being prepared."}
+            {step === "done" && "Your payment link is ready to share."}
+            {step === "moneygram" &&
+              "Follow the cash-in steps to fund your private balance."}
+          </DialogDescription>
+        </DialogHeader>
 
         {step === "method" && (
           <div className="grid gap-3">
-            <p className="text-sm text-brand-linen/65">
-              How do you want to get paid?
-            </p>
             <button
               type="button"
               onClick={() => {

@@ -5,6 +5,8 @@ import { Card } from "../src/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "../src/components/ui/dialog";
 import { Input } from "../src/components/ui/input";
@@ -79,8 +81,14 @@ describe("glass primitives", () => {
       "rounded-3xl",
       "surface-glass-popover",
       "sm:max-w-xl",
+      "data-open:duration-300",
+      "data-closed:duration-200",
+      "motion-reduce:duration-0",
     );
+    expect(dialog).toHaveAttribute("data-appearance", "glass");
+    expect(dialog).toHaveAttribute("data-size", "lg");
     expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-10",
       "rounded-full",
       "surface-glass-control",
       "theme-glass",
@@ -91,7 +99,10 @@ describe("glass primitives", () => {
     render(
       <Dialog open>
         <DialogContent>
-          <DialogTitle>Responsive dialog</DialogTitle>
+          <DialogHeader>
+            <DialogTitle>Responsive dialog</DialogTitle>
+            <DialogDescription>Contained dialog content.</DialogDescription>
+          </DialogHeader>
           <div>Content</div>
         </DialogContent>
       </Dialog>,
@@ -105,6 +116,17 @@ describe("glass primitives", () => {
       "overflow-x-hidden",
       "overflow-y-auto",
       "overscroll-contain",
+      "p-5",
+      "sm:p-6",
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Responsive dialog" }),
+    ).toHaveAccessibleDescription("Contained dialog content.");
+    expect(document.querySelector('[data-slot="dialog-overlay"]')).toHaveClass(
+      "bg-brand-obsidian/60",
+      "data-open:duration-300",
+      "data-closed:duration-200",
+      "motion-reduce:duration-0",
     );
   });
 });

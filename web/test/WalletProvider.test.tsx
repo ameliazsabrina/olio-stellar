@@ -2,83 +2,101 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+const mapping = {
+  contractId: "CCONTRACT",
+  privyWalletId: "wallet-1",
+  privyWalletAddress: "GPRIVY",
+};
+
 const mocks = vi.hoisted(() => ({
-  restorePasskeyWallet: vi.fn(),
-  forgetPasskeyWallet: vi.fn(),
-  connectPasskeyWallet: vi.fn(),
-  createPasskeyWallet: vi.fn(),
-  forgetPasskeySession: vi.fn(),
-  rememberPasskeySession: vi.fn(),
-  passkeySigner: vi.fn(),
+  authenticated: true,
+  unstableHookValues: false,
+  user: { id: "did:privy:user", linkedAccounts: [] },
+  login: vi.fn(),
+  logout: vi.fn(async () => {}),
+  createWallet: vi.fn(),
+  signRawHash: vi.fn(),
+  resolveWallet: vi.fn(),
+  current: vi.fn(),
+  bootstrap: vi.fn(),
+  getEscrow: vi.fn(),
   replace: vi.fn(),
   usernameOf: vi.fn(),
+  clearLocalAccount: vi.fn(),
+  syncLocalAccountIdentity: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mocks.replace }),
+vi.mock("@privy-io/react-auth", () => ({
+  usePrivy: () => ({
+    ready: true,
+    authenticated: mocks.authenticated,
+    user: mocks.unstableHookValues
+      ? { ...mocks.user, linkedAccounts: [...mocks.user.linkedAccounts] }
+      : mocks.user,
+    login: mocks.login,
+    logout: mocks.logout,
+  }),
 }));
 
-vi.mock("../src/lib/auth-session", () => ({
-  forgetPasskeySession: mocks.forgetPasskeySession,
-  rememberPasskeySession: mocks.rememberPasskeySession,
+vi.mock("@privy-io/react-auth/extended-chains", () => ({
+  useCreateWallet: () => ({
+    createWallet: mocks.unstableHookValues
+      ? (...args: Parameters<typeof mocks.createWallet>) =>
+          mocks.createWallet(...args)
+      : mocks.createWallet,
+  }),
+  useSignRawHash: () => ({ signRawHash: mocks.signRawHash }),
 }));
 
-vi.mock("../src/lib/passkey", () => ({
-  connectPasskeyWallet: mocks.connectPasskeyWallet,
-  createPasskeyWallet: mocks.createPasskeyWallet,
-  forgetPasskeyWallet: mocks.forgetPasskeyWallet,
-  passkeyConfigured: true,
-  passkeySigner: mocks.passkeySigner,
-  restorePasskeyWallet: mocks.restorePasskeyWallet,
+vi.mock("next/navigation", () => {
+  const router = { replace: mocks.replace };
+  return { useRouter: () => router };
+});
+
+vi.mock("../src/lib/privy-wallet", () => ({
+  resolvePrivyStellarWallet: mocks.resolveWallet,
+  privySigner: vi.fn(() => ({ address: "CCONTRACT" })),
+}));
+
+vi.mock("../src/trpc/client", () => ({
+  api: {
+    wallets: {
+      current: { query: mocks.current },
+      bootstrap: { mutate: mocks.bootstrap },
+      getEscrow: { query: mocks.getEscrow },
+      saveEscrow: { mutate: vi.fn() },
+    },
+  },
+}));
+
+vi.mock("../src/lib/notes", () => ({
+  hasLocalAccount: () => true,
+  deriveAndStoreAccount: vi.fn(),
+  accountPubkeys: vi.fn(),
+  clearLocalAccount: mocks.clearLocalAccount,
+  syncLocalAccountIdentity: mocks.syncLocalAccountIdentity,
 }));
 
 vi.mock("../src/lib/stellar", () => ({
   usernameOf: mocks.usernameOf,
+  registerUsernameCache: vi.fn(),
+  setUsernamePubkeys: vi.fn(),
 }));
 
 import { useWallet, WalletProvider } from "../src/components/WalletProvider";
 
 function Probe() {
-  const {
-    address,
-    walletType,
-    usernameResolved,
-    usernameModalOpen,
-    pinModalOpen,
-    createPasskey,
-    connectPasskey,
-    closeUsernameModal,
-    disconnect,
-    setUsername,
-  } = useWallet();
+  const { address, error, sessionReady, signIn, disconnect } = useWallet();
   return (
     <div>
       <div data-testid="address">{address || "none"}</div>
-      <div data-testid="wallet-type">{walletType || "none"}</div>
-      <div data-testid="username-resolved">
-        {usernameResolved ? "yes" : "no"}
-      </div>
-      <div data-testid="username-modal">
-        {usernameModalOpen ? "open" : "closed"}
-      </div>
-      <div data-testid="pin-modal">{pinModalOpen ? "open" : "closed"}</div>
+      <div data-testid="error">{error || "none"}</div>
+      <div data-testid="ready">{sessionReady ? "yes" : "no"}</div>
+      <button type="button" onClick={signIn}>
+        Retry
+      </button>
       <button type="button" onClick={disconnect}>
         Disconnect
-      </button>
-      <button type="button" onClick={connectPasskey}>
-        Connect
-      </button>
-      <button type="button" onClick={createPasskey}>
-        Create
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setUsername("alice");
-          closeUsernameModal();
-        }}
-      >
-        Claim
       </button>
     </div>
   );
@@ -86,103 +104,103 @@ function Probe() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.restorePasskeyWallet.mockResolvedValue(null);
-  mocks.usernameOf.mockResolvedValue(null);
+  mocks.authenticated = true;
+  mocks.unstableHookValues = false;
+  mocks.resolveWallet.mockResolvedValue({ id: "wallet-1", address: "GPRIVY" });
+  mocks.current.mockResolvedValue(mapping);
+  mocks.bootstrap.mockResolvedValue(mapping);
+  mocks.getEscrow.mockResolvedValue({
+    encryptedMasterHex: "aa",
+    masterSaltHex: "bb",
+    kdfParams: { m: 1, t: 1, p: 1 },
+  });
+  mocks.usernameOf.mockResolvedValue("alice");
 });
 
-describe("WalletProvider passkey session restore", () => {
-  it("silently restores a stored passkey wallet on mount", async () => {
-    mocks.restorePasskeyWallet.mockResolvedValue({
-      contractId: "CCONTRACT",
-      keyId: "credential-1",
-    });
-    mocks.usernameOf.mockResolvedValue("alice");
-
+describe("WalletProvider Privy session", () => {
+  it("restores the Privy wallet mapping and Olio C-address", async () => {
     render(
       <WalletProvider>
         <Probe />
       </WalletProvider>,
     );
-
-    expect(mocks.restorePasskeyWallet).toHaveBeenCalledTimes(1);
-    expect(await screen.findByTestId("address")).toHaveTextContent("CCONTRACT");
-    expect(screen.getByTestId("wallet-type")).toHaveTextContent("passkey");
     await waitFor(() =>
-      expect(screen.getByTestId("username-resolved")).toHaveTextContent("yes"),
+      expect(screen.getByTestId("address")).toHaveTextContent("CCONTRACT"),
     );
-    expect(mocks.usernameOf).toHaveBeenCalledWith("CCONTRACT");
-    expect(mocks.rememberPasskeySession).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.getByTestId("ready")).toHaveTextContent("yes"),
+    );
+    expect(mocks.current).toHaveBeenCalledTimes(1);
+    expect(mocks.resolveWallet).not.toHaveBeenCalled();
+    expect(mocks.createWallet).not.toHaveBeenCalled();
   });
 
-  it("keeps an explicit passkey sign-in session and routes to dashboard", async () => {
-    mocks.restorePasskeyWallet.mockImplementation(() => new Promise(() => {}));
-    mocks.connectPasskeyWallet.mockResolvedValue({
-      contractId: "CCONTRACT",
-      keyId: "credential-1",
-    });
-    mocks.usernameOf.mockResolvedValue("alice");
-
+  it("does not restart setup when Privy returns unstable hook identities", async () => {
+    mocks.unstableHookValues = true;
     render(
       <WalletProvider>
         <Probe />
       </WalletProvider>,
     );
+    await waitFor(() =>
+      expect(screen.getByTestId("address")).toHaveTextContent("CCONTRACT"),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mocks.current).toHaveBeenCalledTimes(1);
+    expect(mocks.resolveWallet).not.toHaveBeenCalled();
+    expect(mocks.createWallet).not.toHaveBeenCalled();
+  });
 
-    await userEvent.click(screen.getByRole("button", { name: /^connect$/i }));
-
-    expect(await screen.findByTestId("address")).toHaveTextContent("CCONTRACT");
-    expect(mocks.rememberPasskeySession).toHaveBeenCalledTimes(1);
+  it("automatically bootstraps a new Privy identity", async () => {
+    mocks.current.mockResolvedValue(null);
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("address")).toHaveTextContent("CCONTRACT"),
+    );
+    expect(mocks.bootstrap).toHaveBeenCalledWith({
+      privyWalletId: "wallet-1",
+      privyWalletAddress: "GPRIVY",
+    });
+    expect(mocks.resolveWallet).toHaveBeenCalledTimes(1);
     expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
-    expect(mocks.forgetPasskeySession).not.toHaveBeenCalled();
   });
 
-  it("shows username claim before mandatory PIN setup for a new passkey", async () => {
-    mocks.createPasskeyWallet.mockResolvedValue({
-      contractId: "CNEW",
-      keyId: "credential-new",
-    });
-    mocks.usernameOf.mockResolvedValue(null);
-
+  it("retries automatic bootstrap after a recoverable failure", async () => {
+    mocks.current.mockResolvedValue(null);
+    mocks.bootstrap
+      .mockRejectedValueOnce(new Error("deployment unavailable"))
+      .mockResolvedValueOnce(mapping);
     render(
       <WalletProvider>
         <Probe />
       </WalletProvider>,
     );
-
-    await userEvent.click(screen.getByRole("button", { name: /^create$/i }));
-
-    expect(await screen.findByTestId("address")).toHaveTextContent("CNEW");
-    await waitFor(() =>
-      expect(screen.getByTestId("username-modal")).toHaveTextContent("open"),
+    expect(await screen.findByTestId("error")).toHaveTextContent(
+      "deployment unavailable",
     );
-    expect(screen.getByTestId("pin-modal")).toHaveTextContent("closed");
-
-    await userEvent.click(screen.getByRole("button", { name: /^claim$/i }));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("pin-modal")).toHaveTextContent("open"),
-    );
-    expect(screen.getByTestId("username-modal")).toHaveTextContent("closed");
+    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(await screen.findByTestId("address")).toHaveTextContent("CCONTRACT");
+    expect(mocks.bootstrap).toHaveBeenCalledTimes(2);
+    expect(mocks.resolveWallet).toHaveBeenCalledTimes(1);
+    expect(mocks.createWallet).not.toHaveBeenCalled();
   });
 
-  it("forgets the stored passkey session on explicit disconnect", async () => {
-    mocks.restorePasskeyWallet.mockResolvedValue({
-      contractId: "CCONTRACT",
-      keyId: "credential-1",
-    });
-
+  it("logs out and clears local wallet state", async () => {
     render(
       <WalletProvider>
         <Probe />
       </WalletProvider>,
     );
-
     expect(await screen.findByTestId("address")).toHaveTextContent("CCONTRACT");
     await userEvent.click(screen.getByRole("button", { name: /disconnect/i }));
-
-    expect(mocks.forgetPasskeyWallet).toHaveBeenCalledTimes(1);
-    expect(mocks.forgetPasskeySession).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("address")).toHaveTextContent("none");
-    expect(screen.getByTestId("wallet-type")).toHaveTextContent("none");
+    expect(mocks.logout).toHaveBeenCalledTimes(1);
+    expect(mocks.clearLocalAccount).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("address")).toHaveTextContent("none"),
+    );
   });
 });

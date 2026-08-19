@@ -3,7 +3,6 @@
 import { Loader } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { type AccountStatus, accountStatus } from "../lib/stellar";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { useWallet } from "./WalletProvider";
@@ -16,7 +15,7 @@ const fmt = (v: string) => {
 };
 
 export function WalletStatus() {
-  const { address, walletType } = useWallet();
+  const { address } = useWallet();
   const [status, setStatus] = useState<AccountStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -47,10 +46,7 @@ export function WalletStatus() {
 
   return (
     <Card className="gap-3 p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-ink">Wallet</h2>
-        <Badge variant="secondary">{walletType}</Badge>
-      </div>
+      <h2 className="text-lg font-semibold text-ink">Olio account</h2>
       <button
         type="button"
         className="break-all font-mono text-sm text-muted-foreground cursor-pointer text-left hover:text-olive-deep"

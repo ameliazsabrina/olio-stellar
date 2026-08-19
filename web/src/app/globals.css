@@ -361,6 +361,22 @@ body:has(.theme-product) [data-sonner-toast] [data-button] {
   color: var(--color-brand-obsidian) !important;
 }
 
+body:has(.theme-product) [data-slot="dialog-overlay"] {
+  transition-timing-function: var(--motion-product);
+}
+
+body:has(.theme-product) [data-slot="dialog-content"] {
+  animation-timing-function: var(--motion-product);
+  box-shadow: 0 24px 64px rgb(8 10 8 / 0.12);
+}
+
+body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    inset 1px 0 0 var(--glass-edge-soft),
+    0 24px 64px rgb(8 10 8 / 0.12);
+}
+
 .theme-glass {
   color-scheme: dark;
   --glass-highlight-rgb: 255 255 255;

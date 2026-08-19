@@ -8,7 +8,13 @@ import { accountPubkeys, getAccount, setStoredUsername } from "../lib/notes";
 import { registerUsername, registerUsernameCache } from "../lib/stellar";
 import { usernameSchema } from "../server/modules/usernames/usernames.schema";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { ToastFeedback } from "./ui/toast-feedback";
 import { useWallet } from "./WalletProvider";
@@ -65,16 +71,16 @@ export function CreateAccountForm({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent appearance="glass" className="max-w-[420px] gap-0">
-        <DialogTitle className="text-lg font-semibold text-center">
-          Create Your Account
-        </DialogTitle>
-        <p className="mx-auto mt-2 max-w-[32ch] text-center text-sm leading-4 text-muted-foreground">
-          Pick a username. It will become your payment link, like
-          olio.xyz/@jimmymcgill.
-        </p>
+      <DialogContent appearance="glass" size="sm">
+        <DialogHeader className="px-10 text-center">
+          <DialogTitle>Create Your Account</DialogTitle>
+          <DialogDescription className="mx-auto">
+            Pick a username. It will become your payment link, like
+            olio.xyz/@jimmymcgill.
+          </DialogDescription>
+        </DialogHeader>
 
-        <form className="mt-6 grid gap-3" onSubmit={onSubmit}>
+        <form className="grid gap-3" onSubmit={onSubmit}>
           <div className="grid gap-2">
             <label className="text-sm font-medium" htmlFor="username">
               Username

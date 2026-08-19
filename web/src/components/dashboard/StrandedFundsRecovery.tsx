@@ -214,7 +214,6 @@ export function StrandedFundsRecovery({
         <DialogContent
           appearance="glass"
           size="md"
-          className="max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-h-[calc(100dvh-1rem)] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl"
         >
           {success ? (
             <div className="grid justify-items-center gap-5 py-4 text-center">
@@ -248,7 +247,7 @@ export function StrandedFundsRecovery({
             </div>
           ) : (
             <>
-              <DialogHeader className="pr-8">
+              <DialogHeader>
                 <DialogTitle className="text-xl text-brand-linen">
                   Recover your funds
                 </DialogTitle>

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PersonalLinkCard } from "../src/components/dashboard/PersonalLinkCard";
 
 describe("payment link QR dialog", () => {
-  it("opens an Obsidian-on-Linen QR over a dark backdrop and closes from the backdrop", async () => {
+  it("opens a labeled glass QR dialog and restores focus after backdrop dismissal", async () => {
     const user = userEvent.setup();
     render(
       <PersonalLinkCard
@@ -21,15 +21,28 @@ describe("payment link QR dialog", () => {
     const dialog = screen.getByRole("dialog", {
       name: "Payment link QR code",
     });
-    expect(dialog).toHaveClass("bg-transparent", "shadow-none", "ring-0");
+    expect(dialog).toHaveClass(
+      "surface-glass-popover",
+      "theme-glass",
+      "rounded-3xl",
+      "sm:max-w-sm",
+    );
+    expect(dialog).toHaveAccessibleDescription(
+      "Scan this code to open the payment link on another device.",
+    );
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass(
+      "size-10",
+      "rounded-full",
+    );
     expect(dialog.querySelector('path[fill="#1A1F12"]')).toBeInTheDocument();
     expect(dialog.querySelector('path[fill="#F5F3EA"]')).toBeInTheDocument();
     expect(dialog.querySelector(".bg-brand-linen")).toHaveClass(
       "bg-brand-linen",
       "p-4",
+      "rounded-xl",
     );
     const overlay = document.querySelector('[data-slot="dialog-overlay"]');
-    expect(overlay).toHaveClass("bg-brand-obsidian/85");
+    expect(overlay).toHaveClass("bg-brand-obsidian/60");
     expect(trigger).toHaveAttribute("aria-expanded", "true");
 
     await user.click(overlay as Element);

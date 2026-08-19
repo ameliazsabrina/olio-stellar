@@ -1,4 +1,5 @@
 import { StrKey } from "@stellar/stellar-sdk";
+import { env } from "../env";
 import { horizon } from "./anchor";
 import {
   clearPersistedBridge,
@@ -33,7 +34,7 @@ export type BatchWithdrawResult = {
 };
 
 const USDC_ASSET_CODE = "USDC";
-const USDC_ISSUER = process.env.NEXT_PUBLIC_USDC_ISSUER || "";
+const USDC_ISSUER = env.NEXT_PUBLIC_USDC_ISSUER || "";
 
 export async function classifyDestination(
   destination: string,

@@ -26,7 +26,7 @@ vi.mock("../src/lib/stellar", () => ({
 }));
 
 vi.mock("../src/trpc/client", () => ({
-  api: { passkey: { relaySoroban: { mutate: mocks.relayMutate } } },
+  api: { channels: { relaySoroban: { mutate: mocks.relayMutate } } },
 }));
 
 // Mock wallet: it's handed a base64 HashIdPreimage (exactly what Freighter's

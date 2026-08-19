@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
@@ -94,17 +95,17 @@ export function PinDialog({
     >
       <DialogContent
         appearance="glass"
-        className="max-w-[420px] gap-0"
+        size="sm"
         showCloseButton={!mandatory}
       >
-        <DialogTitle className="text-lg font-semibold text-center">
-          {title}
-        </DialogTitle>
-        <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-center text-sm leading-4">
-          {description}
-        </DialogDescription>
+        <DialogHeader className="px-10 text-center">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="mx-auto">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form className="mt-6 grid gap-3" onSubmit={submit}>
+        <form className="grid gap-3" onSubmit={submit}>
           <div className="grid gap-2">
             <label htmlFor={pinId} className="text-sm font-medium text-white">
               {dualField ? "New PIN" : "PIN"}

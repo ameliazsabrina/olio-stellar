@@ -38,7 +38,7 @@ export function kitSigner(address: string): Signer {
       return out;
     },
     relaySoroban: async (func, auth) => {
-      const res = await api.passkey.relaySoroban.mutate({ func, auth });
+      const res = await api.channels.relaySoroban.mutate({ func, auth });
       return { hash: res.hash };
     },
   };

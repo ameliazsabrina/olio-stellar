@@ -57,7 +57,7 @@ jobs:
             NEXT_PUBLIC_USDC_SAC_ID=${{ vars.NEXT_PUBLIC_USDC_SAC_ID }}
             NEXT_PUBLIC_USDC_ISSUER=${{ vars.NEXT_PUBLIC_USDC_ISSUER }}
             NEXT_PUBLIC_POOL_DEPTH=${{ vars.NEXT_PUBLIC_POOL_DEPTH }}
-            NEXT_PUBLIC_SMART_WALLET_WASM_HASH=${{ vars.NEXT_PUBLIC_SMART_WALLET_WASM_HASH }}
+            NEXT_PUBLIC_PRIVY_APP_ID=${{ vars.NEXT_PUBLIC_PRIVY_APP_ID }}
             NEXT_PUBLIC_CHANNELS_ENABLED=${{ vars.NEXT_PUBLIC_CHANNELS_ENABLED }}
             NEXT_PUBLIC_SEP24_ANCHOR_URL=${{ vars.NEXT_PUBLIC_SEP24_ANCHOR_URL }}
             NEXT_PUBLIC_SEP24_ASSET_CODE=${{ vars.NEXT_PUBLIC_SEP24_ASSET_CODE }}
@@ -94,11 +94,15 @@ jobs:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SEP10_CLIENT_SIGNING_SECRET: ${{ secrets.SEP10_CLIENT_SIGNING_SECRET }}
+          PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          OLIO_WALLET_DEPLOYER_SECRET: ${{ secrets.OLIO_WALLET_DEPLOYER_SECRET }}
+          OLIO_ACCOUNT_WASM_HASH: ${{ vars.OLIO_ACCOUNT_WASM_HASH }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET
+          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET,PRIVY_APP_ID,PRIVY_APP_SECRET,OLIO_WALLET_DEPLOYER_SECRET,OLIO_ACCOUNT_WASM_HASH
           script: |
             set -euo pipefail
             cd /home/${{ secrets.SSH_USER }}/olio
@@ -106,12 +110,20 @@ jobs:
             test -n "${MONGODB_URI}"
             test -n "${CRON_SECRET}"
             test -n "${SEP10_CLIENT_SIGNING_SECRET}"
+            test -n "${PRIVY_APP_ID}"
+            test -n "${PRIVY_APP_SECRET}"
+            test -n "${OLIO_WALLET_DEPLOYER_SECRET}"
+            test -n "${OLIO_ACCOUNT_WASM_HASH}"
             secret_env="$(mktemp)"
-            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET)=' .env.production > "${secret_env}" || true
+            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET|PRIVY_APP_ID|PRIVY_APP_SECRET|OLIO_WALLET_DEPLOYER_SECRET|OLIO_ACCOUNT_WASM_HASH)=' .env.production > "${secret_env}" || true
             {
               printf '%s\n' "MONGODB_URI=${MONGODB_URI}"
               printf '%s\n' "CRON_SECRET=${CRON_SECRET}"
               printf '%s\n' "SEP10_CLIENT_SIGNING_SECRET=${SEP10_CLIENT_SIGNING_SECRET}"
+              printf '%s\n' "PRIVY_APP_ID=${PRIVY_APP_ID}"
+              printf '%s\n' "PRIVY_APP_SECRET=${PRIVY_APP_SECRET}"
+              printf '%s\n' "OLIO_WALLET_DEPLOYER_SECRET=${OLIO_WALLET_DEPLOYER_SECRET}"
+              printf '%s\n' "OLIO_ACCOUNT_WASM_HASH=${OLIO_ACCOUNT_WASM_HASH}"
             } >> "${secret_env}"
             mv "${secret_env}" .env.production
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

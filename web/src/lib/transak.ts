@@ -1,19 +1,15 @@
 "use client";
 
 import type { Memo } from "@stellar/stellar-sdk";
+import { env } from "../env";
 import { buildMemoFrom } from "./anchor";
 import { isMainnet } from "./stellar";
 
-export const transakApiKey = process.env.NEXT_PUBLIC_TRANSAK_API_KEY || "";
+export const transakApiKey = env.NEXT_PUBLIC_TRANSAK_API_KEY || "";
 
-export const transakEnvironment: "STAGING" | "PRODUCTION" =
-  (process.env.NEXT_PUBLIC_TRANSAK_ENV || "PRODUCTION").toUpperCase() ===
-  "STAGING"
-    ? "STAGING"
-    : "PRODUCTION";
+export const transakEnvironment = env.NEXT_PUBLIC_TRANSAK_ENV;
 
-export const transakFiatCurrency =
-  process.env.NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY || "";
+export const transakFiatCurrency = env.NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY || "";
 
 export const transakEnabled = Boolean(transakApiKey) && isMainnet;
 

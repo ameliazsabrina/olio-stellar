@@ -10,7 +10,7 @@ tax, bank, or audit review.
 
 This repository is the testnet implementation. It contains the Soroban
 contracts, zero-knowledge circuits, browser app, payment-link database, CCTP
-relay flow, passkey wallet support, and disclosure tooling.
+relay flow, Privy authentication with user-owned Stellar embedded wallets, and disclosure tooling.
 
 ## What Olio Protects
 
@@ -66,15 +66,15 @@ it does not learn which deposit event produced that note.
   records nullifiers.
 - `programs/olio-intake` - CCTP intake contract. Receives USDC minted on Stellar
   from Circle CCTP and forwards it into the shielded pool as a private note.
+- `programs/olio-account` - minimal C-address account controlled by one Privy
+  Stellar Ed25519 wallet.
 - `circuits/` - Circom circuits for withdrawing and shielded transfers, plus
   scripts that export Soroban-compatible verification keys.
 - `web/` - Next.js app for onboarding, payment links, payer checkout, local note
   scanning, proof generation, withdrawals, SEP-24 cash-out, CCTP payments, and
   disclosure bundles.
-- `vendor/passkey-contracts/` - vendored passkey smart-wallet contracts used for
-  passkey-based account setup.
 - `scripts/deploy-testnet.sh` - builds and deploys the contracts to Stellar
-  testnet, uploads the passkey wallet WASM, sets verifier keys, deploys CCTP
+  testnet, uploads the Olio account WASM, sets verifier keys, deploys CCTP
   intake, and writes `web/.env.local`.
 
 ## Core Flows
@@ -237,12 +237,12 @@ Build the circuits first, then deploy:
 The deploy script:
 
 - Creates and funds the deployer identity if needed.
-- Builds registry, pool, and intake contracts.
+- Builds account, registry, pool, and intake contracts.
 - Resolves the Circle testnet USDC Stellar Asset Contract.
 - Deploys `olio-registry` and `olio-pool`.
 - Initializes the pool with USDC and tree depth.
 - Sets withdraw and transfer Groth16 verifier keys.
-- Builds and uploads the passkey smart-wallet WASM.
+- Uploads the Olio account WASM.
 - Creates a CCTP operator identity.
 - Deploys `olio-intake`.
 - Writes the resulting contract IDs and CCTP operator secret to `web/.env.local`.
@@ -286,6 +286,13 @@ Important server-only values:
 - `CHANNELS_API_KEY` - OpenZeppelin Relayer Channels key, when using Channels.
 - `CCTP_OPERATOR_SECRET` - Stellar secret key for the CCTP intake operator.
 - `CIRCLE_API_KEY` - Circle API key for Iris attestation access if required.
+- `PRIVY_APP_ID` / `PRIVY_APP_SECRET` - server-only Privy token verification.
+- `OLIO_WALLET_DEPLOYER_SECRET` - low-float Stellar deployer for deterministic
+  per-user C-addresses. Never expose it to the browser.
+
+`NEXT_PUBLIC_PRIVY_APP_ID` is safe for the client bundle. Configure Google,
+GitHub, and passkey login in separate development and production Privy apps;
+register `https://auth.privy.io/api/v1/oauth/callback` with both OAuth providers.
 
 Do not commit `web/.env.local`. The repository intentionally ignores `.env*`
 files except `.env.example`.
@@ -307,7 +314,7 @@ keys or other application collections.
 
 To test direct Stellar payments, the payer needs testnet USDC:
 
-1. Connect a Stellar wallet.
+1. Connect a supported external Stellar payer wallet.
 2. Add the USDC trustline.
 3. Fund testnet USDC from Circle's faucet.
 4. Pay a username or payment link.
@@ -337,7 +344,7 @@ This repo is testnet-stage. Before mainnet, Olio still needs:
 
 - A real multi-party trusted setup ceremony for production circuits.
 - Independent security review of the contracts, circuits, relay, and web flows.
-- Mainnet CCTP, SEP-24, and passkey operational hardening.
+- Mainnet CCTP, SEP-24, Privy OAuth, wallet deployment, and account-migration hardening.
 - Mainnet pool deployment under the rehearsed multisig admin process.
 - Monitoring and alerting for the bridge sponsor, relay, and indexer.
 - An account-merge sweep to recover residual XLM from cash-out bridges.

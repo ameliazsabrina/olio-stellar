@@ -1,4 +1,3 @@
-
 import "server-only";
 import {
   Address,
@@ -13,11 +12,12 @@ import {
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
+import { env } from "../../../env";
+import { getServerEnv } from "../../../env.server";
 import {
   cctpBinding,
   cctpIntakeContract,
   cctpStellar,
-  irisBaseUrl,
 } from "../../../lib/cctp";
 import { parseCctpMessage } from "../../../lib/cctpMessage";
 import {
@@ -29,6 +29,7 @@ import {
   randomFieldElement,
   toBE32,
 } from "../../../lib/crypto";
+import { proveDeposit, type RawProof } from "../../../lib/prover";
 import {
   networkPassphrase,
   resolveUsernameOnChain,
@@ -36,7 +37,6 @@ import {
   simulateRead,
   usdcSacId,
 } from "../../../lib/stellar";
-import { proveDeposit, type RawProof } from "../../../lib/prover";
 import {
   CctpAttestationError,
   CctpConfigError,
@@ -45,11 +45,9 @@ import {
 } from "./cctp.errors";
 import type { AttestationOutput, RelayInput, RelayOutput } from "./cctp.schema";
 
-const horizonUrl =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org";
+const horizonUrl = env.NEXT_PUBLIC_STELLAR_HORIZON_URL;
 const friendbotUrl =
-  process.env.NEXT_PUBLIC_FRIENDBOT_URL || "https://friendbot.stellar.org";
+  env.NEXT_PUBLIC_FRIENDBOT_URL || "https://friendbot.stellar.org";
 const horizon = new Horizon.Server(horizonUrl, {
   allowHttp: horizonUrl.startsWith("http://"),
 });
@@ -77,13 +75,13 @@ const scBytesHex = (h: string) =>
   xdr.ScVal.scvBytes(Buffer.from(stripHex(h), "hex"));
 const scI128 = (v: bigint) => nativeToScVal(v, { type: "i128" });
 
-
 export async function fetchAttestation(
   sourceDomain: number,
   txHash: string,
 ): Promise<AttestationOutput> {
+  const { CIRCLE_API_KEY: apiKey, CIRCLE_IRIS_URL } = getServerEnv();
+  const irisBaseUrl = CIRCLE_IRIS_URL.replace(/\/+$/, "");
   const url = `${irisBaseUrl}/v2/messages/${sourceDomain}?transactionHash=${encodeURIComponent(txHash)}`;
-  const apiKey = process.env.CIRCLE_API_KEY;
   const res = await fetch(url, {
     headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
   });
@@ -116,9 +114,8 @@ export async function fetchAttestation(
   };
 }
 
-
 function operatorKeypair(): Keypair {
-  const secret = process.env.CCTP_OPERATOR_SECRET;
+  const secret = getServerEnv().CCTP_OPERATOR_SECRET;
   if (!secret) {
     throw new CctpConfigError("CCTP_OPERATOR_SECRET is not configured.");
   }
@@ -192,7 +189,6 @@ async function ensureOperatorFunded(kp: Keypair): Promise<void> {
     await horizon.loadAccount(kp.publicKey());
   }
 }
-
 
 let relayChain: Promise<unknown> = Promise.resolve();
 

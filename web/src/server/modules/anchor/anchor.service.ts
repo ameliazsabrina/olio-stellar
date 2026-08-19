@@ -7,6 +7,8 @@ import {
   StellarToml,
   WebAuth,
 } from "@stellar/stellar-sdk";
+import { getPublicEnv } from "../../../env";
+import { getServerEnv } from "../../../env.server";
 import {
   AnchorBridgeError,
   AnchorChallengeError,
@@ -17,9 +19,7 @@ import type {
   SignClientChallengeOutput,
 } from "./anchor.schema";
 
-const horizonUrl =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org";
+const horizonUrl = getPublicEnv().NEXT_PUBLIC_STELLAR_HORIZON_URL;
 const horizon = new Horizon.Server(horizonUrl, {
   allowHttp: horizonUrl.startsWith("http://"),
 });
@@ -34,7 +34,7 @@ function configuredDomain(name: string, value: string | undefined): string {
 }
 
 function signingKeypair(): Keypair {
-  const secret = process.env.SEP10_CLIENT_SIGNING_SECRET;
+  const secret = getServerEnv().SEP10_CLIENT_SIGNING_SECRET;
   if (!secret) {
     throw new AnchorConfigError(
       "SEP10_CLIENT_SIGNING_SECRET is not configured.",
@@ -48,7 +48,7 @@ function signingKeypair(): Keypair {
 }
 
 function sponsorPublicKey(): string {
-  const secret = process.env.BRIDGE_SPONSOR_SECRET;
+  const secret = getServerEnv().BRIDGE_SPONSOR_SECRET;
   if (!secret) {
     throw new AnchorConfigError("BRIDGE_SPONSOR_SECRET is not configured.");
   }
@@ -64,7 +64,8 @@ export function sep10ClientSigningPublicKey(): string {
 }
 
 export function sep10NetworkPassphrase(): string {
-  const networkPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE;
+  const networkPassphrase =
+    getPublicEnv().NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE;
   if (
     networkPassphrase !== Networks.TESTNET &&
     networkPassphrase !== Networks.PUBLIC
@@ -143,11 +144,11 @@ export async function signClientChallenge(
 
   const anchorDomain = configuredDomain(
     "NEXT_PUBLIC_SEP24_ANCHOR_URL",
-    process.env.NEXT_PUBLIC_SEP24_ANCHOR_URL,
+    getPublicEnv().NEXT_PUBLIC_SEP24_ANCHOR_URL,
   );
   const clientDomain = configuredDomain(
     "NEXT_PUBLIC_SEP10_CLIENT_DOMAIN",
-    process.env.NEXT_PUBLIC_SEP10_CLIENT_DOMAIN,
+    getPublicEnv().NEXT_PUBLIC_SEP10_CLIENT_DOMAIN,
   );
   const clientKeypair = signingKeypair();
 

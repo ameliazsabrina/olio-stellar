@@ -1,0 +1,15 @@
+[package]
+name = "olio-account"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+soroban-sdk = "26.0.0"
+
+[dev-dependencies]
+ed25519-dalek = "2.2.0"
+soroban-sdk = { version = "26.0.0", features = ["testutils"] }

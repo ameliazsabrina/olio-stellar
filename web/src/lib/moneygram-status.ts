@@ -1,24 +1,12 @@
 import { Networks } from "@stellar/stellar-sdk";
+import { env } from "../env";
 
 export type MoneyGramRampStatus = "whitelisting" | "sandbox" | "live";
 
-function parseStatus(value: string | undefined): MoneyGramRampStatus {
-  switch (value?.trim().toLowerCase()) {
-    case "sandbox":
-      return "sandbox";
-    case "live":
-      return "live";
-    default:
-      return "whitelisting";
-  }
-}
-
-export const moneyGramRampStatus = parseStatus(
-  process.env.NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS,
-);
+export const moneyGramRampStatus = env.NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS;
 
 const networkPassphrase =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
+  env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
 
 export const moneyGramCashOutStatusEnabled =
   (moneyGramRampStatus === "sandbox" &&

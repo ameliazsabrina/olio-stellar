@@ -28,12 +28,16 @@ export const up = async (db) => {
       validationLevel: "moderate",
     });
   }
-  await db
-    .collection("spent_nullifiers")
-    .createIndex({ ledger: 1 }, { name: "ledger_asc" });
-  await db
-    .collection("deposits")
-    .createIndex({ ledger: 1 }, { name: "ledger_asc" });
+  for (const collectionName of ["spent_nullifiers", "deposits"]) {
+    const collection = db.collection(collectionName);
+    const indexes = await collection.indexes();
+    const hasLedgerIndex = indexes.some(
+      (index) => Object.keys(index.key).length === 1 && index.key.ledger === 1,
+    );
+    if (!hasLedgerIndex) {
+      await collection.createIndex({ ledger: 1 }, { name: "ledger_asc" });
+    }
+  }
 };
 
 /**

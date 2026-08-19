@@ -14,7 +14,7 @@ export const resolveInput = z.object({ username: usernameSchema });
 export const registerInput = z.object({ username: usernameSchema });
 
 export const byOwnerInput = z.object({
-  // A passkey smart-wallet contract address (C-address) — the only wallet type.
+  // The Olio account C-address controlled by the user's Privy Stellar wallet.
   owner: z.string().refine(StrKey.isValidContract, "invalid Stellar address"),
 });
 

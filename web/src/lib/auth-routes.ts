@@ -1,9 +1,11 @@
-export const PASSKEY_SESSION_COOKIE = "olio.passkey.session";
+export const PRIVY_ACCESS_TOKEN_COOKIE = "privy-token";
+export const PRIVY_SESSION_COOKIE = "privy-session";
 export const DASHBOARD_PATH = "/dashboard";
 export const LINKS_PATH = "/links";
 export const WITHDRAW_PATH = "/withdraw";
 export const HISTORY_PATH = "/history";
 export const SIGN_IN_PATH = "/";
+export const REFRESH_PATH = "/refresh";
 
 export const DASHBOARD_PATHS = [
   DASHBOARD_PATH,

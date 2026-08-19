@@ -12,7 +12,13 @@ import { downloadDisclosurePdf } from "../../lib/disclosurePdf";
 import { getAccount, scanMyNotes } from "../../lib/notes";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { glassInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
@@ -70,9 +76,12 @@ export function DiscloseDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent appearance="glass" size="md">
-        <DialogTitle className="flex items-center gap-2">
-          Create payment receipt
-        </DialogTitle>
+        <DialogHeader>
+          <DialogTitle>Create payment receipt</DialogTitle>
+          <DialogDescription>
+            Build a verifiable receipt for this private payment.
+          </DialogDescription>
+        </DialogHeader>
 
         {step === "building" && (
           <div className="flex items-center justify-center gap-2 py-8 text-center">

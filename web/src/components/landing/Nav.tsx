@@ -3,7 +3,6 @@
 import { ChevronDown, LayoutDashboard, Loader, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +13,6 @@ import {
 import { glassButtonClass } from "@/components/ui/glass";
 import { cn } from "@/lib/utils";
 import { useWallet } from "../WalletProvider";
-import { StellarWalletModal } from "./StellarWalletModal";
 
 export function EditionsTopNav() {
   const router = useRouter();
@@ -24,9 +22,9 @@ export function EditionsTopNav() {
     username,
     usernameResolved,
     openUsernameModal,
+    signIn,
     disconnect,
   } = useWallet();
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   return (
     <header
@@ -103,7 +101,9 @@ export function EditionsTopNav() {
           <button
             type="button"
             className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-ed-cream bg-ed-cream px-4 text-sm font-semibold text-ed-dark transition-colors hover:bg-white disabled:cursor-default disabled:opacity-55 sm:min-h-[38px] sm:px-[18px] sm:text-base"
-            onClick={() => setWalletModalOpen(true)}
+            onClick={() => {
+              signIn();
+            }}
             disabled={connecting}
           >
             {connecting && (
@@ -112,15 +112,10 @@ export function EditionsTopNav() {
                 aria-hidden="true"
               />
             )}
-            {connecting ? "Signing in…" : "Sign in"}
+            {connecting ? "Signing in" : "Sign in"}
           </button>
         )}
       </div>
-
-      <StellarWalletModal
-        open={walletModalOpen}
-        onClose={() => setWalletModalOpen(false)}
-      />
     </header>
   );
 }

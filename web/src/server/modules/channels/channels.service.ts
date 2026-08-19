@@ -5,6 +5,7 @@ import {
   PluginExecutionError,
   PluginTransportError,
 } from "@openzeppelin/relayer-plugin-channels";
+import { getServerEnv } from "../../../env.server";
 import {
   ChannelsNoHashError,
   ChannelsNotConfiguredError,
@@ -12,12 +13,10 @@ import {
   ChannelsRelayUnreachableError,
 } from "./channels.errors";
 
-const API_KEY = process.env.CHANNELS_API_KEY || "";
+const { CHANNELS_API_KEY: API_KEY = "", CHANNELS_BASE_URL: BASE_URL } =
+  getServerEnv();
 // OpenZeppelin's managed Channels service. Testnet by default; override for
 // mainnet ("https://channels.openzeppelin.com") or a self-hosted relayer.
-const BASE_URL =
-  process.env.CHANNELS_BASE_URL || "https://channels.openzeppelin.com/testnet";
-
 export const channelsConfigured = Boolean(API_KEY);
 
 let client: ChannelsClient | null = null;
@@ -58,8 +57,7 @@ export async function relaySoroban(
 }
 
 // Relay a complete, signed transaction envelope (fee-bumped by the relayer).
-// Used for the passkey smart-wallet deploy, which is a CreateContract tx signed
-// by the passkey-kit launcher account rather than a func+auth invocation.
+// Used for Olio account deployment, signed by the server-only low-float deployer.
 export async function relayXdr(xdr: string): Promise<RelayResult> {
   if (!channelsConfigured) throw new ChannelsNotConfiguredError();
 

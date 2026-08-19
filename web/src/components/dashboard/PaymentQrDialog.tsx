@@ -2,7 +2,13 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import type { RefObject } from "react";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 
 export function PaymentQrDialog({
   open,
@@ -25,13 +31,17 @@ export function PaymentQrDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        showCloseButton={false}
+        appearance="glass"
+        size="sm"
         finalFocus={triggerRef}
-        overlayClassName="bg-brand-obsidian/85"
-        className="w-auto max-w-[calc(100%-2rem)] bg-transparent p-0 shadow-none ring-0 backdrop-blur-none sm:max-w-none"
       >
-        <DialogTitle className="sr-only">Payment link QR code</DialogTitle>
-        <div className="size-[min(18rem,calc(100dvw-2rem),calc(100dvh-2rem))] bg-brand-linen p-4 sm:size-[min(20rem,calc(100dvw-2rem),calc(100dvh-2rem))]">
+        <DialogHeader>
+          <DialogTitle>Payment link QR code</DialogTitle>
+          <DialogDescription>
+            Scan this code to open the payment link on another device.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="aspect-square w-full rounded-xl bg-brand-linen p-4">
           <QRCodeSVG
             value={url}
             size={320}

@@ -5,5 +5,15 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "../server/root";
 
 export const api = createTRPCProxyClient<AppRouter>({
-  links: [httpBatchLink({ url: "/api/trpc" })],
+  links: [
+    httpBatchLink({
+      url: "/api/trpc",
+      headers: async () => {
+        if (typeof window === "undefined") return {};
+        const { getAccessToken } = await import("@privy-io/react-auth");
+        const token = await getAccessToken();
+        return token ? { authorization: `Bearer ${token}` } : {};
+      },
+    }),
+  ],
 });

@@ -25,6 +25,16 @@ function setup(props: Partial<React.ComponentProps<typeof PinDialog>> = {}) {
 }
 
 describe("PinDialog — unlock mode", () => {
+  it("is labeled by its title and description", () => {
+    setup();
+
+    expect(
+      screen.getByRole("dialog", { name: "Unlock your account" }),
+    ).toHaveAccessibleDescription(
+      "Enter your 6-digit PIN to restore your account key on this device and reveal your balance.",
+    );
+  });
+
   it("shows the loader before the pending label", () => {
     setup({ submitting: true });
 
@@ -66,6 +76,18 @@ describe("PinDialog — unlock mode", () => {
 });
 
 describe("PinDialog — set mode", () => {
+  it("keeps mandatory setup open when Escape requests dismissal", async () => {
+    const { onClose } = setup({ mode: "set" });
+
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Set Your Recovery PIN" }),
+    ).toBeInTheDocument();
+  });
+
   it("requires the confirmation to match before submitting", async () => {
     const { onSubmit } = setup({ mode: "set" });
     await userEvent.type(screen.getByLabelText("New PIN"), "123456");

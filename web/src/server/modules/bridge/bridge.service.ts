@@ -6,19 +6,18 @@ import {
   Operation,
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
+import { env } from "../../../env";
+import { getServerEnv } from "../../../env.server";
 import { networkPassphrase } from "../../../lib/stellar";
 import { BridgeConfigError, BridgeFundError } from "./bridge.errors";
 import type { FundBridgeInput, FundBridgeOutput } from "./bridge.schema";
 
-const horizonUrl =
-  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-  "https://horizon-testnet.stellar.org";
+const horizonUrl = env.NEXT_PUBLIC_STELLAR_HORIZON_URL;
 const horizon = new Horizon.Server(horizonUrl, {
   allowHttp: horizonUrl.startsWith("http://"),
 });
 
-export const BRIDGE_FUNDING_XLM =
-  process.env.BRIDGE_FUNDING_XLM?.trim() || "2.5";
+export const BRIDGE_FUNDING_XLM = getServerEnv().BRIDGE_FUNDING_XLM;
 
 type ResultCodes = {
   transaction?: string;
@@ -26,7 +25,7 @@ type ResultCodes = {
 };
 
 function sponsorKeypair(): Keypair {
-  const secret = process.env.BRIDGE_SPONSOR_SECRET;
+  const secret = getServerEnv().BRIDGE_SPONSOR_SECRET;
   if (!secret) {
     throw new BridgeConfigError("BRIDGE_SPONSOR_SECRET is not configured.");
   }

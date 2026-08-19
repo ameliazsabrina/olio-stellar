@@ -58,10 +58,6 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: repoRoot,
   reactStrictMode: true,
-  // passkey-kit and its sibling SDKs ship raw TypeScript as their entry point
-  // (main = src/index.ts), so Next must transpile them rather than consume them
-  // as prebuilt JS.
-  transpilePackages: ["passkey-kit", "passkey-kit-sdk", "sac-sdk"],
   // These pull in native addons (sodium-native's signing fallback, mongodb's
   // optional drivers) that webpack can't statically bundle for the Node.js
   // server runtime — require them directly from node_modules at runtime
@@ -74,7 +70,7 @@ const nextConfig = {
     "@openzeppelin/relayer-plugin-channels",
   ],
   webpack: (config, { dev }) => {
-    // The dependency graph (snarkjs/wasmcurves, passkey-kit) makes Next's
+    // The proof dependency graph (snarkjs/wasmcurves) makes Next's
     // persistent filesystem cache balloon to ~2GB. In dev, use an in-memory
     // cache instead so nothing accumulates on disk between restarts.
     if (dev) {

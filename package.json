@@ -7,8 +7,9 @@
     "build": "pnpm --filter web build",
     "lint": "pnpm --filter web lint",
     "contract:build": "stellar contract build",
-    "contract:test": "cargo test -p olio-registry -p olio-pool",
-    "deploy:testnet": "./scripts/deploy-testnet.sh"
+    "contract:test": "cargo test --workspace",
+    "deploy:testnet": "./scripts/deploy-testnet.sh",
+    "reset:testnet": "./scripts/reset-testnet.sh"
   },
   "workspaces": [
     "web"

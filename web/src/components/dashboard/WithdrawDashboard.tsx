@@ -371,16 +371,15 @@ export function WithdrawDashboard() {
         <DialogContent
           appearance="glass"
           size="md"
-          className="gap-0 p-0"
           showCloseButton={false}
         >
-          <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-start gap-3 border-b border-brand-linen/12 p-5 sm:p-6">
-            <div className="size-9">
+          <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-start gap-3 border-b border-brand-linen/12 pb-5 sm:pb-6">
+            <div className="size-10">
               {target && showMethodBack ? (
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
                   onClick={returnToMethods}
                   aria-label="Back to withdrawal methods"
@@ -413,13 +412,13 @@ export function WithdrawDashboard() {
               </DialogDescription>
             </div>
 
-            <div className="size-9">
+            <div className="size-10">
               {!bankBusy ? (
                 <DialogClose
                   render={
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon"
                       className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
                     />
                   }
@@ -431,7 +430,7 @@ export function WithdrawDashboard() {
             </div>
           </div>
 
-          <div className="p-5 sm:p-6">
+          <div>
             {target && dialogView === "method" ? (
               <WithdrawalMethodPicker
                 bulk={target.kind === "all"}
