@@ -122,12 +122,7 @@ function CctpPayFormInner({
             aria-readonly={Boolean(lockedAmount)}
             {...register("amount")}
           />
-          <Button
-            variant="glass"
-            className="min-h-11"
-            type="submit"
-            disabled={busy}
-          >
+          <Button className="min-h-11" type="submit" disabled={busy}>
             {busy && (
               <Loader
                 className="size-4 motion-safe:animate-spin"

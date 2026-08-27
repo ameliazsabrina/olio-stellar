@@ -62,8 +62,7 @@ export function EditionsTopNav() {
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
-                glassButtonClass,
-                "group inline-flex min-h-11 items-center gap-2 px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 data-popup-open:bg-white/20",
+                "group inline-flex min-h-11 items-center gap-2 px-3 text-sm font-semibold rounded-lg",
               )}
               title={address}
             >
