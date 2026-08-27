@@ -368,11 +368,7 @@ export function WithdrawDashboard() {
           if (!open) closeWithdrawal();
         }}
       >
-        <DialogContent
-          appearance="glass"
-          size="md"
-          showCloseButton={false}
-        >
+        <DialogContent appearance="glass" size="md" showCloseButton={false}>
           <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-start gap-3 border-b border-brand-linen/12 pb-5 sm:pb-6">
             <div className="size-10">
               {target && showMethodBack ? (
@@ -839,9 +835,6 @@ function WalletWithdrawal({
           className="size-4 motion-safe:animate-spin"
           aria-hidden="true"
         />
-        <div className="text-sm font-semibold text-brand-linen">
-          Generating proof and releasing funds…
-        </div>
       </div>
       <div className="max-w-sm text-sm text-brand-linen/65">
         The zero-knowledge proof is built in your browser. This can take a few
