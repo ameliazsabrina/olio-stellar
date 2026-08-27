@@ -97,7 +97,7 @@ jobs:
           PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
           PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
           OLIO_WALLET_DEPLOYER_SECRET: ${{ secrets.OLIO_WALLET_DEPLOYER_SECRET }}
-          OLIO_ACCOUNT_WASM_HASH: ${{ vars.OLIO_ACCOUNT_WASM_HASH }}
+          OLIO_ACCOUNT_WASM_HASH: ${{ secrets.OLIO_ACCOUNT_WASM_HASH }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
