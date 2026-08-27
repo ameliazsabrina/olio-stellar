@@ -269,7 +269,7 @@ export function PayForm({
             />
             {address ? (
               <Button
-                variant="glass"
+                // variant="glass"
                 className="min-h-11"
                 type="submit"
                 disabled={isSubmitting}
@@ -284,7 +284,6 @@ export function PayForm({
               </Button>
             ) : (
               <Button
-                variant="glass"
                 className="min-h-11"
                 type="button"
                 onClick={connect}
