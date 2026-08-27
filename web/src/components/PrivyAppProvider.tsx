@@ -17,7 +17,7 @@ export function PrivyAppProvider({ children }: { children: ReactNode }) {
           theme: "dark",
           accentColor: "#91975b",
           landingHeader: "Sign in to Olio",
-          loginMessage: "Use Google, GitHub, or a passkey.",
+          loginMessage: "Use Email, Google,or a passkey.",
         },
         embeddedWallets: {
           ethereum: { createOnLogin: "off" },
