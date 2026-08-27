@@ -45,13 +45,6 @@ import { useWallet } from "../WalletProvider";
 
 type Step = "select" | "preparing" | "interactive" | "settling" | "done";
 
-const PREP_LABEL: Record<string, string> = {
-  fund: "Preparing a one-time payout account…",
-  release: "Releasing your payment from the shielded pool…",
-  auth: "Connecting to the anchor…",
-  init: "Opening the withdrawal…",
-};
-
 function anchorLabel(): string {
   try {
     return new URL(anchorHomeDomain).hostname;
@@ -377,9 +370,6 @@ export function OffRampContent({
             className="size-5 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-brand-linen">
-            {PREP_LABEL[prepPhase] ?? "Preparing…"}
-          </div>
         </div>
         <div className="max-w-sm text-sm text-brand-linen/65">
           A zero-knowledge proof is generated in your browser before any funds

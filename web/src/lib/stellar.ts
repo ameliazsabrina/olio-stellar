@@ -391,7 +391,7 @@ export function parseDepositEvent(
       ? xdr.ScVal.fromXDR(e.value, "base64")
       : e.value,
   );
-  if (!Array.isArray(val) || val.length !== 4) return null;
+  if (!Array.isArray(val) || val.length < 4) return null;
   return {
     leafIndex: Number(val[0]),
     commitment: toBytes(val[1]),
