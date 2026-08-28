@@ -272,18 +272,44 @@ async function deployAccount(
   }
 }
 
-async function assertWalletAvailable(
+async function linkExistingWallet(
   privyUserId: string,
   wallet: PrivyWalletInput,
-): Promise<void> {
-  const conflict = await (await getUsers()).findOne({
+): Promise<WalletOutput | null> {
+  const users = await getUsers();
+  const linked = await users.findOne({
     $or: [
       { privyWalletId: wallet.privyWalletId },
       { privyWalletAddress: wallet.privyWalletAddress },
     ],
     privyUserId: { $ne: privyUserId },
   });
-  if (conflict) throw new WalletConflictError();
+  if (!linked) return null;
+  if (
+    linked.privyWalletId !== wallet.privyWalletId ||
+    linked.privyWalletAddress !== wallet.privyWalletAddress
+  ) {
+    throw new WalletConflictError();
+  }
+
+  try {
+    const reassociated = await users.findOneAndUpdate(
+      {
+        _id: linked._id,
+        privyUserId: linked.privyUserId,
+        privyWalletId: wallet.privyWalletId,
+        privyWalletAddress: wallet.privyWalletAddress,
+      },
+      { $set: { privyUserId, updatedAt: new Date() } },
+      { returnDocument: "after" },
+    );
+    if (!reassociated) throw new WalletConflictError();
+    return output(reassociated);
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000)
+      throw new WalletConflictError();
+    throw error;
+  }
 }
 
 export async function bootstrapWallet(
@@ -305,7 +331,12 @@ export async function bootstrapWallet(
     return output(existing);
   }
 
-  await assertWalletAvailable(privyUserId, wallet);
+  // Privy can issue a replacement DID when identities are linked or merged.
+  // Ownership was verified above, so preserve and reopen the Olio account
+  // already controlled by this embedded wallet instead of rejecting sign-in.
+  const linked = await linkExistingWallet(privyUserId, wallet);
+  if (linked) return linked;
+
   const contractId = await deployAccount(
     privyUserId,
     wallet.privyWalletAddress,

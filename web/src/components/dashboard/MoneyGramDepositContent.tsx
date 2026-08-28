@@ -387,15 +387,6 @@ export function MoneyGramDepositContent({
             Check status and retry shielding
           </Button>
         ) : null}
-        {transaction?.more_info_url ? (
-          <a
-            href={transaction.more_info_url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open MoneyGram status
-          </a>
-        ) : null}
       </div>
     );
 

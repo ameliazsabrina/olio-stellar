@@ -14,12 +14,13 @@ import { Err, Ok } from "@stellar/stellar-sdk/contract";
 
 const mocks = vi.hoisted(() => ({
   getPrivyUser: vi.fn(),
+  getUsers: vi.fn(),
 }));
 
 vi.mock("../src/server/lib/privy", () => ({
   getPrivyUser: mocks.getPrivyUser,
 }));
-vi.mock("../src/server/db/mongo", () => ({ getUsers: vi.fn() }));
+vi.mock("../src/server/db/mongo", () => ({ getUsers: mocks.getUsers }));
 vi.mock("../src/server/modules/channels/channels.service", () => ({
   relayXdr: vi.fn(),
 }));
@@ -27,6 +28,7 @@ vi.mock("../src/server/modules/channels/channels.service", () => ({
 import {
   accountSalt,
   assertPrivyWalletOwned,
+  bootstrapWallet,
   deriveAccountContractId,
   prepareSorobanTransactionForRelay,
   unwrapContractOwner,
@@ -78,6 +80,61 @@ describe("Olio account wallet ownership", () => {
         privyWalletAddress: address,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("relinks and opens the existing Olio account for a verified Privy wallet", async () => {
+    const existing = {
+      _id: StrKey.encodeContract(Buffer.alloc(32, 8)),
+      privyUserId: "did:privy:previous",
+      privyWalletId: walletId,
+      privyWalletAddress: address,
+      encryptedMaster: { preserved: true },
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-08-01T00:00:00.000Z"),
+    };
+    const reassociated = {
+      ...existing,
+      privyUserId: did,
+      updatedAt: new Date(),
+    };
+    const users = {
+      findOne: vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(existing),
+      findOneAndUpdate: vi.fn().mockResolvedValue(reassociated),
+    };
+    mocks.getUsers.mockResolvedValue(users);
+    mocks.getPrivyUser.mockResolvedValue({
+      id: did,
+      linked_accounts: [linkedWallet()],
+    });
+
+    await expect(
+      bootstrapWallet(did, {
+        privyWalletId: walletId,
+        privyWalletAddress: address,
+      }),
+    ).resolves.toEqual({
+      contractId: existing._id,
+      privyWalletId: walletId,
+      privyWalletAddress: address,
+    });
+    expect(users.findOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: existing._id,
+        privyUserId: existing.privyUserId,
+        privyWalletId: walletId,
+        privyWalletAddress: address,
+      },
+      {
+        $set: {
+          privyUserId: did,
+          updatedAt: expect.any(Date),
+        },
+      },
+      { returnDocument: "after" },
+    );
   });
 
   it.each([
