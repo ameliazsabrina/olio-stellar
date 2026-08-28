@@ -133,5 +133,9 @@ jobs:
             export OLIO_IMAGE="${{ needs.build-and-push.outputs.image }}"
             grep -q '^OLIO_IMAGE=' .env && sed -i "s#^OLIO_IMAGE=.*#OLIO_IMAGE=${OLIO_IMAGE}#" .env || echo "OLIO_IMAGE=${OLIO_IMAGE}" >> .env
             docker compose pull web pool-indexer migrate
-            docker compose up -d
+            if ! docker compose up -d; then
+              docker compose logs --no-color migrate || true
+              exit 1
+            fi
+            docker compose logs --no-color migrate
             docker image prune -f

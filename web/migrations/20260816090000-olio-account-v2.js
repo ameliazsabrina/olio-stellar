@@ -1,9 +1,15 @@
+const LEGACY_INDEXES = ["address_1", "credentialId_unique"];
+
 export async function up(db) {
   const users = db.collection("users");
   const indexes = await users.indexes();
-  if (indexes.some((index) => index.name === "credentialId_unique")) {
-    await users.dropIndex("credentialId_unique");
+
+  for (const indexName of LEGACY_INDEXES) {
+    if (indexes.some((index) => index.name === indexName)) {
+      await users.dropIndex(indexName);
+    }
   }
+
   await users.updateMany(
     {},
     {
