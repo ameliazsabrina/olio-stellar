@@ -131,8 +131,7 @@ jobs:
             mv "${secret_env}" .env.production
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             export OLIO_IMAGE="${{ needs.build-and-push.outputs.image }}"
-            # Persist the tag so manual `docker compose up` reuses this exact image.
             grep -q '^OLIO_IMAGE=' .env && sed -i "s#^OLIO_IMAGE=.*#OLIO_IMAGE=${OLIO_IMAGE}#" .env || echo "OLIO_IMAGE=${OLIO_IMAGE}" >> .env
-            docker compose pull web pool-indexer
+            docker compose pull web pool-indexer migrate
             docker compose up -d
             docker image prune -f

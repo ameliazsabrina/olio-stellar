@@ -1,9 +1,34 @@
 services:
+  migrate:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: "no"
+    env_file:
+      - .env.production
+    working_dir: /migrate
+    command:
+      [
+        "node",
+        "node_modules/migrate-mongo/bin/migrate-mongo.js",
+        "up",
+        "-f",
+        "migrate-mongo-config.cjs",
+      ]
+    networks:
+      - edge
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   web:
     image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
     restart: unless-stopped
     env_file:
       - .env.production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     expose:
       - "3000"
     networks:
@@ -26,8 +51,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Vercel only interprets web/vercel.json on Vercel. The production app is
-  # self-hosted, so keep the RPC event mirror inside the same Compose stack.
   pool-indexer:
     image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
     restart: unless-stopped
@@ -78,5 +101,5 @@ networks:
     driver: bridge
 
 volumes:
-  caddy_data: # Let's Encrypt certs + ACME account — persist across restarts.
+  caddy_data:
   caddy_config:
