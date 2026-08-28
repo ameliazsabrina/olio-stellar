@@ -70,6 +70,17 @@ export function randomFieldElement(): bigint {
   return fromBE(bytes) % R;
 }
 
+/** Stable, domain-separated salt for retry-safe MoneyGram shielding. */
+export function cashInSalt(
+  ownerSecret: bigint,
+  settlementIdentity: string,
+): bigint {
+  const material = new TextEncoder().encode(
+    `olio:moneygram-cash-in:v1:${ownerSecret.toString()}:${settlementIdentity}`,
+  );
+  return fromBE(sha256(material)) % R;
+}
+
 // --- amount helpers ---------------------------------------------------------
 
 export function toBaseUnits(amount: string): bigint {

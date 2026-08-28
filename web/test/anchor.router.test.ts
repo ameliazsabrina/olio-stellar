@@ -15,6 +15,14 @@ vi.mock("../src/server/modules/anchor/anchor.service", () => ({
 
 import { anchorRouter } from "../src/server/modules/anchor/anchor.router";
 
+const authContext = (ip: string | null) => ({
+  ip,
+  authToken: "token",
+  privyUserId: "did:privy:test",
+  privyClaim: { user_id: "did:privy:test" } as never,
+  authError: null,
+});
+
 beforeEach(() => {
   __resetRateLimit();
   signClientChallenge.mockReset();
@@ -24,38 +32,42 @@ beforeEach(() => {
 });
 
 it("validates input and returns the signed challenge", async () => {
-  const caller = anchorRouter.createCaller({ ip: "203.0.113.10" });
+  const caller = anchorRouter.createCaller(authContext("203.0.113.10"));
   const input = {
     transactionXdr: "challenge-xdr",
-    bridgePublicKey: Keypair.random().publicKey(),
+    accountPublicKey: Keypair.random().publicKey(),
+    accountKind: "cash-out" as const,
   };
   await expect(caller.signClientChallenge(input)).resolves.toEqual({
     signedTransactionXdr: "signed-xdr",
   });
-  expect(signClientChallenge).toHaveBeenCalledWith(input);
+  expect(signClientChallenge).toHaveBeenCalledWith(input, "did:privy:test");
 });
 
 it("rate limits client-domain signing", async () => {
-  const caller = anchorRouter.createCaller({ ip: null });
+  const caller = anchorRouter.createCaller(authContext(null));
   for (let i = 0; i < 10; i += 1) {
     await caller.signClientChallenge({
       transactionXdr: "xdr",
-      bridgePublicKey: Keypair.random().publicKey(),
+      accountPublicKey: Keypair.random().publicKey(),
+      accountKind: "cash-out",
     });
   }
   await expect(
     caller.signClientChallenge({
       transactionXdr: "xdr",
-      bridgePublicKey: Keypair.random().publicKey(),
+      accountPublicKey: Keypair.random().publicKey(),
+      accountKind: "cash-out",
     }),
   ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
 });
 
 it("maps configuration, bridge, and challenge failures", async () => {
-  const caller = anchorRouter.createCaller({ ip: "203.0.113.11" });
+  const caller = anchorRouter.createCaller(authContext("203.0.113.11"));
   const input = {
     transactionXdr: "xdr",
-    bridgePublicKey: Keypair.random().publicKey(),
+    accountPublicKey: Keypair.random().publicKey(),
+    accountKind: "cash-out" as const,
   };
 
   signClientChallenge.mockRejectedValueOnce(new AnchorConfigError("config"));

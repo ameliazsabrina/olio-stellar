@@ -1,9 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { rateLimit } from "../../lib/rateLimit";
-import { createTRPCRouter, publicProcedure } from "../../trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+} from "../../trpc";
+import { currentWallet } from "../wallets/wallets.service";
 import { BridgeConfigError, BridgeFundError } from "./bridge.errors";
 import { fundBridgeInput, fundBridgeOutput } from "./bridge.schema";
-import { fundBridge } from "./bridge.service";
+import { fundBridge, fundUserWallet } from "./bridge.service";
 
 const FUND_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
@@ -42,5 +47,19 @@ export const bridgeRouter = createTRPCRouter({
     .mutation(({ input, ctx }) => {
       enforceRateLimit(ctx.ip);
       return fundBridge(input).catch(mapError);
+    }),
+  fundWallet: protectedProcedure
+    .input(fundBridgeInput)
+    .output(fundBridgeOutput)
+    .mutation(async ({ input, ctx }) => {
+      enforceRateLimit(ctx.ip);
+      const wallet = await currentWallet(ctx.privyUserId);
+      if (!wallet || wallet.privyWalletAddress !== input.bridgePublicKey) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "The funding account is not your Privy Stellar wallet.",
+        });
+      }
+      return fundUserWallet(input).catch(mapError);
     }),
 });

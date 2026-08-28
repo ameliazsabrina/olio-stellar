@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { Sep10Signer } from "../lib/anchor";
 import { DASHBOARD_PATH } from "../lib/auth-routes";
 import { deriveNoteSecrets, randomMaster } from "../lib/keys";
 import {
@@ -28,8 +29,11 @@ import {
 import { BadPinError } from "../lib/pin-errors";
 import {
   type PrivyStellarWallet,
+  privySep10Signer,
   privySigner,
+  privyUsdcSigner,
   resolvePrivyStellarWallet,
+  signClassicTransaction,
 } from "../lib/privy-wallet";
 import {
   registerUsernameCache,
@@ -63,6 +67,13 @@ type WalletState = {
   signIn: () => void;
   disconnect: () => Promise<void>;
   getSigner: () => Signer;
+  privyPublicKey: string;
+  getPrivySep10Signer: () => Sep10Signer;
+  signPrivyTransaction: (
+    transactionXdr: string,
+    passphrase: string,
+  ) => Promise<string>;
+  getPrivyUsdcSigner: () => Signer;
 };
 
 type WalletMapping = {
@@ -417,6 +428,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     });
   }, [signRawHash]);
 
+  const getPrivySep10Signer = useCallback((): Sep10Signer => {
+    const wallet = privyWalletRef.current;
+    if (!wallet) throw new Error("Connect a Privy wallet first.");
+    return privySep10Signer({ wallet, signRawHash });
+  }, [signRawHash]);
+
+  const signPrivyTransaction = useCallback(
+    async (transactionXdr: string, passphrase: string): Promise<string> => {
+      const wallet = privyWalletRef.current;
+      if (!wallet) throw new Error("Connect a Privy wallet first.");
+      return signClassicTransaction({
+        wallet,
+        transactionXdr,
+        networkPassphrase: passphrase,
+        signRawHash,
+      });
+    },
+    [signRawHash],
+  );
+
+  const getPrivyUsdcSigner = useCallback((): Signer => {
+    const wallet = privyWalletRef.current;
+    const mapping = mappingRef.current;
+    if (!wallet || !mapping) throw new Error("Connect a Privy wallet first.");
+    return privyUsdcSigner({
+      wallet,
+      olioAddress: mapping.contractId,
+      signRawHash,
+    });
+  }, [signRawHash]);
+
   const openUsernameModal = useCallback(() => setUsernameModalOpen(true), []);
   const closeUsernameModal = useCallback(() => setUsernameModalOpen(false), []);
   const closePinModal = useCallback(() => {
@@ -451,6 +493,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       signIn,
       disconnect,
       getSigner,
+      privyPublicKey: privyWalletRef.current?.address ?? "",
+      getPrivySep10Signer,
+      signPrivyTransaction,
+      getPrivyUsdcSigner,
     }),
     [
       address,
@@ -474,6 +520,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       signIn,
       disconnect,
       getSigner,
+      getPrivySep10Signer,
+      signPrivyTransaction,
+      getPrivyUsdcSigner,
     ],
   );
 

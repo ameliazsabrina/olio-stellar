@@ -42,7 +42,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog";
-import { glassInsetClass } from "../ui/glass";
+import { linenInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
@@ -368,15 +368,15 @@ export function WithdrawDashboard() {
           if (!open) closeWithdrawal();
         }}
       >
-        <DialogContent appearance="glass" size="md" showCloseButton={false}>
-          <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-start gap-3 border-b border-brand-linen/12 pb-5 sm:pb-6">
+        <DialogContent appearance="linen" size="md" showCloseButton={false}>
+          <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-start gap-3 border-b border-foreground/12 pb-5 sm:pb-6">
             <div className="size-10">
               {target && showMethodBack ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
+                  className="text-foreground/60 hover:bg-foreground/10 hover:text-foreground"
                   onClick={returnToMethods}
                   aria-label="Back to withdrawal methods"
                   title="Back to withdrawal methods"
@@ -387,7 +387,7 @@ export function WithdrawDashboard() {
             </div>
 
             <div className="min-w-0 pt-1 text-center">
-              <DialogTitle className="text-xl leading-7 text-brand-linen">
+              <DialogTitle className="text-xl leading-7 text-foreground">
                 {target?.kind === "all"
                   ? "Withdraw all payments"
                   : "Withdraw payment"}
@@ -395,10 +395,10 @@ export function WithdrawDashboard() {
               <DialogDescription className="mt-6">
                 {target ? (
                   <>
-                    <span className="block text-6xl font-medium tracking-tight text-brand-linen tabular-nums">
+                    <span className="block text-6xl font-medium tracking-tight text-foreground tabular-nums">
                       {formatWithdrawalUsd(selectedTotal)}
                     </span>
-                    <span className="mt-4 block text-xs text-brand-linen/60">
+                    <span className="mt-4 block text-xs text-foreground/60">
                       {target.kind === "all"
                         ? `across ${target.notes.length} private payments`
                         : "from one private payment"}
@@ -415,7 +415,7 @@ export function WithdrawDashboard() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-brand-linen/60 hover:bg-brand-linen/10 hover:text-brand-linen"
+                      className="text-foreground/60 hover:bg-foreground/10 hover:text-foreground"
                     />
                   }
                 >
@@ -655,27 +655,27 @@ function WithdrawalMethodPicker({
 
   return (
     <fieldset className="grid gap-3">
-      <legend className="mb-1 text-sm font-semibold text-brand-linen">
+      <legend className="mb-1 text-sm font-semibold text-foreground">
         How would you like to withdraw?
       </legend>
       <button
         type="button"
         onClick={onWallet}
-        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-brand-linen/18 p-4 text-left transition-colors duration-200 hover:border-brand-linen/30 hover:bg-brand-linen/12 focus-visible:ring-2 focus-visible:ring-brand-linen/70`}
+        className={`${linenInsetClass} flex min-h-20 items-center gap-4 border border-foreground/18 p-4 text-left transition-colors duration-200 hover:border-foreground/30 hover:bg-foreground/12 focus-visible:ring-2 focus-visible:ring-foreground/70`}
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-foreground ring-1 ring-foreground/15">
           <Wallet className="size-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-brand-linen">
+          <span className="block font-semibold text-foreground">
             Stellar wallet
           </span>
-          <span className="mt-1 block text-xs leading-5 text-brand-linen/60">
+          <span className="mt-1 block text-xs leading-5 text-foreground/60">
             Private and on-chain. Send to a G… or C… Stellar address.
           </span>
         </span>
         <ArrowRight
-          className="size-4 shrink-0 text-brand-linen/65"
+          className="size-4 shrink-0 text-foreground/65"
           aria-hidden="true"
         />
       </button>
@@ -684,16 +684,16 @@ function WithdrawalMethodPicker({
         type="button"
         onClick={onAnchor}
         disabled={bulk || !moneyGramCashOutEnabled}
-        className={`${glassInsetClass} flex min-h-20 items-center gap-4 border border-brand-linen/18 p-4 text-left transition-colors duration-200 hover:border-brand-linen/30 hover:bg-brand-linen/12 focus-visible:ring-2 focus-visible:ring-brand-linen/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-brand-linen/18 disabled:hover:bg-brand-linen/8`}
+        className={`${linenInsetClass} flex min-h-20 items-center gap-4 border border-foreground/18 p-4 text-left transition-colors duration-200 hover:border-foreground/30 hover:bg-foreground/12 focus-visible:ring-2 focus-visible:ring-foreground/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-foreground/18 disabled:hover:bg-foreground/8`}
       >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen ring-1 ring-brand-linen/15">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-foreground ring-1 ring-foreground/15">
           <Landmark className="size-5" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-brand-linen">
+          <span className="block font-semibold text-foreground">
             MoneyGram cash pickup
           </span>
-          <span className="mt-1 block text-xs leading-5 text-brand-linen/60">
+          <span className="mt-1 block text-xs leading-5 text-foreground/60">
             {bulk
               ? "Cash anchors process one private payment at a time."
               : moneyGramRampStatus === "whitelisting"
@@ -704,7 +704,7 @@ function WithdrawalMethodPicker({
           </span>
         </span>
         <ArrowRight
-          className="size-4 shrink-0 text-brand-linen/65"
+          className="size-4 shrink-0 text-foreground/65"
           aria-hidden="true"
         />
       </button>
@@ -743,12 +743,12 @@ function WalletWithdrawal({
     return (
       <form className="grid gap-5" onSubmit={onReview} noValidate>
         <div className="grid gap-2">
-          <Label className="text-brand-linen" htmlFor="withdraw-destination">
+          <Label className="text-foreground" htmlFor="withdraw-destination">
             Destination wallet
           </Label>
           <Input
             {...registerDestination}
-            appearance="glass"
+            appearance="linen"
             id="withdraw-destination"
             className="min-h-11 font-mono text-sm"
             placeholder="G… or C…"
@@ -763,13 +763,13 @@ function WalletWithdrawal({
             }
           />
           {fieldError ? (
-            <p id="withdraw-destination-error" className="text-sm text-red-200">
+            <p id="withdraw-destination-error" className="text-sm text-red-600">
               {fieldError}
             </p>
           ) : (
             <p
               id="withdraw-destination-hint"
-              className="text-xs text-brand-linen/60"
+              className="text-xs text-foreground/60"
             >
               Enter the external Stellar address that should receive the funds.
             </p>
@@ -778,7 +778,7 @@ function WalletWithdrawal({
 
         {submitError ? <InlineError message={submitError} /> : null}
 
-        <Button type="submit" variant="glass" size="lg" className="w-full">
+        <Button type="submit" variant="default" size="lg" className="w-full">
           Review withdrawal
         </Button>
       </form>
@@ -789,31 +789,31 @@ function WalletWithdrawal({
     return (
       <div className="grid gap-5">
         <BackButton label="Edit details" onClick={onBack} />
-        <div className={`${glassInsetClass} p-4`}>
+        <div className={`${linenInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm text-brand-linen/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
+            <span className="text-sm text-foreground/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-foreground tabular-nums">
               {fromBaseUnits(amount)} USDC
             </span>
           </div>
           {paymentCount ? (
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-linen/12 pt-4">
-              <span className="text-sm text-brand-linen/60">Payments</span>
-              <span className="text-sm font-medium text-brand-linen">
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-foreground/12 pt-4">
+              <span className="text-sm text-foreground/60">Payments</span>
+              <span className="text-sm font-medium text-foreground">
                 {paymentCount} separate proofs
               </span>
             </div>
           ) : null}
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-brand-linen/12 pt-4">
-            <span className="text-sm text-brand-linen/60">To</span>
-            <span className="font-mono text-sm font-medium text-brand-linen">
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-foreground/12 pt-4">
+            <span className="text-sm text-foreground/60">To</span>
+            <span className="font-mono text-sm font-medium text-foreground">
               {shortAddress(destination.trim())}
             </span>
           </div>
         </div>
         {submitError ? <InlineError message={submitError} /> : null}
         <Button
-          variant="glass"
+          variant="default"
           size="lg"
           className="w-full"
           onClick={onConfirm}
@@ -836,7 +836,7 @@ function WalletWithdrawal({
           aria-hidden="true"
         />
       </div>
-      <div className="max-w-sm text-sm text-brand-linen/65">
+      <div className="max-w-sm text-sm text-foreground/65">
         The zero-knowledge proof is built in your browser. This can take a few
         seconds.
       </div>
@@ -855,7 +855,7 @@ function BackButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-brand-linen/70 hover:bg-brand-linen/8 hover:text-brand-linen focus-visible:ring-2 focus-visible:ring-brand-linen/70"
+      className="flex min-h-10 w-fit items-center gap-2 rounded-lg px-2 text-sm font-semibold text-foreground/70 hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/70"
     >
       <ArrowLeft className="size-4" aria-hidden="true" />
       {label}

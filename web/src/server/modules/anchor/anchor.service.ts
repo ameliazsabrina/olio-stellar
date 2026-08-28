@@ -9,6 +9,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { getPublicEnv } from "../../../env";
 import { getServerEnv } from "../../../env.server";
+import { currentWallet } from "../wallets/wallets.service";
 import {
   AnchorBridgeError,
   AnchorChallengeError,
@@ -138,6 +139,7 @@ function assertClientDomainOperation(
 
 export async function signClientChallenge(
   input: SignClientChallengeInput,
+  privyUserId?: string,
 ): Promise<SignClientChallengeOutput> {
   const networkPassphrase = sep10NetworkPassphrase();
   const isMainnet = networkPassphrase === Networks.PUBLIC;
@@ -188,7 +190,7 @@ export async function signClientChallenge(
   } catch {
     throw new AnchorChallengeError("The SEP-10 challenge is invalid.");
   }
-  if (parsed.clientAccountID !== input.bridgePublicKey) {
+  if (parsed.clientAccountID !== input.accountPublicKey) {
     throw new AnchorChallengeError(
       "SEP-10 challenge is for a different payout account.",
     );
@@ -202,12 +204,12 @@ export async function signClientChallenge(
 
   const recognized = WebAuth.gatherTxSigners(parsed.tx, [
     toml.SIGNING_KEY,
-    input.bridgePublicKey,
+    input.accountPublicKey,
     clientKeypair.publicKey(),
   ]);
   if (
     !recognized.includes(toml.SIGNING_KEY) ||
-    !recognized.includes(input.bridgePublicKey) ||
+    !recognized.includes(input.accountPublicKey) ||
     recognized.length !== parsed.tx.signatures.length
   ) {
     throw new AnchorChallengeError(
@@ -219,8 +221,20 @@ export async function signClientChallenge(
   // that Olio's sponsor created the account before applying the client-domain
   // signature. Testnet accounts are created by Friendbot; possession of the
   // bridge key is proven by its validated challenge signature instead.
-  if (isMainnet) {
-    await assertSponsorCreatedBridge(input.bridgePublicKey);
+  if (input.accountKind === "cash-in") {
+    if (!privyUserId) {
+      throw new AnchorBridgeError(
+        "Sign in before starting a MoneyGram cash-in.",
+      );
+    }
+    const wallet = await currentWallet(privyUserId);
+    if (!wallet || wallet.privyWalletAddress !== input.accountPublicKey) {
+      throw new AnchorBridgeError(
+        "The cash-in account is not the authenticated user's Privy wallet.",
+      );
+    }
+  } else if (isMainnet) {
+    await assertSponsorCreatedBridge(input.accountPublicKey);
   }
 
   if (!recognized.includes(clientKeypair.publicKey())) {

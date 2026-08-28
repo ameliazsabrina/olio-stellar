@@ -26,4 +26,18 @@ describe("BalanceCard currency selector", () => {
       screen.getByRole("menuitem", { name: /EURC Coming soon/i }),
     ).toHaveAttribute("aria-disabled", "true");
   });
+
+  it("opens Add Cash from its dedicated plus control", async () => {
+    const onAddCash = vi.fn();
+    render(
+      <BalanceCard
+        claimable={10n}
+        loading={false}
+        onAddCash={onAddCash}
+        onReceive={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add cash" }));
+    expect(onAddCash).toHaveBeenCalledOnce();
+  });
 });

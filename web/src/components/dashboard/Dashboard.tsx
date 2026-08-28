@@ -20,7 +20,12 @@ import {
   useState,
 } from "react";
 import { HISTORY_PATH, WITHDRAW_PATH } from "../../lib/auth-routes";
+import {
+  moneyGramCashInEnabled,
+  moneyGramCashInUnavailableReason,
+} from "../../lib/moneygram-status";
 import { useWallet } from "../WalletProvider";
+import { AddCashDialog } from "./AddCashDialog";
 import { BalanceCard } from "./BalanceCard";
 import { DashboardTile } from "./DashboardTile";
 import { weeklyActivity } from "./dashboardAnalytics";
@@ -36,6 +41,7 @@ export function Dashboard() {
   const { address, username, accountUnlocked, promptUnlock } = useWallet();
   const [origin, setOrigin] = useState("");
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [addCashOpen, setAddCashOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const { notes, claimable, loading, refreshing, stale, refresh } =
     useMyNotes(address);
@@ -64,6 +70,10 @@ export function Dashboard() {
             locked={locked}
             onUnlock={promptUnlock}
             onReceive={() => setReceiveOpen(true)}
+            onAddCash={
+              moneyGramCashInEnabled ? () => setAddCashOpen(true) : undefined
+            }
+            addCashDisabledReason={moneyGramCashInUnavailableReason}
             onRefresh={refresh}
             refreshing={refreshing}
             stale={stale}
@@ -219,6 +229,11 @@ export function Dashboard() {
         onClose={() => setReceiveOpen(false)}
         username={username ?? ""}
         origin={origin}
+      />
+      <AddCashDialog
+        open={addCashOpen}
+        onOpenChange={setAddCashOpen}
+        onComplete={refresh}
       />
       <LinkEditorDialog
         mode="create"

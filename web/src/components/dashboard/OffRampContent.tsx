@@ -9,7 +9,7 @@ import {
   Loader,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   type AnchorInfo,
@@ -39,7 +39,7 @@ import {
   updateRampSession,
 } from "../../lib/offramp";
 import { Button } from "../ui/button";
-import { glassInsetClass } from "../ui/glass";
+import { linenInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
@@ -93,6 +93,8 @@ export function OffRampContent({
   } | null>(null);
   const [settled, setSettled] = useState<Sep24Transaction | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [popupNotice, setPopupNotice] = useState<string | null>(null);
+  const anchorWindowRef = useRef<Window | null>(null);
 
   const [limits, setLimits] = useState<WithdrawLimits | null>(null);
 
@@ -137,13 +139,28 @@ export function OffRampContent({
   useEffect(() => {
     if (!interactive) return;
     const onMessage = (event: MessageEvent) => {
-      if (isTrustedCommitResult(event, interactive.info, interactive.id)) {
-        setSettled(event.data.payload.transaction);
+      if (isTrustedCommitResult(event, interactive.url, interactive.id)) {
+        setPopupNotice(
+          "MoneyGram submitted the hosted flow. Confirming status with the anchor…",
+        );
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [interactive]);
+
+  useEffect(() => {
+    if (step !== "interactive") return;
+    const timer = window.setInterval(() => {
+      if (anchorWindowRef.current?.closed) {
+        setPopupNotice(
+          "The MoneyGram window was closed. Status checks continue here, or you can reopen it.",
+        );
+        window.clearInterval(timer);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [step]);
 
   async function copy(value: string, label: string) {
     await navigator.clipboard?.writeText(value);
@@ -178,6 +195,12 @@ export function OffRampContent({
     // pop-up blocker nulls this out, the "interactive" step's button is fallback.
     const anchorWindow =
       typeof window !== "undefined" ? window.open("", "_blank") : null;
+    anchorWindowRef.current = anchorWindow;
+    if (!anchorWindow) {
+      setPopupNotice(
+        "Your browser blocked the MoneyGram window. Use Reopen or Continue in this tab once preparation completes.",
+      );
+    }
     paintAnchorWindow(
       anchorWindow,
       "Preparing your secure withdrawal…",
@@ -327,21 +350,22 @@ export function OffRampContent({
     return (
       <div className="grid gap-4">
         <div
-          className={`${glassInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-brand-linen/70`}
+          className={`${linenInsetClass} flex items-start gap-2 px-3 py-2.5 text-xs text-foreground/70`}
         >
-          <Landmark className="mt-0.5 size-4 shrink-0 text-brand-linen/70" />
+          <Landmark className="mt-0.5 size-4 shrink-0 text-foreground/70" />
           <span>
-            Cash out as local currency through{" "}
-            <b className="font-semibold text-brand-linen">{anchorLabel()}</b>.
-            Identity and pickup details are handled by the anchor — they never
-            touch Olio.
+            MoneyGram verifies your identity before cash pickup. Olio’s private
+            pool prevents the withdrawal from directly revealing which earlier
+            Olio payment or deposit funded it, but MoneyGram can still identify
+            the person receiving cash. Public amounts and timing may also permit
+            correlation.
           </span>
         </div>
 
-        <div className={`${glassInsetClass} p-4`}>
+        <div className={`${linenInsetClass} p-4`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm text-brand-linen/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
+            <span className="text-sm text-foreground/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-foreground tabular-nums">
               {fromBaseUnits(note.amount)} USDC
             </span>
           </div>
@@ -354,7 +378,12 @@ export function OffRampContent({
           toastId="off-ramp-error"
         />
 
-        <Button variant="glass" className="min-h-11" size="lg" onClick={start}>
+        <Button
+          variant="default"
+          className="min-h-11"
+          size="lg"
+          onClick={start}
+        >
           <Banknote className="size-4" aria-hidden="true" />
           Continue to cash-out
         </Button>
@@ -371,9 +400,12 @@ export function OffRampContent({
             aria-hidden="true"
           />
         </div>
-        <div className="max-w-sm text-sm text-brand-linen/65">
-          A zero-knowledge proof is generated in your browser before any funds
-          move. This can take a few seconds.
+        <div className="max-w-sm text-sm text-foreground/65">
+          {prepPhase === "fund"
+            ? "Preparing a recoverable payout account before any funds move."
+            : prepPhase === "auth"
+              ? "Authenticating the payout account with MoneyGram."
+              : "Opening the secure MoneyGram withdrawal flow."}
         </div>
       </div>
     );
@@ -382,36 +414,51 @@ export function OffRampContent({
   if (step === "interactive" && interactive) {
     return (
       <div className="grid gap-4">
-        <div className={`${glassInsetClass} p-4 text-sm`}>
+        <div className={`${linenInsetClass} p-4 text-sm`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-brand-linen/60">Cashing out</span>
-            <span className="font-mono text-xl font-semibold text-brand-linen tabular-nums">
+            <span className="text-foreground/60">Cashing out</span>
+            <span className="font-mono text-xl font-semibold text-foreground tabular-nums">
               {fromBaseUnits(note.amount)} USDC
             </span>
           </div>
         </div>
-        <p className="text-sm text-brand-linen/65">
+        <p className="text-sm text-foreground/65">
           Finish in the secure {anchorLabel()} window: verify your identity and
           choose where to collect your cash. This screen updates automatically
           once you're done.
         </p>
+
+        {popupNotice ? (
+          <p role="status" className="text-xs text-foreground/65">
+            {popupNotice}
+          </p>
+        ) : null}
         <Button
-          variant="glass"
+          variant="default"
           className="min-h-11"
           size="lg"
-          nativeButton={false}
-          render={
-            <a
-              href={interactive.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          }
+          onClick={() => {
+            anchorWindowRef.current = window.open(
+              interactive.url,
+              "_blank",
+              "noopener,noreferrer",
+            );
+            if (!anchorWindowRef.current) {
+              setPopupNotice("Popup blocked. Continue in this tab instead.");
+            }
+          }}
         >
           <ExternalLink className="size-4" aria-hidden="true" />
-          Open secure {anchorLabel()} window
+          Reopen secure {anchorLabel()} window
         </Button>
-        <div className="flex items-center justify-center gap-2 text-xs text-brand-linen/60">
+        <Button
+          variant="secondary"
+          className="min-h-11"
+          onClick={() => window.location.assign(interactive.url)}
+        >
+          Continue in this tab
+        </Button>
+        <div className="flex items-center justify-center gap-2 text-xs text-foreground/60">
           <Loader
             className="size-3.5 motion-safe:animate-spin"
             aria-hidden="true"
@@ -430,11 +477,11 @@ export function OffRampContent({
             className="size-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
-          <div className="text-sm font-semibold text-brand-linen">
+          <div className="text-sm font-semibold text-foreground">
             Sending your payout to the anchor…
           </div>
         </div>
-        <div className="max-w-sm text-sm text-brand-linen/65">
+        <div className="max-w-sm text-sm text-foreground/65">
           Completing the on-chain transfer. Hang tight.
         </div>
       </div>
@@ -444,14 +491,14 @@ export function OffRampContent({
   if (step === "done") {
     return (
       <div className="grid place-items-center gap-4 py-8 text-center">
-        <div className="flex size-12 items-center justify-center rounded-lg bg-ok/20 text-emerald-100 ring-1 ring-ok/40">
+        <div className="flex size-12 items-center justify-center rounded-lg bg-emerald-600/10 text-emerald-700 ring-1 ring-emerald-600/25">
           <ShieldCheck className="size-6" aria-hidden="true" />
         </div>
         <div className="space-y-1">
-          <h2 className="font-heading text-xl font-semibold text-brand-linen">
+          <h2 className="font-heading text-xl font-semibold text-foreground">
             Cash-out submitted
           </h2>
-          <p className="max-w-md text-sm text-brand-linen/65">
+          <p className="max-w-md text-sm text-foreground/65">
             {settled?.status === "refunded"
               ? "MoneyGram refunded this cash-out. Returned USDC will appear in the recovery panel as soon as it reaches the saved account."
               : settled?.status === "completed"
@@ -487,7 +534,7 @@ export function OffRampContent({
           ) : null}
           {settled?.more_info_url ? (
             <Button
-              variant="glass"
+              variant="default"
               nativeButton={false}
               render={
                 <a

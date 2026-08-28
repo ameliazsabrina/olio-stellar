@@ -98,11 +98,12 @@ jobs:
           PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
           OLIO_WALLET_DEPLOYER_SECRET: ${{ secrets.OLIO_WALLET_DEPLOYER_SECRET }}
           OLIO_ACCOUNT_WASM_HASH: ${{ secrets.OLIO_ACCOUNT_WASM_HASH }}
+          BRIDGE_SPONSOR_SECRET: ${{ secrets.BRIDGE_SPONSOR_SECRET }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET,PRIVY_APP_ID,PRIVY_APP_SECRET,OLIO_WALLET_DEPLOYER_SECRET,OLIO_ACCOUNT_WASM_HASH
+          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET,PRIVY_APP_ID,PRIVY_APP_SECRET,OLIO_WALLET_DEPLOYER_SECRET,OLIO_ACCOUNT_WASM_HASH,BRIDGE_SPONSOR_SECRET
           script: |
             set -euo pipefail
             cd /home/${{ secrets.SSH_USER }}/olio
@@ -114,8 +115,9 @@ jobs:
             test -n "${PRIVY_APP_SECRET}"
             test -n "${OLIO_WALLET_DEPLOYER_SECRET}"
             test -n "${OLIO_ACCOUNT_WASM_HASH}"
+            test -n "${BRIDGE_SPONSOR_SECRET}"
             secret_env="$(mktemp)"
-            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET|PRIVY_APP_ID|PRIVY_APP_SECRET|OLIO_WALLET_DEPLOYER_SECRET|OLIO_ACCOUNT_WASM_HASH)=' .env.production > "${secret_env}" || true
+            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET|PRIVY_APP_ID|PRIVY_APP_SECRET|OLIO_WALLET_DEPLOYER_SECRET|OLIO_ACCOUNT_WASM_HASH|BRIDGE_SPONSOR_SECRET)=' .env.production > "${secret_env}" || true
             {
               printf '%s\n' "MONGODB_URI=${MONGODB_URI}"
               printf '%s\n' "CRON_SECRET=${CRON_SECRET}"
@@ -124,6 +126,7 @@ jobs:
               printf '%s\n' "PRIVY_APP_SECRET=${PRIVY_APP_SECRET}"
               printf '%s\n' "OLIO_WALLET_DEPLOYER_SECRET=${OLIO_WALLET_DEPLOYER_SECRET}"
               printf '%s\n' "OLIO_ACCOUNT_WASM_HASH=${OLIO_ACCOUNT_WASM_HASH}"
+              printf '%s\n' "BRIDGE_SPONSOR_SECRET=${BRIDGE_SPONSOR_SECRET}"
             } >> "${secret_env}"
             mv "${secret_env}" .env.production
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

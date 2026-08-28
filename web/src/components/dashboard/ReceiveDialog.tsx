@@ -1,22 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ArrowLeft,
-  AtSign,
-  Banknote,
-  Check,
-  Copy,
-  Link2,
-  Loader,
-} from "lucide-react";
+import { ArrowLeft, AtSign, Check, Copy, Link2, Loader } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { useCreatePaymentLink } from "../../features/paymentLinks/hooks/useCreatePaymentLink";
 import type { PaymentLink } from "../../features/paymentLinks/types";
-import { moneyGramCashInEnabled } from "../../lib/moneygram-status";
 import { payUrl } from "../../lib/paymentLinks";
 import { cn } from "../../lib/utils";
 import { createLinkFormInput } from "../../server/modules/paymentLinks/paymentLinks.schema";
@@ -28,17 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { glassFieldClass, glassInsetClass } from "../ui/glass";
+import { linenFieldClass, linenInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { ToastFeedback } from "../ui/toast-feedback";
 
-const MoneyGramDepositContent = lazy(() =>
-  import("./MoneyGramDepositContent").then((module) => ({
-    default: module.MoneyGramDepositContent,
-  })),
-);
-
-type Step = "method" | "configure" | "creating" | "done" | "moneygram";
+type Step = "method" | "configure" | "creating" | "done";
 type CreateLinkFormInput = z.input<typeof createLinkFormInput>;
 type CreateLinkFormOutput = z.output<typeof createLinkFormInput>;
 
@@ -137,13 +122,10 @@ export function ReceiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent
-        appearance="glass"
-        size="md"
-      >
+      <DialogContent appearance="linen" size="md">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            {(step === "configure" || step === "moneygram") && (
+            {step === "configure" && (
               <Button
                 type="button"
                 variant="ghost"
@@ -152,26 +134,21 @@ export function ReceiveDialog({
                   setSubmitError(null);
                   setStep("method");
                 }}
-                className="-ml-2 shrink-0 rounded-full text-brand-linen/65 hover:bg-brand-linen/10 hover:text-brand-linen"
+                className="-ml-2 shrink-0 rounded-full text-foreground/65 hover:bg-foreground/10 hover:text-foreground"
                 aria-label="Back"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
               </Button>
             )}
-            <DialogTitle>
-              {step === "moneygram"
-                ? "Add cash with MoneyGram"
-                : "Receive privately"}
-            </DialogTitle>
+            <DialogTitle>Receive privately</DialogTitle>
           </div>
           <DialogDescription>
             {step === "method" && "Choose how you want to receive funds."}
             {step === "configure" &&
               "Create a shareable payment link with an optional fixed amount."}
-            {step === "creating" && "Your private payment link is being prepared."}
+            {step === "creating" &&
+              "Your private payment link is being prepared."}
             {step === "done" && "Your payment link is ready to share."}
-            {step === "moneygram" &&
-              "Follow the cash-in steps to fund your private balance."}
           </DialogDescription>
         </DialogHeader>
 
@@ -184,55 +161,26 @@ export function ReceiveDialog({
                 setStep("configure");
               }}
               className={cn(
-                glassInsetClass,
-                "flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-brand-linen/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70",
+                linenInsetClass,
+                "flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-foreground/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/70",
               )}
             >
-              <Link2
-                className="size-5 text-brand-linen/70"
-                aria-hidden="true"
-              />
+              <Link2 className="size-5 text-foreground/70" aria-hidden="true" />
               <div>
-                <div className="text-sm font-medium text-brand-linen">
+                <div className="text-sm font-medium text-foreground">
                   Create a link or QR
                 </div>
-                <div className="text-xs text-brand-linen/60">
+                <div className="text-xs text-foreground/60">
                   Share a link, with an amount, or open-ended
                 </div>
               </div>
             </button>
-            {moneyGramCashInEnabled ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmitError(null);
-                  setStep("moneygram");
-                }}
-                className={cn(
-                  glassInsetClass,
-                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-brand-linen/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen/70",
-                )}
-              >
-                <Banknote
-                  className="size-5 text-brand-linen/70"
-                  aria-hidden="true"
-                />
-                <div>
-                  <div className="text-sm font-medium text-brand-linen">
-                    Add cash with MoneyGram
-                  </div>
-                  <div className="text-xs text-brand-linen/60">
-                    Sandbox certification flow
-                  </div>
-                </div>
-              </button>
-            ) : null}
             <button
               type="button"
               disabled
               className={cn(
-                glassInsetClass,
-                "flex cursor-not-allowed items-center gap-3 rounded-2xl px-4 py-3 text-left text-brand-linen/45",
+                linenInsetClass,
+                "flex cursor-not-allowed items-center gap-3 rounded-2xl px-4 py-3 text-left text-foreground/45",
               )}
             >
               <AtSign className="size-5" aria-hidden="true" />
@@ -246,29 +194,17 @@ export function ReceiveDialog({
           </div>
         )}
 
-        {step === "moneygram" && (
-          <Suspense
-            fallback={
-              <div className="py-8 text-center text-sm text-brand-linen/65">
-                Loading MoneyGram…
-              </div>
-            }
-          >
-            <MoneyGramDepositContent onBack={() => setStep("method")} />
-          </Suspense>
-        )}
-
         {step === "configure" && (
           <form className="grid gap-3" onSubmit={create}>
             <input type="hidden" {...register("username")} />
             <label
               htmlFor="receive-slug"
-              className="text-sm text-brand-linen/70"
+              className="text-sm text-foreground/70"
             >
               Link name
             </label>
             <Input
-              appearance="glass"
+              appearance="linen"
               id="receive-slug"
               className="min-h-11"
               placeholder="july-freelance"
@@ -278,13 +214,13 @@ export function ReceiveDialog({
 
             <label
               htmlFor="receive-amount"
-              className="text-sm text-brand-linen/70"
+              className="text-sm text-foreground/70"
             >
               Amount (USDC){" "}
-              <span className="text-brand-linen/60">— optional</span>
+              <span className="text-foreground/60">— optional</span>
             </label>
             <Input
-              appearance="glass"
+              appearance="linen"
               id="receive-amount"
               className="min-h-11"
               inputMode="decimal"
@@ -295,15 +231,14 @@ export function ReceiveDialog({
 
             <label
               htmlFor="receive-description"
-              className="text-sm text-brand-linen/70"
+              className="text-sm text-foreground/70"
             >
-              Description{" "}
-              <span className="text-brand-linen/60">— optional</span>
+              Description <span className="text-foreground/60">— optional</span>
             </label>
             <textarea
               id="receive-description"
               className={cn(
-                glassFieldClass,
+                linenFieldClass,
                 "min-h-24 rounded-xl border px-3 py-3 text-sm outline-none focus-visible:ring-2",
               )}
               placeholder="What's it for? (e.g. Invoice #12)"
@@ -335,7 +270,7 @@ export function ReceiveDialog({
             />
 
             <Button
-              variant="glass"
+              variant="default"
               className="min-h-11 mt-4"
               size="lg"
               type="submit"
@@ -349,10 +284,10 @@ export function ReceiveDialog({
         {step === "creating" && (
           <div className="flex items-center justify-center gap-3 py-8 text-center">
             <Loader
-              className="size-8 text-brand-linen/70 motion-safe:animate-spin"
+              className="size-8 text-foreground/70 motion-safe:animate-spin"
               aria-hidden="true"
             />
-            <div className="text-sm font-medium text-brand-linen">
+            <div className="text-sm font-medium text-foreground">
               Creating link…
             </div>
           </div>
@@ -360,27 +295,27 @@ export function ReceiveDialog({
 
         {step === "done" && link && (
           <div className="grid min-w-0 max-w-full gap-3 overflow-hidden">
-            <div className="text-sm text-brand-linen/65">
+            <div className="text-sm text-foreground/65">
               {link.amount
                 ? "Share this link to get paid the exact amount."
                 : "Share this link — the payer chooses the amount."}
               {link.description ? ` · ${link.description}` : ""}
             </div>
 
-            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-xl border border-brand-linen/15 bg-brand-linen/8 px-3 py-2.5">
-              <div className="min-w-0 flex-1 truncate font-mono text-sm text-brand-linen">
+            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-xl border border-foreground/15 bg-foreground/8 px-3 py-2.5">
+              <div className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">
                 {url.replace(/^https?:\/\//, "")}
               </div>
               <Button
                 size="icon-sm"
-                variant="glass"
+                variant="default"
                 onClick={handleCopy}
                 aria-label="Copy link"
                 title="Copy link"
               >
                 {copied ? (
                   <Check
-                    className="size-4 text-brand-linen"
+                    className="size-4 text-primary-foreground"
                     aria-hidden="true"
                   />
                 ) : (
@@ -389,7 +324,7 @@ export function ReceiveDialog({
               </Button>
             </div>
 
-            <div className="flex max-w-full justify-center overflow-hidden rounded-xl border border-brand-linen/20 bg-brand-linen p-4">
+            <div className="flex max-w-full justify-center overflow-hidden rounded-xl border border-foreground/20 bg-brand-linen p-4">
               <QRCodeSVG
                 value={url}
                 size={168}
@@ -400,7 +335,7 @@ export function ReceiveDialog({
             </div>
 
             <Button
-              variant="glass"
+              variant="default"
               className="mt-4 min-h-11 w-full"
               size="lg"
               onClick={handleClose}

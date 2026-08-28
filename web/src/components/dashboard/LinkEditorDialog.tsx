@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { glassFieldClass, glassSegmentedClass } from "../ui/glass";
+import { linenFieldClass, linenSegmentedClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
@@ -139,7 +139,7 @@ export function LinkEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent appearance="glass" size="md">
+      <DialogContent appearance="linen" size="md">
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Create link" : "Edit link"}
@@ -154,14 +154,14 @@ export function LinkEditorDialog({
           <input type="hidden" {...register("username")} />
           <div className="grid gap-2">
             <Label
-              className="text-brand-linen"
+              className="text-foreground"
               htmlFor={`${mode}-link-description`}
             >
               Description
             </Label>
             <textarea
               id={`${mode}-link-description`}
-              className={`${glassFieldClass} min-h-28 rounded-lg border px-3 py-3 text-sm outline-none focus-visible:ring-2`}
+              className={`${linenFieldClass} min-h-28 rounded-lg border px-3 py-3 text-sm outline-none focus-visible:ring-2`}
               placeholder="Tell people what this payment is for..."
               maxLength={500}
               {...register("description")}
@@ -170,11 +170,11 @@ export function LinkEditorDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label className="text-brand-linen" htmlFor={`${mode}-link-slug`}>
+            <Label className="text-foreground" htmlFor={`${mode}-link-slug`}>
               Link name
             </Label>
             <Input
-              appearance="glass"
+              appearance="linen"
               id={`${mode}-link-slug`}
               className="min-h-11"
               readOnly={mode === "edit"}
@@ -184,9 +184,9 @@ export function LinkEditorDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label className="text-brand-linen">Amount</Label>
+            <Label className="text-foreground">Amount</Label>
             <div
-              className={`${glassSegmentedClass} grid grid-cols-2 gap-1 p-1`}
+              className={`${linenSegmentedClass} grid grid-cols-2 gap-1 p-1`}
             >
               {(["fixed", "open"] as const).map((modeKey) => (
                 <button
@@ -195,8 +195,8 @@ export function LinkEditorDialog({
                   onClick={() => setAmountMode(modeKey)}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     amountMode === modeKey
-                      ? "bg-brand-linen/18 text-brand-linen ring-1 ring-brand-linen/25"
-                      : "text-brand-linen/65 hover:bg-brand-linen/8 hover:text-brand-linen"
+                      ? "bg-foreground/18 text-foreground ring-1 ring-foreground/25"
+                      : "text-foreground/65 hover:bg-foreground/8 hover:text-foreground"
                   }`}
                 >
                   {modeKey === "fixed" ? "Fixed Amount" : "Open Amount"}
@@ -205,7 +205,7 @@ export function LinkEditorDialog({
             </div>
             {amountMode === "fixed" ? (
               <Input
-                appearance="glass"
+                appearance="linen"
                 className="min-h-11"
                 inputMode="decimal"
                 placeholder="25.00"
@@ -236,7 +236,7 @@ export function LinkEditorDialog({
           />
 
           <Button
-            variant="glass"
+            variant="default"
             className="mt-4 min-h-11"
             size="lg"
             type="submit"

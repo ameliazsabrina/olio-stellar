@@ -9,6 +9,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   operationsCall: vi.fn(),
   tomlResolve: vi.fn(),
+  currentWallet: vi.fn(),
+}));
+
+vi.mock("../src/server/modules/wallets/wallets.service", () => ({
+  currentWallet: mocks.currentWallet,
 }));
 
 vi.mock("@stellar/stellar-sdk", async (importOriginal) => {
@@ -91,13 +96,17 @@ beforeEach(() => {
       },
     ],
   });
+  mocks.currentWallet.mockResolvedValue({
+    privyWalletAddress: bridge.publicKey(),
+  });
 });
 
 describe("signClientChallenge", () => {
   it("adds the configured client-domain signature to a valid bridge challenge", async () => {
     const result = await signClientChallenge({
       transactionXdr: signedChallenge(),
-      bridgePublicKey: bridge.publicKey(),
+      accountPublicKey: bridge.publicKey(),
+      accountKind: "cash-out",
     });
 
     expect(
@@ -127,7 +136,8 @@ describe("signClientChallenge", () => {
     await expect(
       signClientChallenge({
         transactionXdr: signedChallenge(),
-        bridgePublicKey: bridge.publicKey(),
+        accountPublicKey: bridge.publicKey(),
+        accountKind: "cash-out",
       }),
     ).rejects.toEqual(
       new AnchorBridgeError(
@@ -147,7 +157,8 @@ describe("signClientChallenge", () => {
 
     const result = await signClientChallenge({
       transactionXdr: signedChallenge(Networks.TESTNET),
-      bridgePublicKey: bridge.publicKey(),
+      accountPublicKey: bridge.publicKey(),
+      accountKind: "cash-out",
     });
 
     expect(
@@ -168,7 +179,8 @@ describe("signClientChallenge", () => {
     await expect(
       signClientChallenge({
         transactionXdr: signedChallenge(),
-        bridgePublicKey: bridge.publicKey(),
+        accountPublicKey: bridge.publicKey(),
+        accountKind: "cash-out",
       }),
     ).rejects.toBeInstanceOf(AnchorConfigError);
 
@@ -177,7 +189,8 @@ describe("signClientChallenge", () => {
     await expect(
       signClientChallenge({
         transactionXdr: signedChallenge(),
-        bridgePublicKey: bridge.publicKey(),
+        accountPublicKey: bridge.publicKey(),
+        accountKind: "cash-out",
       }),
     ).rejects.toEqual(
       new AnchorConfigError("SEP10_CLIENT_SIGNING_SECRET is malformed."),
@@ -200,10 +213,39 @@ describe("signClientChallenge", () => {
     await expect(
       signClientChallenge({
         transactionXdr: challenge,
-        bridgePublicKey: bridge.publicKey(),
+        accountPublicKey: bridge.publicKey(),
+        accountKind: "cash-out",
       }),
     ).rejects.toThrow(
       "SEP-10 challenge does not have the expected payout-account signature.",
     );
+  });
+
+  it("allows cash-in only for the authenticated user's stored Privy wallet", async () => {
+    const result = await signClientChallenge(
+      {
+        transactionXdr: signedChallenge(),
+        accountPublicKey: bridge.publicKey(),
+        accountKind: "cash-in",
+      },
+      "did:privy:user",
+    );
+    expect(result.signedTransactionXdr).toBeTruthy();
+    expect(mocks.currentWallet).toHaveBeenCalledWith("did:privy:user");
+    expect(mocks.operationsCall).not.toHaveBeenCalled();
+
+    mocks.currentWallet.mockResolvedValueOnce({
+      privyWalletAddress: Keypair.random().publicKey(),
+    });
+    await expect(
+      signClientChallenge(
+        {
+          transactionXdr: signedChallenge(),
+          accountPublicKey: bridge.publicKey(),
+          accountKind: "cash-in",
+        },
+        "did:privy:user",
+      ),
+    ).rejects.toThrow("not the authenticated user's Privy wallet");
   });
 });

@@ -30,11 +30,7 @@ export function PaymentQrDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        appearance="glass"
-        size="sm"
-        finalFocus={triggerRef}
-      >
+      <DialogContent appearance="linen" size="sm" finalFocus={triggerRef}>
         <DialogHeader>
           <DialogTitle>Payment link QR code</DialogTitle>
           <DialogDescription>

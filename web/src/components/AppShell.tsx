@@ -36,14 +36,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <p role="status" aria-label="MoneyGram integration status">
           {moneyGramBannerCopy}{" "}
-          <a
-            href="https://www.moneygram.com/us/en/ramps"
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-brand-linen underline decoration-brand-linen/70 underline-offset-2 transition-colors hover:text-brand-linen/80"
-          >
-            Get to know about MoneyGram
-          </a>
         </p>
       </StickyBanner>
     ) : null;

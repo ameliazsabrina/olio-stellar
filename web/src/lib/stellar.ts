@@ -313,6 +313,19 @@ export async function poolDeposit(
   return { leafIndex: Number(value), txHash };
 }
 
+export async function transferUsdc(
+  signer: Signer,
+  destination: string,
+  amount: bigint,
+): Promise<string> {
+  const { txHash } = await invoke(signer, usdcSacId, "transfer", [
+    scAddr(signer.address),
+    scAddr(destination),
+    scI128(amount),
+  ]);
+  return txHash;
+}
+
 export async function poolWithdraw(
   signer: Signer,
   recipientStrkey: string,

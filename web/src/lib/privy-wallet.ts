@@ -5,9 +5,12 @@ import {
   hash,
   Keypair,
   StrKey,
+  scValToNative,
+  TransactionBuilder,
   type xdr,
 } from "@stellar/stellar-sdk";
 import { api } from "../trpc/client";
+import type { Sep10Signer } from "./anchor";
 import {
   networkPassphrase,
   poolId,
@@ -65,7 +68,11 @@ export async function resolvePrivyStellarWallet(
   return created;
 }
 
-type AllowedInvocation = { contractId: string; method: string };
+type AllowedInvocation = {
+  contractId: string;
+  method: string;
+  args: unknown[];
+};
 
 function invocationTree(
   invocation: xdr.SorobanAuthorizedInvocation,
@@ -81,6 +88,7 @@ function invocationTree(
   out.push({
     contractId: Address.fromScAddress(call.contractAddress()).toString(),
     method: call.functionName().toString(),
+    args: call.args().map((arg) => scValToNative(arg)),
   });
   for (const child of invocation.subInvocations()) {
     out.push(...invocationTree(child));
@@ -130,16 +138,68 @@ function hexBytes(value: string): Uint8Array {
   return Uint8Array.from(Buffer.from(clean, "hex"));
 }
 
+type PrivyRawHashSigner = (input: {
+  address: string;
+  chainType: "stellar";
+  hash: `0x${string}`;
+}) => Promise<{ signature: `0x${string}` }>;
+
+export async function signClassicTransaction(options: {
+  wallet: PrivyStellarWallet;
+  transactionXdr: string;
+  networkPassphrase: string;
+  signRawHash: PrivyRawHashSigner;
+}): Promise<string> {
+  const { wallet, transactionXdr, networkPassphrase, signRawHash } = options;
+  const transaction = TransactionBuilder.fromXDR(
+    transactionXdr,
+    networkPassphrase,
+  );
+  const digest = transaction.hash();
+  const { signature } = await signRawHash({
+    address: wallet.address,
+    chainType: "stellar",
+    hash: `0x${Buffer.from(digest).toString("hex")}`,
+  });
+  const bytes = hexBytes(signature);
+  if (
+    !Keypair.fromPublicKey(wallet.address).verify(
+      digest,
+      bytes as unknown as Buffer,
+    )
+  ) {
+    throw new Error("Privy signature did not match the embedded wallet.");
+  }
+  transaction.addSignature(
+    wallet.address,
+    Buffer.from(bytes).toString("base64"),
+  );
+  return transaction.toXDR();
+}
+
+export function privySep10Signer(options: {
+  wallet: PrivyStellarWallet;
+  signRawHash: PrivyRawHashSigner;
+}): Sep10Signer {
+  return {
+    publicKey: options.wallet.address,
+    kind: "cash-in",
+    signTransactionXdr: (transactionXdr, passphrase) =>
+      signClassicTransaction({
+        wallet: options.wallet,
+        transactionXdr,
+        networkPassphrase: passphrase,
+        signRawHash: options.signRawHash,
+      }),
+  };
+}
+
 const AUTH_VALID_LEDGERS = 60;
 
 export function privySigner(options: {
   olioAddress: string;
   wallet: PrivyStellarWallet;
-  signRawHash: (input: {
-    address: string;
-    chainType: "stellar";
-    hash: `0x${string}`;
-  }) => Promise<{ signature: `0x${string}` }>;
+  signRawHash: PrivyRawHashSigner;
 }): Signer {
   const { olioAddress, wallet, signRawHash } = options;
   return {
@@ -173,6 +233,65 @@ export function privySigner(options: {
             return { publicKey: wallet.address, signature: bytes };
           },
           validUntil,
+          networkPassphrase,
+        );
+        out.push(signed.toXDR("base64"));
+      }
+      return out;
+    },
+    relaySoroban: async (func, auth) => {
+      const result = await api.channels.relaySoroban.mutate({ func, auth });
+      return { hash: result.hash };
+    },
+  };
+}
+
+/** A tightly scoped signer for moving verified cash-in USDC from G-account to Olio account. */
+export function privyUsdcSigner(options: {
+  wallet: PrivyStellarWallet;
+  olioAddress: string;
+  signRawHash: PrivyRawHashSigner;
+}): Signer {
+  const { wallet, olioAddress, signRawHash } = options;
+  return {
+    address: wallet.address,
+    signAuthEntries: async (entries) => {
+      const { sequence } = await server.getLatestLedger();
+      const out: string[] = [];
+      for (const entry of entries) {
+        const credentials = entry.credentials();
+        if (credentials.switch().name !== "sorobanCredentialsAddress") {
+          throw new Error("Cash-in requires address authorization.");
+        }
+        const address = Address.fromScAddress(
+          credentials.address().address(),
+        ).toString();
+        const calls = invocationTree(entry.rootInvocation());
+        if (
+          address !== wallet.address ||
+          calls.length !== 1 ||
+          calls[0]?.contractId !== usdcSacId ||
+          calls[0]?.method !== "transfer" ||
+          calls[0]?.args[0] !== wallet.address ||
+          calls[0]?.args[1] !== olioAddress
+        ) {
+          throw new Error("Refusing to sign an unexpected cash-in transfer.");
+        }
+        const signed = await authorizeEntry(
+          entry,
+          async (preimage) => {
+            const digest = hash(preimage.toXDR());
+            const { signature } = await signRawHash({
+              address: wallet.address,
+              chainType: "stellar",
+              hash: `0x${Buffer.from(digest).toString("hex")}`,
+            });
+            return {
+              publicKey: wallet.address,
+              signature: hexBytes(signature),
+            };
+          },
+          sequence + AUTH_VALID_LEDGERS,
           networkPassphrase,
         );
         out.push(signed.toXDR("base64"));

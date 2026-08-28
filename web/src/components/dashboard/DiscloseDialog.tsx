@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { glassInsetClass } from "../ui/glass";
+import { linenInsetClass } from "../ui/glass";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
@@ -75,7 +75,7 @@ export function DiscloseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent appearance="glass" size="md">
+      <DialogContent appearance="linen" size="md">
         <DialogHeader>
           <DialogTitle>Create payment receipt</DialogTitle>
           <DialogDescription>
@@ -86,10 +86,10 @@ export function DiscloseDialog({
         {step === "building" && (
           <div className="flex items-center justify-center gap-2 py-8 text-center">
             <Loader
-              className="size-4 text-brand-linen/70 motion-safe:animate-spin"
+              className="size-4 text-foreground/70 motion-safe:animate-spin"
               aria-hidden="true"
             />
-            <div className="text-sm font-medium text-brand-linen">
+            <div className="text-sm font-medium text-foreground">
               Preparing your receipt…
             </div>
           </div>
@@ -102,7 +102,7 @@ export function DiscloseDialog({
               variant="error"
               toastId="disclosure-error"
             />
-            <Button variant="glass" className="min-h-11" onClick={build}>
+            <Button variant="default" className="min-h-11" onClick={build}>
               Try again
             </Button>
           </div>
@@ -110,25 +110,25 @@ export function DiscloseDialog({
 
         {step === "ready" && bundle && (
           <div className="grid gap-4">
-            <div className={cn(glassInsetClass, "rounded-2xl p-4")}>
+            <div className={cn(linenInsetClass, "rounded-2xl p-4")}>
               <div className="flex items-baseline justify-between">
-                <span className="text-sm text-brand-linen/65">
+                <span className="text-sm text-foreground/65">
                   Payment received
                 </span>
-                <span className="font-heading text-2xl font-semibold text-brand-linen">
+                <span className="font-heading text-2xl font-semibold text-foreground">
                   {fromBaseUnits(BigInt(bundle.amount))} USDC
                 </span>
               </div>
-              <dl className="mt-3 grid gap-1.5 border-t border-brand-linen/15 pt-3 text-xs">
+              <dl className="mt-3 grid gap-1.5 border-t border-foreground/15 pt-3 text-xs">
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-brand-linen/65">Recipient</dt>
-                  <dd className="font-medium text-brand-linen">
+                  <dt className="text-foreground/65">Recipient</dt>
+                  <dd className="font-medium text-foreground">
                     {bundle.username ? `@${bundle.username}` : "—"}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <dt className="text-brand-linen/65">Payment reference</dt>
-                  <dd className="font-mono text-brand-linen">
+                  <dt className="text-foreground/65">Payment reference</dt>
+                  <dd className="font-mono text-foreground">
                     #{bundle.leafIndex}
                   </dd>
                 </div>
@@ -136,7 +136,7 @@ export function DiscloseDialog({
             </div>
 
             <Button
-              variant="glass"
+              variant="default"
               className="min-h-11 mt-4"
               size="lg"
               onClick={() => void downloadDisclosurePdf(bundle)}

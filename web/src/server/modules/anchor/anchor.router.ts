@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { rateLimit } from "../../lib/rateLimit";
-import { createTRPCRouter, publicProcedure } from "../../trpc";
+import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import {
   AnchorBridgeError,
   AnchorChallengeError,
@@ -46,11 +46,11 @@ function mapError(error: unknown): never {
 }
 
 export const anchorRouter = createTRPCRouter({
-  signClientChallenge: publicProcedure
+  signClientChallenge: protectedProcedure
     .input(signClientChallengeInput)
     .output(signClientChallengeOutput)
     .mutation(({ input, ctx }) => {
       enforceRateLimit(ctx.ip);
-      return signClientChallenge(input).catch(mapError);
+      return signClientChallenge(input, ctx.privyUserId).catch(mapError);
     }),
 });

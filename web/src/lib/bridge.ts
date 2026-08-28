@@ -49,6 +49,9 @@ export type RampSession = {
   stellarHash?: string;
   externalTransactionId?: string;
   moreInfoUrl?: string;
+  operationId?: string;
+  shieldingHash?: string;
+  transferHash?: string;
 };
 
 export type StrandedBridge = {
@@ -77,6 +80,36 @@ export function persistRampSession(
     kind: input.kind,
     secret: bridge.keypair.secret(),
     publicKey: bridge.publicKey,
+    amount: input.amount.toString(),
+    status: input.status ?? "incomplete",
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(
+        RAMP_SESSION_PREFIX + input.mgiId,
+        JSON.stringify(record),
+      );
+      window.dispatchEvent(new Event("olio:ramp-session"));
+    } catch {}
+  }
+  return record;
+}
+
+export function persistCashInSession(input: {
+  mgiId: string;
+  publicKey: string;
+  amount: bigint;
+  status?: string;
+}): RampSession {
+  const now = Date.now();
+  const record: RampSession = {
+    version: 1,
+    ref: input.mgiId,
+    mgiId: input.mgiId,
+    kind: "cash-in",
+    publicKey: input.publicKey,
     amount: input.amount.toString(),
     status: input.status ?? "incomplete",
     createdAt: now,

@@ -1,4 +1,11 @@
-import { Keypair, Networks, StellarToml, WebAuth } from "@stellar/stellar-sdk";
+import {
+  Account,
+  Keypair,
+  Networks,
+  StellarToml,
+  TransactionBuilder,
+  WebAuth,
+} from "@stellar/stellar-sdk";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const signClientChallenge = vi.hoisted(() => vi.fn());
@@ -76,7 +83,8 @@ it("uses client-domain attribution for mainnet SEP-10", async () => {
   expect(challengeUrl.searchParams.get("client_domain")).toBe(clientDomain);
   expect(signClientChallenge).toHaveBeenCalledWith({
     transactionXdr: expect.any(String),
-    bridgePublicKey: bridge.publicKey(),
+    accountPublicKey: bridge.publicKey(),
+    accountKind: "cash-out",
   });
   expect(JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string)).toEqual({
     transaction: "domain-signed-xdr",
@@ -209,6 +217,7 @@ it("posts the SEP-24 deposit payload and parses its interactive response", async
         lang: "en",
         wallet_name: "Olio",
         wallet_url: "https://olio.example",
+        callback: "postMessage",
       }),
     }),
   );
@@ -251,12 +260,7 @@ it("treats refunded as a successful poll outcome and retains refund details", as
 
 it("accepts COMMIT_RESULT only from the anchor origin for the expected transaction", async () => {
   const { isTrustedCommitResult } = await import("../src/lib/anchor");
-  const info = {
-    homeDomain: "anchor.example",
-    webAuthEndpoint: "https://anchor.example/auth",
-    transferServer: "https://anchor.example/sep24",
-    signingKey: Keypair.random().publicKey(),
-  };
+  const interactiveUrl = "https://hosted.anchor.example/flow/deposit-1";
   const data = {
     type: "COMMIT_RESULT",
     payload: {
@@ -265,22 +269,22 @@ it("accepts COMMIT_RESULT only from the anchor origin for the expected transacti
   };
   expect(
     isTrustedCommitResult(
-      { origin: "https://anchor.example", data } as MessageEvent,
-      info,
+      { origin: "https://hosted.anchor.example", data } as MessageEvent,
+      interactiveUrl,
       "deposit-1",
     ),
   ).toBe(true);
   expect(
     isTrustedCommitResult(
       { origin: "https://evil.example", data } as MessageEvent,
-      info,
+      interactiveUrl,
       "deposit-1",
     ),
   ).toBe(false);
   expect(
     isTrustedCommitResult(
-      { origin: "https://anchor.example", data } as MessageEvent,
-      info,
+      { origin: "https://hosted.anchor.example", data } as MessageEvent,
+      interactiveUrl,
       "other",
     ),
   ).toBe(false);
@@ -313,4 +317,71 @@ it("fails preflight when the client domain has no signing key", async () => {
   await expect(validateAnchorPreflight()).rejects.toThrow(
     "client domain does not advertise a signing key",
   );
+});
+
+it("verifies an inbound payment by destination, transaction hash, code, issuer, and amount", async () => {
+  vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", Networks.TESTNET);
+  vi.stubEnv("NEXT_PUBLIC_USDC_ISSUER", Keypair.random().publicKey());
+  const { horizon, offRampAssetIssuer, verifyInboundUsdcPayment } =
+    await import("../src/lib/anchor");
+  vi.spyOn(horizon, "payments").mockReturnValue({
+    forTransaction: () => ({
+      limit: () => ({
+        call: async () => ({
+          records: [
+            {
+              id: "operation-1",
+              type: "payment",
+              to: "GDESTINATION",
+              asset_code: "USDC",
+              asset_issuer: offRampAssetIssuer,
+              amount: "15.2500000",
+            },
+          ],
+        }),
+      }),
+    }),
+  } as never);
+  await expect(
+    verifyInboundUsdcPayment("GDESTINATION", {
+      id: "deposit-1",
+      status: "completed",
+      stellar_transaction_id: "stellar-hash",
+    }),
+  ).resolves.toMatchObject({
+    transactionHash: "stellar-hash",
+    operationId: "operation-1",
+    amount: 152_500_000n,
+  });
+});
+
+it("creates a trustline when the account only trusts a different USDC issuer", async () => {
+  const owner = Keypair.random();
+  const configuredIssuer = Keypair.random().publicKey();
+  vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE", Networks.TESTNET);
+  vi.stubEnv("NEXT_PUBLIC_USDC_ISSUER", configuredIssuer);
+  const { ensureUsdcTrustline, horizon } = await import("../src/lib/anchor");
+  const source = Object.assign(new Account(owner.publicKey(), "1"), {
+    balances: [
+      {
+        asset_type: "credit_alphanum4",
+        asset_code: "USDC",
+        asset_issuer: Keypair.random().publicKey(),
+      },
+    ],
+  });
+  vi.spyOn(horizon, "loadAccount").mockResolvedValue(source as never);
+  vi.spyOn(horizon, "fetchBaseFee").mockResolvedValue(100);
+  vi.spyOn(horizon, "submitTransaction").mockResolvedValue({
+    hash: "trustline-hash",
+  } as never);
+  const sign = vi.fn(async (xdr: string, passphrase: string) => {
+    const tx = TransactionBuilder.fromXDR(xdr, passphrase);
+    tx.sign(owner);
+    return tx.toXDR();
+  });
+  await expect(ensureUsdcTrustline(owner.publicKey(), sign)).resolves.toBe(
+    "trustline-hash",
+  );
+  expect(sign).toHaveBeenCalledOnce();
 });

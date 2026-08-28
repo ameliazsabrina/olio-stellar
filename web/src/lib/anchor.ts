@@ -2,6 +2,7 @@
 
 import {
   Asset,
+  BASE_FEE,
   Horizon,
   type Keypair,
   Memo,
@@ -12,6 +13,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { env } from "../env";
 import { api } from "../trpc/client";
+import { fromBaseUnits, toBaseUnits } from "./crypto";
 import { isMainnet, networkPassphrase } from "./stellar";
 
 // --- config -----------------------------------------------------------------
@@ -186,10 +188,11 @@ export async function validateAnchorPreflight(options?: {
 /// we sign, so a spoofed endpoint can't get us to sign an arbitrary tx.
 export async function authenticate(
   info: AnchorInfo,
-  account: Keypair,
+  signer: Sep10Signer | Keypair,
 ): Promise<string> {
+  const account = sep10Signer(signer);
   const url = new URL(info.webAuthEndpoint);
-  url.searchParams.set("account", account.publicKey());
+  url.searchParams.set("account", account.publicKey);
   url.searchParams.set("home_domain", info.homeDomain);
   if (sep10ClientDomain) {
     url.searchParams.set("client_domain", sep10ClientDomain);
@@ -215,19 +218,23 @@ export async function authenticate(
     [info.homeDomain],
     webAuthDomain,
   );
-  if (clientAccountID !== account.publicKey()) {
+  if (clientAccountID !== account.publicKey) {
     throw new Error("SEP-10 challenge is for a different account.");
   }
 
-  tx.sign(account);
+  const accountSignedXdr = await account.signTransactionXdr(
+    tx.toXDR(),
+    passphrase,
+  );
   const signedTransaction = sep10ClientDomain
     ? (
         await api.anchor.signClientChallenge.mutate({
-          transactionXdr: tx.toXDR(),
-          bridgePublicKey: account.publicKey(),
+          transactionXdr: accountSignedXdr,
+          accountPublicKey: account.publicKey,
+          accountKind: account.kind,
         })
       ).signedTransactionXdr
-    : tx.toXDR();
+    : accountSignedXdr;
 
   const tokenRes = await fetch(info.webAuthEndpoint, {
     method: "POST",
@@ -240,6 +247,28 @@ export async function authenticate(
   const { token } = (await tokenRes.json()) as { token?: string };
   if (!token) throw new Error("Anchor returned no session token.");
   return token;
+}
+
+export type Sep10Signer = {
+  publicKey: string;
+  kind: "cash-in" | "cash-out";
+  signTransactionXdr: (
+    transactionXdr: string,
+    passphrase: string,
+  ) => Promise<string>;
+};
+
+function sep10Signer(value: Sep10Signer | Keypair): Sep10Signer {
+  if ("signTransactionXdr" in value) return value;
+  return {
+    publicKey: value.publicKey(),
+    kind: "cash-out",
+    signTransactionXdr: async (transactionXdr, passphrase) => {
+      const tx = TransactionBuilder.fromXDR(transactionXdr, passphrase);
+      tx.sign(value);
+      return tx.toXDR();
+    },
+  };
 }
 
 // --- SEP-24: /info withdraw limits ------------------------------------------
@@ -345,6 +374,7 @@ export async function startInteractiveWithdraw(
         wallet_name: "Olio",
         wallet_url:
           typeof window === "undefined" ? undefined : window.location.origin,
+        callback: "postMessage",
       }),
     },
   );
@@ -392,6 +422,7 @@ export async function startInteractiveDeposit(
         wallet_name: "Olio",
         wallet_url:
           typeof window === "undefined" ? undefined : window.location.origin,
+        callback: "postMessage",
       }),
     },
   );
@@ -445,20 +476,155 @@ export const SEP24_TERMINAL_SUCCESS_STATUSES = new Set<Sep24Status>([
 
 export function isTrustedCommitResult(
   event: Pick<MessageEvent, "origin" | "data">,
-  info: AnchorInfo,
+  interactiveUrl: string,
   expectedId: string,
-): event is MessageEvent<{
-  type: "COMMIT_RESULT";
-  payload: { transaction: Sep24Transaction };
-}> {
-  const expectedOrigin = new URL(info.transferServer).origin;
-  const transaction = event.data?.payload?.transaction;
+): boolean {
+  let expectedOrigin: string;
+  try {
+    expectedOrigin = new URL(interactiveUrl).origin;
+  } catch {
+    return false;
+  }
+  const data = event.data as {
+    type?: unknown;
+    payload?: {
+      transaction?: Sep24Transaction;
+      id?: string;
+      status?: Sep24Status;
+    };
+    transaction?: Sep24Transaction;
+  } | null;
+  const transaction =
+    data?.payload?.transaction ??
+    data?.transaction ??
+    (data?.payload?.id && data.payload.status
+      ? ({
+          id: data.payload.id,
+          status: data.payload.status,
+        } as Sep24Transaction)
+      : undefined);
   return (
     event.origin === expectedOrigin &&
-    event.data?.type === "COMMIT_RESULT" &&
+    data?.type === "COMMIT_RESULT" &&
     transaction?.id === expectedId &&
     typeof transaction?.status === "string"
   );
+}
+
+export async function listSep24Transactions(
+  info: AnchorInfo,
+  token: string,
+  account: string,
+): Promise<Sep24Transaction[]> {
+  const url = new URL(`${info.transferServer}/transactions`);
+  url.searchParams.set("asset_code", offRampAssetCode);
+  url.searchParams.set("account", account);
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok)
+    throw new Error(`Could not recover SEP-24 history (${res.status}).`);
+  const body = (await res.json()) as { transactions?: Sep24Transaction[] };
+  return body.transactions ?? [];
+}
+
+export type VerifiedInboundPayment = {
+  transactionHash: string;
+  operationId: string;
+  amount: bigint;
+  amountDecimal: string;
+};
+
+/** Verify the anchor's claimed settlement against Horizon before shielding. */
+export async function verifyInboundUsdcPayment(
+  account: string,
+  tx: Sep24Transaction,
+): Promise<VerifiedInboundPayment> {
+  if (!tx.stellar_transaction_id) {
+    throw new Error("MoneyGram has not published a Stellar settlement yet.");
+  }
+  if (tx.deposit_memo) {
+    const stellarTx = await horizon
+      .transactions()
+      .transaction(tx.stellar_transaction_id)
+      .call();
+    if (
+      stellarTx.memo !== tx.deposit_memo ||
+      (tx.deposit_memo_type && stellarTx.memo_type !== tx.deposit_memo_type)
+    ) {
+      throw new Error(
+        "The MoneyGram Stellar transaction memo does not match the SEP-24 deposit.",
+      );
+    }
+  }
+  const page = await horizon
+    .payments()
+    .forTransaction(tx.stellar_transaction_id)
+    .limit(200)
+    .call();
+  const payments = page.records.filter((record) => {
+    const row = record as unknown as Record<string, unknown>;
+    return (
+      row.type === "payment" &&
+      row.to === account &&
+      row.asset_code === offRampAssetCode &&
+      row.asset_issuer === offRampAssetIssuer &&
+      typeof row.amount === "string"
+    );
+  }) as unknown as Array<{ id: string; amount: string }>;
+  if (payments.length === 0) {
+    throw new Error(
+      "The MoneyGram Stellar transaction did not pay the configured USDC to this wallet.",
+    );
+  }
+  const amount = payments.reduce(
+    (total, payment) => total + toBaseUnits(payment.amount),
+    0n,
+  );
+  if (amount <= 0n)
+    throw new Error("MoneyGram reported an empty USDC payment.");
+  return {
+    transactionHash: tx.stellar_transaction_id,
+    operationId: payments.map((payment) => payment.id).join(","),
+    amount,
+    amountDecimal: fromBaseUnits(amount),
+  };
+}
+
+export type ClassicTransactionSigner = (
+  transactionXdr: string,
+  passphrase: string,
+) => Promise<string>;
+
+/** Funded user G-account trustline setup; safe to call repeatedly. */
+export async function ensureUsdcTrustline(
+  account: string,
+  signTransaction: ClassicTransactionSigner,
+): Promise<string | null> {
+  const source = await horizon.loadAccount(account);
+  const asset = offRampAsset();
+  const exists = source.balances.some(
+    (balance) =>
+      balance.asset_type !== "native" &&
+      "asset_code" in balance &&
+      balance.asset_code === asset.code &&
+      balance.asset_issuer === asset.issuer,
+  );
+  if (exists) return null;
+  const fee = String(await horizon.fetchBaseFee());
+  const transaction = new TransactionBuilder(source, {
+    fee: fee || BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(Operation.changeTrust({ asset }))
+    .setTimeout(120)
+    .build();
+  const signed = TransactionBuilder.fromXDR(
+    await signTransaction(transaction.toXDR(), networkPassphrase),
+    networkPassphrase,
+  );
+  const submitted = await horizon.submitTransaction(signed);
+  return submitted.hash;
 }
 
 export class Sep24PollTimeoutError extends Error {

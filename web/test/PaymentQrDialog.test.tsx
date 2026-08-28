@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PersonalLinkCard } from "../src/components/dashboard/PersonalLinkCard";
 
 describe("payment link QR dialog", () => {
-  it("opens a labeled glass QR dialog and restores focus after backdrop dismissal", async () => {
+  it("opens a labeled linen QR dialog and restores focus after backdrop dismissal", async () => {
     const user = userEvent.setup();
     render(
       <PersonalLinkCard
@@ -22,8 +22,8 @@ describe("payment link QR dialog", () => {
       name: "Payment link QR code",
     });
     expect(dialog).toHaveClass(
-      "surface-glass-popover",
-      "theme-glass",
+      "theme-linen",
+      "bg-brand-linen",
       "rounded-3xl",
       "sm:max-w-sm",
     );

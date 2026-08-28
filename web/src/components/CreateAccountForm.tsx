@@ -71,7 +71,7 @@ export function CreateAccountForm({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent appearance="glass" size="sm">
+      <DialogContent appearance="linen" size="sm">
         <DialogHeader className="px-10 text-center">
           <DialogTitle>Create Your Account</DialogTitle>
           <DialogDescription className="mx-auto">
@@ -86,7 +86,7 @@ export function CreateAccountForm({
               Username
             </label>
             <Input
-              appearance="glass"
+              appearance="linen"
               id="username"
               className="min-h-11"
               placeholder="jimmymcgill"
@@ -103,7 +103,7 @@ export function CreateAccountForm({
           </div>
 
           <Button
-            variant="glass"
+            variant="default"
             className="min-h-11 w-full"
             type="submit"
             disabled={isSubmitting}

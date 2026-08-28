@@ -14,13 +14,21 @@ export const moneyGramCashOutStatusEnabled =
   (moneyGramRampStatus === "live" && networkPassphrase === Networks.PUBLIC);
 
 export const moneyGramCashInEnabled =
-  moneyGramRampStatus === "sandbox" && networkPassphrase === Networks.TESTNET;
+  (moneyGramRampStatus === "sandbox" &&
+    networkPassphrase === Networks.TESTNET) ||
+  (moneyGramRampStatus === "live" && networkPassphrase === Networks.PUBLIC);
+
+export const moneyGramCashInUnavailableReason = moneyGramCashInEnabled
+  ? null
+  : moneyGramRampStatus === "whitelisting"
+    ? "MoneyGram cash-in is awaiting KYB and certification approval."
+    : "MoneyGram cash-in is unavailable on this Stellar network.";
 
 export const moneyGramBannerCopy =
   moneyGramRampStatus === "whitelisting"
     ? "MoneyGram cash-out is coming to Olio. Sandbox access is being reviewed. Stellar wallet withdrawals remain available."
     : moneyGramRampStatus === "sandbox"
-      ? "MoneyGram sandbox testing is active. Testnet funds only. Stellar wallet withdrawals remain available."
+      ? "MoneyGram and Durianpay sandbox testing is active. Testnet funds only. Stellar wallet withdrawals remain available."
       : null;
 
 export const showMoneyGramStatusBanner = moneyGramBannerCopy !== null;

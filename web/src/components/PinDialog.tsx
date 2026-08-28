@@ -93,11 +93,7 @@ export function PinDialog({
         if (!next && !mandatory && !submitting) onClose();
       }}
     >
-      <DialogContent
-        appearance="glass"
-        size="sm"
-        showCloseButton={!mandatory}
-      >
+      <DialogContent appearance="linen" size="sm" showCloseButton={!mandatory}>
         <DialogHeader className="px-10 text-center">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="mx-auto">
@@ -107,11 +103,14 @@ export function PinDialog({
 
         <form className="grid gap-3" onSubmit={submit}>
           <div className="grid gap-2">
-            <label htmlFor={pinId} className="text-sm font-medium text-white">
+            <label
+              htmlFor={pinId}
+              className="text-sm font-medium text-foreground"
+            >
               {dualField ? "New PIN" : "PIN"}
             </label>
             <Input
-              appearance="glass"
+              appearance="linen"
               id={pinId}
               autoFocus
               className="min-h-11 text-center tracking-[0.5em]"
@@ -130,12 +129,12 @@ export function PinDialog({
             <div className="grid gap-2">
               <label
                 htmlFor={confirmId}
-                className="text-sm font-medium text-white"
+                className="text-sm font-medium text-foreground"
               >
                 Confirm PIN
               </label>
               <Input
-                appearance="glass"
+                appearance="linen"
                 id={confirmId}
                 className="min-h-11 text-center tracking-[0.5em]"
                 type="password"
@@ -157,7 +156,7 @@ export function PinDialog({
           />
 
           <Button
-            variant="glass"
+            variant="default"
             className="min-h-11 w-full mt-4"
             type="submit"
             disabled={submitting}

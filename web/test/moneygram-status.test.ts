@@ -45,7 +45,7 @@ describe("MoneyGram ramp status", () => {
   it("enables live only on mainnet and removes the banner", async () => {
     const mainnet = await loadStatus("live", Networks.PUBLIC);
     expect(mainnet.moneyGramCashOutStatusEnabled).toBe(true);
-    expect(mainnet.moneyGramCashInEnabled).toBe(false);
+    expect(mainnet.moneyGramCashInEnabled).toBe(true);
     expect(mainnet.showMoneyGramStatusBanner).toBe(false);
 
     vi.resetModules();

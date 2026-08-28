@@ -16,3 +16,12 @@ export const glassPopoverClass =
   "surface-glass-popover theme-glass rounded-3xl text-white";
 
 export const glassThemeClass = "theme-glass";
+
+export const linenInsetClass =
+  "rounded-2xl border border-brand-obsidian/10 bg-brand-obsidian/[0.035]";
+
+export const linenFieldClass =
+  "rounded-lg border border-brand-obsidian/15 bg-white text-brand-obsidian placeholder:text-brand-obsidian/45 focus-visible:border-brand-obsidian/40 focus-visible:ring-brand-obsidian/20";
+
+export const linenSegmentedClass =
+  "rounded-xl border border-brand-obsidian/10 bg-brand-obsidian/[0.04]";

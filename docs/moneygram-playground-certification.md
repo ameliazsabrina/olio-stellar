@@ -18,15 +18,19 @@ Use a distinct 15 USDC transaction for each procedure. Save the MGI transaction 
 3. Wait for the live 15 USDC balance to return to the saved disposable account. Use Olio's recovery panel to transfer it to a user-controlled Stellar G-account.
 4. Copy this flow's distinct MGI transaction ID and retain the outbound/refund/recovery hashes and screenshots. Dismiss local evidence only after the live balance is zero.
 
-## 3. Staged cash-in
+## 3. Cash-in and automatic shielding
 
-1. Open Receive and select **Add cash with MoneyGram**. Enter 15 USDC.
+1. Unlock the Olio wallet, use the plus control on **My Balance**, and open **Add cash**. Enter 15 USDC.
 2. Choose a documented sandbox location, for example **CUB FOODS SILVER LAKE, 3930 SILVER LAKE RD NE, MINNEAPOLIS MN, USA**.
-3. Commit the hosted flow and wait for `pending_user_transfer_start` (or trusted `COMMIT_RESULT`). Do not wait for store settlement in this certification scope.
-4. Copy the third MGI transaction ID and retain screenshots. The disposable key remains device-local so unexpected test USDC can be recovered.
+3. Commit the hosted flow and record the MGI transaction ID immediately. A trusted `COMMIT_RESULT` only wakes the UI; authenticated SEP-24 polling remains authoritative.
+4. Complete the sandbox agent settlement and wait for `completed`. Confirm Horizon shows exactly 15 USDC, with the configured issuer, paid to the user's stored Privy G-account under the MoneyGram Stellar hash or memo.
+5. Confirm Olio transfers that verified amount to the user's recoverable Olio account, submits the pool deposit, and observes the matching commitment event before showing **Cash-in shielded**.
+6. Save both the MoneyGram Stellar hash and Olio shielding hash. To test recovery, interrupt shielding once and use **Check status and retry shielding**; confirm no duplicate commitment is created.
 
 ## Partner portal evidence
 
-Paste the three distinct MGI IDs into **Developers → Playground test transactions** as cash-out, cash-out refund, and cash-in. Internally retain: MGI ID, flow kind, amount, status, MoneyGram reference, bridge public key, Stellar hashes, `more_info_url`, timestamps, and screenshots.
+Paste the three distinct MGI IDs into **Developers → Playground test transactions** as cash-out, cash-out refund, and cash-in. Internally retain only operational evidence: MGI ID, flow kind, amount, status, MoneyGram reference, destination public key, Stellar and shielding hashes, timestamps, and screenshots. Do not retain SEP-10 JWTs, interactive URLs, or MoneyGram KYC data.
+
+For production, use `https://mgxanchor.moneygram.com` only after KYB, domain allowlisting, and certification approval; leave `NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS=whitelisting` until approval.
 
 Source: [MoneyGram Stellar integration guide](https://xramps.moneygram.com/ops/dev/stellar).

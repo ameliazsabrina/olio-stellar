@@ -28,6 +28,7 @@ import { fromBaseUnits } from "../../lib/crypto";
 import { moneyGramCashInEnabled } from "../../lib/moneygram-status";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { useWallet } from "../WalletProvider";
 
 type Row = RampSession & {
   balance: bigint | null;
@@ -39,6 +40,7 @@ function dismissible(row: Row): boolean {
   if (row.balance !== 0n) return false;
   return (
     row.status === "completed" ||
+    row.status === "shielded" ||
     row.status === "refunded" ||
     (row.kind === "cash-in" && row.status === "pending_user_transfer_start")
   );
@@ -57,6 +59,7 @@ function displayAmount(amount: string): string {
 }
 
 export function MoneyGramActivity() {
+  const { getPrivySep10Signer } = useWallet();
   const [rows, setRows] = useState<Row[]>([]);
 
   const load = useCallback(async () => {
@@ -88,14 +91,19 @@ export function MoneyGramActivity() {
       ),
     );
     try {
-      if (!row.secret) {
+      if (row.kind === "cash-out" && !row.secret) {
         throw new Error("This terminal record no longer retains a bridge key.");
       }
       const info = await fetchAnchorInfo();
-      const token = await authenticate(info, Keypair.fromSecret(row.secret));
+      const token = await authenticate(
+        info,
+        row.kind === "cash-in"
+          ? getPrivySep10Signer()
+          : Keypair.fromSecret(row.secret as string),
+      );
       const tx = await getSep24Transaction(info, token, row.mgiId);
       const next = updateRampSession(row.mgiId, {
-        status: tx.status,
+        status: row.status === "shielded" ? "shielded" : tx.status,
         externalTransactionId: tx.external_transaction_id,
         moreInfoUrl: tx.more_info_url,
         ...(tx.stellar_transaction_id
@@ -103,7 +111,11 @@ export function MoneyGramActivity() {
           : {}),
       });
       const balance = await bridgeUsdcBalance(row.publicKey);
-      if (tx.status === "completed" && balance === 0n) {
+      if (
+        row.kind === "cash-out" &&
+        tx.status === "completed" &&
+        balance === 0n
+      ) {
         clearPersistedBridge(row.mgiId);
         await load();
         return;
@@ -205,6 +217,14 @@ export function MoneyGramActivity() {
                       <dt className="text-muted-foreground">Stellar</dt>
                       <dd className="break-all font-mono text-foreground/80">
                         {row.stellarHash}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {row.shieldingHash ? (
+                    <div className="grid gap-1">
+                      <dt className="text-muted-foreground">Shielding</dt>
+                      <dd className="break-all font-mono text-foreground/80">
+                        {row.shieldingHash}
                       </dd>
                     </div>
                   ) : null}

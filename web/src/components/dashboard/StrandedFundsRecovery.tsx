@@ -29,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { glassInsetClass } from "../ui/glass";
+import { linenInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
@@ -211,29 +211,26 @@ export function StrandedFundsRecovery({
       ) : null}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent
-          appearance="glass"
-          size="md"
-        >
+        <DialogContent appearance="linen" size="md">
           {success ? (
             <div className="grid justify-items-center gap-5 py-4 text-center">
-              <span className="flex size-14 items-center justify-center rounded-full bg-emerald-300/15 text-emerald-100 ring-1 ring-emerald-300/30">
+              <span className="flex size-14 items-center justify-center rounded-full bg-emerald-600/10 text-emerald-700 ring-1 ring-emerald-600/25">
                 <CheckCircle2 className="size-7" aria-hidden="true" />
               </span>
               <div>
-                <DialogTitle className="text-xl text-brand-linen">
+                <DialogTitle className="text-xl text-foreground">
                   Funds recovered
                 </DialogTitle>
-                <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-brand-linen/65">
+                <DialogDescription className="mx-auto mt-2 max-w-[36ch] text-foreground/65">
                   {formatUsd(success.amount)} USDC is ready to claim in{" "}
                   {shortKey(success.destination)}.
                 </DialogDescription>
               </div>
               <Button
                 type="button"
-                variant="glass"
+                variant="default"
                 size="lg"
-                className="w-full bg-brand-linen/18 ring-brand-linen/30"
+                className="w-full"
                 onClick={() => {
                   if (rows.length > 0) {
                     setSuccess(null);
@@ -248,23 +245,23 @@ export function StrandedFundsRecovery({
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl text-brand-linen">
+                <DialogTitle className="text-xl text-foreground">
                   Recover your funds
                 </DialogTitle>
-                <DialogDescription className="leading-5 text-brand-linen/65">
+                <DialogDescription className="leading-5 text-foreground/65">
                   Move the USDC from an interrupted cash-out to a Stellar wallet
                   you control.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className={`${glassInsetClass} rounded-xl p-4`}>
-                <p className="text-xs font-medium tracking-wide text-brand-linen/65 uppercase">
+              <div className={`${linenInsetClass} rounded-xl p-4`}>
+                <p className="text-xs font-medium tracking-wide text-foreground/65 uppercase">
                   Recoverable
                 </p>
-                <p className="mt-1 font-mono text-3xl font-semibold text-brand-linen tabular-nums">
+                <p className="mt-1 font-mono text-3xl font-semibold text-foreground tabular-nums">
                   {total === null ? "…" : formatUsd(total)}
                 </p>
-                <p className="mt-1 text-xs text-brand-linen/65">
+                <p className="mt-1 text-xs text-foreground/65">
                   {rows.length} interrupted payout
                   {rows.length === 1 ? "" : "s"}
                 </p>
@@ -272,13 +269,13 @@ export function StrandedFundsRecovery({
 
               <div className="grid gap-2">
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm text-brand-linen">
+                  <Label className="text-sm text-foreground">
                     Destination wallet
                   </Label>
                   {!editingDestination && hasDefaultDestination ? (
                     <button
                       type="button"
-                      className="text-xs font-semibold text-brand-linen/65 underline-offset-4 hover:text-brand-linen hover:underline"
+                      className="text-xs font-semibold text-foreground/65 underline-offset-4 hover:text-foreground hover:underline"
                       onClick={() => setEditingDestination(true)}
                     >
                       Use another address
@@ -288,16 +285,16 @@ export function StrandedFundsRecovery({
 
                 {!editingDestination && currentWalletSelected ? (
                   <div
-                    className={`${glassInsetClass} flex items-center gap-3 p-3`}
+                    className={`${linenInsetClass} flex items-center gap-3 p-3`}
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-linen/10 text-brand-linen">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-foreground">
                       <Wallet className="size-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-brand-linen">
+                      <p className="text-sm font-semibold text-foreground">
                         Current wallet
                       </p>
-                      <p className="truncate font-mono text-xs text-brand-linen/65">
+                      <p className="truncate font-mono text-xs text-foreground/65">
                         {shortKey(destination)}
                       </p>
                     </div>
@@ -306,7 +303,7 @@ export function StrandedFundsRecovery({
                   <>
                     <Input
                       id="recovery-destination"
-                      appearance="glass"
+                      appearance="linen"
                       placeholder="G…"
                       spellCheck={false}
                       autoComplete="off"
@@ -314,14 +311,14 @@ export function StrandedFundsRecovery({
                       {...register("destination")}
                     />
                     {errors.destination ? (
-                      <p className="text-xs text-red-300">
+                      <p className="text-xs text-red-600">
                         {errors.destination.message}
                       </p>
                     ) : null}
                     {hasDefaultDestination ? (
                       <button
                         type="button"
-                        className="w-fit text-xs font-semibold text-brand-linen/65 underline-offset-4 hover:text-brand-linen hover:underline"
+                        className="w-fit text-xs font-semibold text-foreground/65 underline-offset-4 hover:text-foreground hover:underline"
                         onClick={() => {
                           setValue("destination", defaultDestination, {
                             shouldValidate: true,
@@ -347,14 +344,14 @@ export function StrandedFundsRecovery({
                   return (
                     <li
                       key={row.ref}
-                      className="grid gap-3 rounded-xl border border-brand-linen/12 bg-brand-linen/5 p-3"
+                      className="grid gap-3 rounded-xl border border-foreground/12 bg-foreground/5 p-3"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs text-brand-linen/65">
+                          <p className="text-xs text-foreground/65">
                             Cash-out amount
                           </p>
-                          <p className="flex items-center gap-2 font-mono text-base font-semibold text-brand-linen tabular-nums">
+                          <p className="flex items-center gap-2 font-mono text-base font-semibold text-foreground tabular-nums">
                             {amount === null && (
                               <Loader
                                 className="size-4 motion-safe:animate-spin"
@@ -364,19 +361,19 @@ export function StrandedFundsRecovery({
                             {amount ?? "Checking…"}
                           </p>
                         </div>
-                        <span className="text-xs text-brand-linen/65">
+                        <span className="text-xs text-foreground/65">
                           {empty ? "No funds found" : "Ready to recover"}
                         </span>
                       </div>
 
                       {row.destination ? (
-                        <p className="text-xs text-brand-linen/65">
+                        <p className="text-xs text-foreground/65">
                           Originally headed to {shortKey(row.destination)}
                         </p>
                       ) : null}
 
                       {error ? (
-                        <p role="alert" className="text-xs text-red-300">
+                        <p role="alert" className="text-xs text-red-600">
                           {error}
                         </p>
                       ) : null}
@@ -386,7 +383,7 @@ export function StrandedFundsRecovery({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="w-full text-brand-linen/65 hover:bg-brand-linen/8 hover:text-brand-linen"
+                          className="w-full text-foreground/65 hover:bg-foreground/8 hover:text-foreground"
                           onClick={() => dismiss(row)}
                         >
                           Remove recovered record
@@ -394,9 +391,9 @@ export function StrandedFundsRecovery({
                       ) : (
                         <Button
                           type="button"
-                          variant="glass"
+                          variant="default"
                           size="lg"
-                          className="w-full bg-brand-linen/18 ring-brand-linen/30"
+                          className="w-full"
                           disabled={isPending || row.balance === null}
                           onClick={handleSubmit((data) =>
                             reclaim(row, data.destination),
@@ -416,8 +413,8 @@ export function StrandedFundsRecovery({
                         </Button>
                       )}
 
-                      <details className="group text-xs text-brand-linen/65">
-                        <summary className="cursor-pointer font-medium text-brand-linen/70 hover:text-brand-linen/85">
+                      <details className="group text-xs text-foreground/65">
+                        <summary className="cursor-pointer font-medium text-foreground/70 hover:text-foreground/85">
                           Technical details
                         </summary>
                         <p className="mt-2 break-all font-mono">
@@ -430,9 +427,9 @@ export function StrandedFundsRecovery({
               </ul>
 
               <details
-                className={`${glassInsetClass} px-3 py-2.5 text-xs text-brand-linen/65`}
+                className={`${linenInsetClass} px-3 py-2.5 text-xs text-foreground/65`}
               >
-                <summary className="cursor-pointer font-semibold text-brand-linen/70">
+                <summary className="cursor-pointer font-semibold text-foreground/70">
                   How recovery works
                 </summary>
                 <p className="mt-2 leading-5">

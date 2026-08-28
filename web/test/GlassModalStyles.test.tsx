@@ -58,19 +58,19 @@ describe("dashboard glass modals", () => {
 
     expect(primaryOption).toHaveClass("rounded-2xl");
     expect(within(primaryOption).getByText("Create a link or QR")).toHaveClass(
-      "text-brand-linen",
+      "text-foreground",
     );
     expect(
       within(primaryOption).getByText(
         "Share a link, with an amount, or open-ended",
       ),
-    ).toHaveClass("text-brand-linen/60");
+    ).toHaveClass("text-foreground/60");
     expect(disabledOption).toBeDisabled();
-    expect(disabledOption).toHaveClass("rounded-2xl", "text-brand-linen/45");
+    expect(disabledOption).toHaveClass("rounded-2xl", "text-foreground/45");
 
     fireEvent.click(primaryOption);
     expect(screen.getByLabelText(/Description/)).toHaveClass("rounded-xl");
-    expect(screen.getByText("Link name")).toHaveClass("text-brand-linen/70");
+    expect(screen.getByText("Link name")).toHaveClass("text-foreground/70");
   });
 
   it("uses glass receipt roles and a nested-card radius when ready", async () => {
@@ -104,11 +104,11 @@ describe("dashboard glass modals", () => {
     const card =
       screen.getByText("Payment received").parentElement?.parentElement;
 
-    expect(value).toHaveClass("text-brand-linen");
+    expect(value).toHaveClass("text-foreground");
     expect(screen.getByText("Payment received")).toHaveClass(
-      "text-brand-linen/65",
+      "text-foreground/65",
     );
-    expect(screen.getByText("Recipient")).toHaveClass("text-brand-linen/65");
+    expect(screen.getByText("Recipient")).toHaveClass("text-foreground/65");
     expect(card).toHaveClass("rounded-2xl");
   });
 });

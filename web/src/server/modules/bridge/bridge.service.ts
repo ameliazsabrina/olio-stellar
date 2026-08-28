@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  Asset,
   Horizon,
   Keypair,
   Operation,
@@ -147,6 +148,48 @@ export async function fundBridge(
   input: FundBridgeInput,
 ): Promise<FundBridgeOutput> {
   const run = fundChain.then(() => doFundBridge(input.bridgePublicKey));
+  fundChain = run.catch(() => undefined);
+  return run;
+}
+
+async function doFundUserWallet(
+  walletPublicKey: string,
+): Promise<FundBridgeOutput> {
+  const target = Number(validateBridgeFundingAmount(BRIDGE_FUNDING_XLM));
+  try {
+    const wallet = await horizon.loadAccount(walletPublicKey);
+    const native = wallet.balances.find(
+      (balance) => balance.asset_type === "native",
+    );
+    const current = Number(native?.balance ?? "0");
+    if (current >= target) return { funded: false, txHash: null };
+    const sponsor = sponsorKeypair();
+    const source = await horizon.loadAccount(sponsor.publicKey());
+    const fee = String(await horizon.fetchBaseFee());
+    const tx = new TransactionBuilder(source, { fee, networkPassphrase })
+      .addOperation(
+        Operation.payment({
+          destination: walletPublicKey,
+          asset: Asset.native(),
+          amount: (target - current).toFixed(7),
+        }),
+      )
+      .setTimeout(120)
+      .build();
+    tx.sign(sponsor);
+    const submitted = await horizon.submitTransaction(tx);
+    return { funded: true, txHash: submitted.hash };
+  } catch (error) {
+    const status = errorRecord(errorRecord(error).response).status;
+    if (status === 404) return doFundBridge(walletPublicKey);
+    throw error;
+  }
+}
+
+export async function fundUserWallet(
+  input: FundBridgeInput,
+): Promise<FundBridgeOutput> {
+  const run = fundChain.then(() => doFundUserWallet(input.bridgePublicKey));
   fundChain = run.catch(() => undefined);
   return run;
 }
