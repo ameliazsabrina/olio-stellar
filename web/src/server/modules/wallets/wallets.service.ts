@@ -70,6 +70,49 @@ function output(doc: UserDoc): WalletOutput {
   };
 }
 
+type PrivyLinkedAccount = {
+  type?: string;
+  id?: string | null;
+  address?: string;
+  chain_type?: string;
+  delegated?: boolean;
+  wallet_client?: string;
+  wallet_client_type?: string;
+  connector_type?: string;
+};
+
+async function verifiedPrivyWallets(
+  privyUserId: string,
+): Promise<PrivyWalletInput[]> {
+  const user = await getPrivyUser(privyUserId);
+  const wallets = new Map<string, PrivyWalletInput>();
+  for (const account of user.linked_accounts) {
+    const candidate = account as unknown as PrivyLinkedAccount;
+    if (
+      candidate.type !== "wallet" ||
+      !candidate.id ||
+      candidate.chain_type !== "stellar" ||
+      candidate.delegated !== false ||
+      candidate.wallet_client !== "privy" ||
+      candidate.wallet_client_type !== "privy" ||
+      candidate.connector_type !== "embedded" ||
+      !candidate.address ||
+      !StrKey.isValidEd25519PublicKey(candidate.address)
+    ) {
+      continue;
+    }
+    // Privy's current wallet handle wins when stale and current handles share
+    // the same cryptographic Stellar address.
+    if (!wallets.has(candidate.address)) {
+      wallets.set(candidate.address, {
+        privyWalletId: candidate.id,
+        privyWalletAddress: candidate.address,
+      });
+    }
+  }
+  return [...wallets.values()];
+}
+
 export function accountSalt(privyUserId: string): Buffer {
   return hash(Buffer.from(`olio:account:v2:${privyUserId}`));
 }
@@ -99,33 +142,82 @@ export async function assertPrivyWalletOwned(
   privyUserId: string,
   wallet: PrivyWalletInput,
 ): Promise<void> {
-  const user = await getPrivyUser(privyUserId);
-  const match = user.linked_accounts.find((account) => {
-    const candidate = account as unknown as {
-      type?: string;
-      id?: string | null;
-      address?: string;
-      chain_type?: string;
-      delegated?: boolean;
-      wallet_client?: string;
-      wallet_client_type?: string;
-      connector_type?: string;
-    };
-    return (
-      candidate.type === "wallet" &&
-      candidate.id === wallet.privyWalletId &&
-      candidate.chain_type === "stellar" &&
-      candidate.delegated === false &&
-      candidate.wallet_client === "privy" &&
-      candidate.wallet_client_type === "privy" &&
-      candidate.connector_type === "embedded" &&
-      candidate.address === wallet.privyWalletAddress
-    );
-  });
+  const match = (await verifiedPrivyWallets(privyUserId)).some(
+    (candidate) =>
+      candidate.privyWalletId === wallet.privyWalletId &&
+      candidate.privyWalletAddress === wallet.privyWalletAddress,
+  );
   if (!match) {
     throw new WalletConflictError(
       "The submitted Stellar wallet is not a user-owned Privy wallet linked to this identity.",
     );
+  }
+}
+
+export async function restoreWallet(
+  privyUserId: string,
+): Promise<WalletOutput | null> {
+  const wallets = await verifiedPrivyWallets(privyUserId);
+  if (wallets.length === 0) return null;
+
+  const users = await getUsers();
+  const current = await users.findOne({ privyUserId });
+  let existing = current;
+  if (!existing) {
+    const matches = await users
+      .find({
+        privyWalletAddress: {
+          $in: wallets.map((wallet) => wallet.privyWalletAddress),
+        },
+      })
+      .limit(2)
+      .toArray();
+    if (matches.length > 1) {
+      throw new WalletConflictError(
+        "Multiple Olio accounts match wallets on this Privy identity.",
+      );
+    }
+    existing = matches[0] ?? null;
+  }
+  if (!existing) return null;
+
+  const wallet = wallets.find(
+    (candidate) => candidate.privyWalletAddress === existing.privyWalletAddress,
+  );
+  if (!wallet) {
+    throw new WalletConflictError(
+      "The Stellar wallet controlling this Olio account is not linked to the signed-in Privy identity.",
+    );
+  }
+  if (
+    existing.privyUserId === privyUserId &&
+    existing.privyWalletId === wallet.privyWalletId
+  ) {
+    return output(existing);
+  }
+
+  try {
+    const restored = await users.findOneAndUpdate(
+      {
+        _id: existing._id,
+        privyUserId: existing.privyUserId,
+        privyWalletAddress: existing.privyWalletAddress,
+      },
+      {
+        $set: {
+          privyUserId,
+          privyWalletId: wallet.privyWalletId,
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: "after" },
+    );
+    if (!restored) throw new WalletConflictError();
+    return output(restored);
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000)
+      throw new WalletConflictError();
+    throw error;
   }
 }
 
@@ -316,6 +408,11 @@ export async function bootstrapWallet(
   privyUserId: string,
   wallet: PrivyWalletInput,
 ): Promise<WalletOutput> {
+  // Preserve compatibility with clients that predate the explicit restore
+  // call and make races between restore and bootstrap idempotent.
+  const restored = await restoreWallet(privyUserId);
+  if (restored) return restored;
+
   await assertPrivyWalletOwned(privyUserId, wallet);
   const users = await getUsers();
   const existing = await users.findOne({ privyUserId });

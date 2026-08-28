@@ -119,13 +119,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     promise: Promise<{
       wallet: PrivyStellarWallet;
       mapping: WalletMapping;
-      created: boolean;
+      openDashboard: boolean;
     }>;
   } | null>(null);
 
-  // Privy's hook values can change identity as its internal user state updates.
-  // Keep the latest values available without making wallet setup restart on
-  // every provider render.
   userRef.current = user;
   createWalletRef.current = createWallet;
 
@@ -190,17 +187,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (setupRef.current?.key !== setupKey) {
       setupRef.current = {
         key: setupKey,
-        promise: api.wallets.current.query().then(async (current) => {
-          if (current) {
+        promise: api.wallets.restore.mutate().then(async (restored) => {
+          if (restored) {
             const wallet = {
-              id: current.privyWalletId,
-              address: current.privyWalletAddress,
+              id: restored.privyWalletId,
+              address: restored.privyWalletAddress,
             };
             resolvedWalletRef.current = { userId, wallet };
             return {
               wallet,
-              mapping: current,
-              created: false,
+              mapping: restored,
+              openDashboard: true,
             };
           }
 
@@ -221,12 +218,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             privyWalletId: wallet.id,
             privyWalletAddress: wallet.address,
           });
-          return { wallet, mapping, created: true };
+          return { wallet, mapping, openDashboard: true };
         }),
       };
     }
     setupRef.current.promise
-      .then(async ({ wallet, mapping, created }) => {
+      .then(async ({ wallet, mapping, openDashboard }) => {
         if (
           cancelled ||
           sessionAbortedRef.current ||
@@ -235,7 +232,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         privyWalletRef.current = wallet;
         await activateMapping(mapping);
-        if (created) routeToDashboard();
+        if (openDashboard) routeToDashboard();
       })
       .catch((cause) => {
         if (!cancelled) {
@@ -341,18 +338,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               console.warn("re-key on-chain ok but Mongo mirror failed", cause);
             }
           }
-          const { serializeEscrow, encryptMaster } = await import(
-            "../lib/keys"
-          );
+          const { serializeEscrow, encryptMaster } =
+            await import("../lib/keys");
           await api.wallets.saveEscrow.mutate(
             serializeEscrow(encryptMaster(master, pin)),
           );
           deriveAndStoreAccount(master);
         } else if (pinMode === "set") {
           const master = pendingMasterRef.current ?? randomMaster();
-          const { serializeEscrow, encryptMaster } = await import(
-            "../lib/keys"
-          );
+          const { serializeEscrow, encryptMaster } =
+            await import("../lib/keys");
           await api.wallets.saveEscrow.mutate(
             serializeEscrow(encryptMaster(master, pin)),
           );
@@ -364,9 +359,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             openPinModal("secure");
             return;
           }
-          const { decryptMaster, deserializeEscrow } = await import(
-            "../lib/keys"
-          );
+          const { decryptMaster, deserializeEscrow } =
+            await import("../lib/keys");
           let master: Uint8Array;
           try {
             master = decryptMaster(deserializeEscrow(wire), pin);

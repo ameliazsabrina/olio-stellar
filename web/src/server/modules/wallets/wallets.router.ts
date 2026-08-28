@@ -17,6 +17,7 @@ import {
   bootstrapWallet,
   currentWallet,
   getEscrow,
+  restoreWallet,
   saveEscrow,
 } from "./wallets.service";
 
@@ -43,6 +44,9 @@ export const walletsRouter = createTRPCRouter({
   current: protectedProcedure
     .output(optionalWalletOutput)
     .query(({ ctx }) => currentWallet(ctx.privyUserId).catch(mapError)),
+  restore: protectedProcedure
+    .output(optionalWalletOutput)
+    .mutation(({ ctx }) => restoreWallet(ctx.privyUserId).catch(mapError)),
   bootstrap: protectedProcedure
     .input(privyWalletInput)
     .output(walletOutput)

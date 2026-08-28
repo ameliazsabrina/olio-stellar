@@ -1,8 +1,13 @@
 // @vitest-environment node
-const mocks = vi.hoisted(() => ({ bootstrap: vi.fn(), current: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  bootstrap: vi.fn(),
+  current: vi.fn(),
+  restore: vi.fn(),
+}));
 vi.mock("../src/server/modules/wallets/wallets.service", () => ({
   bootstrapWallet: mocks.bootstrap,
   currentWallet: mocks.current,
+  restoreWallet: mocks.restore,
   getEscrow: vi.fn(),
   saveEscrow: vi.fn(),
 }));
@@ -26,6 +31,23 @@ const caller = walletsRouter.createCaller({
 });
 
 describe("wallet bootstrap router", () => {
+  it("restores an old account from the authenticated Privy identity", async () => {
+    const key = Keypair.random().publicKey();
+    const contract = StrKey.encodeContract(Buffer.alloc(32, 3));
+    mocks.restore.mockResolvedValue({
+      contractId: contract,
+      privyWalletId: "wallet-current",
+      privyWalletAddress: key,
+    });
+
+    await expect(caller.restore()).resolves.toEqual({
+      contractId: contract,
+      privyWalletId: "wallet-current",
+      privyWalletAddress: key,
+    });
+    expect(mocks.restore).toHaveBeenCalledWith(claim.user_id);
+  });
+
   it("derives identity from protected context and returns the idempotent mapping", async () => {
     const key = Keypair.random().publicKey();
     const contract = StrKey.encodeContract(Buffer.alloc(32, 4));

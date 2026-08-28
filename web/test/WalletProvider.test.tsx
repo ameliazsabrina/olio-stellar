@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   signRawHash: vi.fn(),
   resolveWallet: vi.fn(),
   current: vi.fn(),
+  restore: vi.fn(),
   bootstrap: vi.fn(),
   getEscrow: vi.fn(),
   replace: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock("../src/trpc/client", () => ({
   api: {
     wallets: {
       current: { query: mocks.current },
+      restore: { mutate: mocks.restore },
       bootstrap: { mutate: mocks.bootstrap },
       getEscrow: { query: mocks.getEscrow },
       saveEscrow: { mutate: vi.fn() },
@@ -108,6 +110,7 @@ beforeEach(() => {
   mocks.unstableHookValues = false;
   mocks.resolveWallet.mockResolvedValue({ id: "wallet-1", address: "GPRIVY" });
   mocks.current.mockResolvedValue(mapping);
+  mocks.restore.mockResolvedValue(mapping);
   mocks.bootstrap.mockResolvedValue(mapping);
   mocks.getEscrow.mockResolvedValue({
     encryptedMasterHex: "aa",
@@ -130,9 +133,11 @@ describe("WalletProvider Privy session", () => {
     await waitFor(() =>
       expect(screen.getByTestId("ready")).toHaveTextContent("yes"),
     );
-    expect(mocks.current).toHaveBeenCalledTimes(1);
+    expect(mocks.restore).toHaveBeenCalledTimes(1);
+    expect(mocks.current).not.toHaveBeenCalled();
     expect(mocks.resolveWallet).not.toHaveBeenCalled();
     expect(mocks.createWallet).not.toHaveBeenCalled();
+    expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
   });
 
   it("does not restart setup when Privy returns unstable hook identities", async () => {
@@ -146,13 +151,14 @@ describe("WalletProvider Privy session", () => {
       expect(screen.getByTestId("address")).toHaveTextContent("CCONTRACT"),
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(mocks.current).toHaveBeenCalledTimes(1);
+    expect(mocks.restore).toHaveBeenCalledTimes(1);
+    expect(mocks.current).not.toHaveBeenCalled();
     expect(mocks.resolveWallet).not.toHaveBeenCalled();
     expect(mocks.createWallet).not.toHaveBeenCalled();
   });
 
   it("automatically bootstraps a new Privy identity", async () => {
-    mocks.current.mockResolvedValue(null);
+    mocks.restore.mockResolvedValue(null);
     render(
       <WalletProvider>
         <Probe />
@@ -170,7 +176,7 @@ describe("WalletProvider Privy session", () => {
   });
 
   it("retries automatic bootstrap after a recoverable failure", async () => {
-    mocks.current.mockResolvedValue(null);
+    mocks.restore.mockResolvedValue(null);
     mocks.bootstrap
       .mockRejectedValueOnce(new Error("deployment unavailable"))
       .mockResolvedValueOnce(mapping);

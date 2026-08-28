@@ -28,9 +28,9 @@ vi.mock("../src/server/modules/channels/channels.service", () => ({
 import {
   accountSalt,
   assertPrivyWalletOwned,
-  bootstrapWallet,
   deriveAccountContractId,
   prepareSorobanTransactionForRelay,
+  restoreWallet,
   unwrapContractOwner,
 } from "../src/server/modules/wallets/wallets.service";
 
@@ -82,11 +82,11 @@ describe("Olio account wallet ownership", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("relinks and opens the existing Olio account for a verified Privy wallet", async () => {
+  it("restores an existing account when Privy changes the wallet ID", async () => {
     const existing = {
       _id: StrKey.encodeContract(Buffer.alloc(32, 8)),
       privyUserId: "did:privy:previous",
-      privyWalletId: walletId,
+      privyWalletId: "wallet-previous",
       privyWalletAddress: address,
       encryptedMaster: { preserved: true },
       createdAt: new Date("2026-08-01T00:00:00.000Z"),
@@ -95,13 +95,16 @@ describe("Olio account wallet ownership", () => {
     const reassociated = {
       ...existing,
       privyUserId: did,
+      privyWalletId: walletId,
       updatedAt: new Date(),
     };
     const users = {
-      findOne: vi
-        .fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(existing),
+      findOne: vi.fn().mockResolvedValue(null),
+      find: vi.fn(() => ({
+        limit: vi.fn(() => ({
+          toArray: vi.fn().mockResolvedValue([existing]),
+        })),
+      })),
       findOneAndUpdate: vi.fn().mockResolvedValue(reassociated),
     };
     mocks.getUsers.mockResolvedValue(users);
@@ -110,12 +113,7 @@ describe("Olio account wallet ownership", () => {
       linked_accounts: [linkedWallet()],
     });
 
-    await expect(
-      bootstrapWallet(did, {
-        privyWalletId: walletId,
-        privyWalletAddress: address,
-      }),
-    ).resolves.toEqual({
+    await expect(restoreWallet(did)).resolves.toEqual({
       contractId: existing._id,
       privyWalletId: walletId,
       privyWalletAddress: address,
@@ -124,17 +122,82 @@ describe("Olio account wallet ownership", () => {
       {
         _id: existing._id,
         privyUserId: existing.privyUserId,
-        privyWalletId: walletId,
         privyWalletAddress: address,
       },
       {
         $set: {
           privyUserId: did,
+          privyWalletId: walletId,
           updatedAt: expect.any(Date),
         },
       },
       { returnDocument: "after" },
     );
+  });
+
+  it("selects the linked wallet that controls the old account instead of the first wallet", async () => {
+    const unrelatedAddress = Keypair.random().publicKey();
+    const existing = {
+      _id: StrKey.encodeContract(Buffer.alloc(32, 10)),
+      privyUserId: "did:privy:previous",
+      privyWalletId: "wallet-previous",
+      privyWalletAddress: address,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const restored = { ...existing, privyUserId: did, privyWalletId: walletId };
+    const toArray = vi.fn().mockResolvedValue([existing]);
+    const users = {
+      findOne: vi.fn().mockResolvedValue(null),
+      find: vi.fn(() => ({
+        limit: vi.fn(() => ({ toArray })),
+      })),
+      findOneAndUpdate: vi.fn().mockResolvedValue(restored),
+    };
+    mocks.getUsers.mockResolvedValue(users);
+    mocks.getPrivyUser.mockResolvedValue({
+      id: did,
+      linked_accounts: [
+        linkedWallet({ id: "wallet-unrelated", address: unrelatedAddress }),
+        linkedWallet(),
+      ],
+    });
+
+    await expect(restoreWallet(did)).resolves.toEqual({
+      contractId: existing._id,
+      privyWalletId: walletId,
+      privyWalletAddress: address,
+    });
+    expect(users.find).toHaveBeenCalledWith({
+      privyWalletAddress: { $in: [unrelatedAddress, address] },
+    });
+  });
+
+  it("rejects ambiguous matches across multiple linked wallets", async () => {
+    const otherAddress = Keypair.random().publicKey();
+    const users = {
+      findOne: vi.fn().mockResolvedValue(null),
+      find: vi.fn(() => ({
+        limit: vi.fn(() => ({
+          toArray: vi
+            .fn()
+            .mockResolvedValue([
+              { privyWalletAddress: address },
+              { privyWalletAddress: otherAddress },
+            ]),
+        })),
+      })),
+    };
+    mocks.getUsers.mockResolvedValue(users);
+    mocks.getPrivyUser.mockResolvedValue({
+      id: did,
+      linked_accounts: [
+        linkedWallet(),
+        linkedWallet({ address: otherAddress }),
+      ],
+    });
+
+    await expect(restoreWallet(did)).rejects.toThrow(/multiple Olio accounts/i);
   });
 
   it.each([
