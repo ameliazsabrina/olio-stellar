@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   LockKeyhole,
-  Plus,
   QrCode,
   RotateCw,
 } from "lucide-react";
@@ -50,8 +49,6 @@ export function BalanceCard({
   locked = false,
   onUnlock,
   onReceive,
-  onAddCash,
-  addCashDisabledReason,
   onRefresh,
   refreshing = false,
   stale = false,
@@ -61,8 +58,6 @@ export function BalanceCard({
   locked?: boolean;
   onUnlock?: () => void;
   onReceive?: () => void;
-  onAddCash?: () => void;
-  addCashDisabledReason?: string | null;
   onRefresh?: () => void;
   refreshing?: boolean;
   stale?: boolean;
@@ -150,26 +145,6 @@ export function BalanceCard({
             ) : (
               <EyeOff className="size-5" aria-hidden="true" />
             )}
-          </button>
-          <button
-            type="button"
-            className={controlClass}
-            onClick={onAddCash}
-            disabled={!onAddCash || Boolean(addCashDisabledReason) || loading}
-            aria-label="Add cash"
-            title={addCashDisabledReason ?? "Add cash with MoneyGram"}
-          >
-            <Plus className="size-5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={controlClass}
-            onClick={onReceive}
-            disabled={!onReceive || loading}
-            aria-label="Receive payment"
-            title="Show receive QR code"
-          >
-            <QrCode className="size-5" aria-hidden="true" />
           </button>
         </div>
       }

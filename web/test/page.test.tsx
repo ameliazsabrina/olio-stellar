@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   usdcBalanceLabel: vi.fn(),
   addUsdcTrustline: vi.fn(),
   openUsernameModal: vi.fn(),
+  moneyGramCashInEnabled: false,
+  moneyGramCashInUnavailableReason:
+    "MoneyGram cash-in is awaiting KYB and certification approval.",
 }));
 
 // Passthrough stubs for the GSAP-driven landing shell (not under test here).
@@ -46,6 +49,9 @@ vi.mock("../src/components/WalletStatus", () => ({ WalletStatus: () => null }));
 vi.mock("../src/components/DepositForm", () => ({
   DepositForm: () => <div>DEPOSIT_FORM</div>,
 }));
+vi.mock("../src/components/dashboard/MoneyGramDepositContent", () => ({
+  MoneyGramDepositContent: () => <div>MoneyGram deposit flow</div>,
+}));
 
 vi.mock("../src/components/WalletProvider", () => ({
   useWallet: mocks.useWallet,
@@ -59,6 +65,15 @@ vi.mock("../src/lib/stellar", () => ({
   poolId: "POOL",
   usdcBalanceLabel: mocks.usdcBalanceLabel,
   addUsdcTrustline: mocks.addUsdcTrustline,
+}));
+vi.mock("../src/lib/moneygram-status", () => ({
+  get moneyGramCashInEnabled() {
+    return mocks.moneyGramCashInEnabled;
+  },
+  get moneyGramCashInUnavailableReason() {
+    return mocks.moneyGramCashInUnavailableReason;
+  },
+  moneyGramRampStatus: "sandbox",
 }));
 
 import DashboardPage from "../src/app/(dashboard)/dashboard/page";
@@ -81,6 +96,9 @@ function wallet(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.moneyGramCashInEnabled = false;
+  mocks.moneyGramCashInUnavailableReason =
+    "MoneyGram cash-in is awaiting KYB and certification approval.";
   mocks.usdcBalanceLabel.mockResolvedValue("0");
   mocks.getAccount.mockReturnValue(null);
   mocks.scanMyNotes.mockResolvedValue({ notes: [], leaves: [], claimable: 0n });
@@ -188,17 +206,72 @@ describe("Dashboard route", () => {
     expect(
       screen.getAllByRole("button", { name: "Create a payment link" }),
     ).toHaveLength(2);
+    const depositCard = screen.getByRole("button", {
+      name: "Open deposit funds",
+    });
+    expect(depositCard).toBeDisabled();
+    expect(depositCard).toHaveAccessibleDescription(
+      "MoneyGram cash-in is awaiting KYB and certification approval.",
+    );
+    expect(
+      within(depositCard).getByText(
+        "Add money to your Olio balance. Use it for payments, or withdraw it whenever you need it.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(depositCard).getByAltText("MoneyGram")).toBeInTheDocument();
+    expect(
+      within(depositCard).getByAltText("Durianpay, coming soon"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add cash" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Manage your account here"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Account settings, coming soon",
+      }),
+    ).not.toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Open link" })).toHaveClass(
       "bg-primary",
       "!text-primary-foreground",
     );
-    expect(
-      screen.getByRole("button", { name: "Account settings, coming soon" }),
-    ).toBeDisabled();
     expect(screen.queryByText("DEPOSIT_FORM")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /claim your username/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/connect your wallet/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the existing Add cash dialog from the Deposit fund tile", async () => {
+    mocks.moneyGramCashInEnabled = true;
+    mocks.moneyGramCashInUnavailableReason = null;
+    mocks.useWallet.mockReturnValue(
+      wallet({
+        address: "GCSIGNER",
+        sessionReady: true,
+        usernameResolved: true,
+        username: "alice",
+      }),
+    );
+    mocks.getAccount.mockReturnValue({
+      ownerSecret: 1n,
+      viewSk: new Uint8Array(32),
+    });
+    renderWithTRPC(<DashboardPage />);
+
+    const depositCard = await screen.findByRole("button", {
+      name: "Open deposit funds",
+    });
+    expect(depositCard).toBeEnabled();
+    await userEvent.click(depositCard);
+
+    expect(
+      await screen.findByRole("heading", { name: "Add cash" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("MoneyGram deposit flow"),
+    ).toBeInTheDocument();
   });
 });

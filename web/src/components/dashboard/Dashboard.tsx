@@ -3,6 +3,7 @@
 import {
   ArrowUpRight,
   Check,
+  CircleArrowDown,
   Copy,
   ExternalLink,
   Plus,
@@ -70,45 +71,69 @@ export function Dashboard() {
             locked={locked}
             onUnlock={promptUnlock}
             onReceive={() => setReceiveOpen(true)}
-            onAddCash={
-              moneyGramCashInEnabled ? () => setAddCashOpen(true) : undefined
-            }
-            addCashDisabledReason={moneyGramCashInUnavailableReason}
             onRefresh={refresh}
             refreshing={refreshing}
             stale={stale}
           />
         </section>
 
-        <section className="order-2 min-w-0 md:col-span-2 lg:col-span-6 lg:col-start-4 lg:row-start-1">
-          <PayMeTile payLink={payLink} onCreate={() => setCreateOpen(true)} />
-        </section>
-
         <button
           type="button"
-          onClick={() => setCreateOpen(true)}
-          disabled={!username}
-          className={`${tileFocus} order-3 text-left disabled:cursor-not-allowed disabled:opacity-55 lg:col-span-3 lg:col-start-10 lg:row-start-1`}
-          aria-label="Create a payment link"
+          onClick={() => setAddCashOpen(true)}
+          disabled={!moneyGramCashInEnabled || loading}
+          className={`${tileFocus} order-2 w-full text-left disabled:cursor-not-allowed disabled:opacity-55 lg:col-span-3 lg:col-start-4 lg:row-start-1`}
+          aria-label="Open deposit funds"
+          aria-describedby={
+            moneyGramCashInUnavailableReason
+              ? "deposit-funds-unavailable"
+              : undefined
+          }
+          title={moneyGramCashInUnavailableReason ?? "Add cash with MoneyGram"}
         >
           <DashboardTile
             appearance="glass"
-            className="dashboard-nav-card items-center justify-center text-center text-brand-linen"
-            content={
-              <div className="grid justify-items-center gap-5">
-                <Plus className="size-11" aria-hidden="true" />
-                <h2 className="font-heading text-2xl font-medium tracking-tight">
-                  Payment Link
+            className="dashboard-nav-card text-brand-linen"
+            header={
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="dashboard-tile-title text-brand-linen">
+                  Deposit fund
                 </h2>
+                <span
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                  aria-hidden="true"
+                >
+                  <CircleArrowDown className="size-4" />
+                </span>
+              </div>
+            }
+            content={
+              <div className="mt-4 max-w-52 text-sm leading-5 text-brand-linen/65">
+                <p>
+                  Add money to your Olio balance. Use it for payments, or
+                  withdraw it whenever you need it.
+                </p>
+                {moneyGramCashInUnavailableReason ? (
+                  <p
+                    id="deposit-funds-unavailable"
+                    className="mt-3 font-medium text-brand-linen/80"
+                  >
+                    {moneyGramCashInUnavailableReason}
+                  </p>
+                ) : null}
               </div>
             }
             footer={
-              <span className="text-sm font-medium text-brand-linen/65">
-                Create a payment link
-              </span>
+              <div className="flex items-center -space-x-2">
+                <MoneyGramLogo />
+                <DurianpayLogo />
+              </div>
             }
           />
         </button>
+
+        <section className="order-3 min-w-0 md:col-span-2 lg:col-span-6 lg:col-start-7 lg:row-start-1">
+          <PayMeTile payLink={payLink} onCreate={() => setCreateOpen(true)} />
+        </section>
 
         <Link
           href={HISTORY_PATH}
@@ -203,21 +228,25 @@ export function Dashboard() {
 
         <button
           type="button"
-          disabled
-          className="order-7 min-h-full cursor-not-allowed rounded-[2.25rem] text-left lg:col-span-3 lg:col-start-10 lg:row-start-2"
-          aria-label="Account settings, coming soon"
+          onClick={() => setCreateOpen(true)}
+          disabled={!username}
+          className={`${tileFocus} order-7 w-full text-left disabled:cursor-not-allowed disabled:opacity-55 lg:col-span-3 lg:col-start-10 lg:row-start-2`}
+          aria-label="Create a payment link"
         >
           <DashboardTile
             appearance="glass"
-            className="text-brand-linen"
+            className="dashboard-nav-card items-center justify-center text-center text-brand-linen"
             content={
-              <h2 className="max-w-56 font-heading text-3xl font-medium leading-[1.06] tracking-tight">
-                Manage your account here
-              </h2>
+              <div className="grid justify-items-center gap-5">
+                <Plus className="size-11" aria-hidden="true" />
+                <h2 className="font-heading text-2xl font-medium tracking-tight">
+                  Payment Link
+                </h2>
+              </div>
             }
             footer={
-              <span className="text-sm font-medium text-brand-linen/55">
-                Coming soon
+              <span className="text-sm font-medium text-brand-linen/65">
+                Create a payment link
               </span>
             }
           />
@@ -421,6 +450,23 @@ function MoneyGramLogo() {
         width={48}
         height={48}
         className="size-12 object-contain"
+      />
+    </span>
+  );
+}
+
+function DurianpayLogo() {
+  return (
+    <span
+      className="flex size-12 items-center justify-center overflow-hidden rounded-full bg-brand-linen p-2 ring-2 ring-brand-linen"
+      title="Durianpay support is coming soon"
+    >
+      <Image
+        src="/assets/durianpay.png"
+        alt="Durianpay, coming soon"
+        width={32}
+        height={32}
+        className="size-8 object-contain"
       />
     </span>
   );

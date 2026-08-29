@@ -24,8 +24,8 @@ export default function DashboardPage() {
 function DashboardLoadingState() {
   const tiles = [
     "order-1 lg:col-span-3 lg:col-start-1 lg:row-start-1",
-    "order-2 md:col-span-2 lg:col-span-6 lg:col-start-4 lg:row-start-1",
-    "order-3 lg:col-span-3 lg:col-start-10 lg:row-start-1",
+    "order-2 lg:col-span-3 lg:col-start-4 lg:row-start-1",
+    "order-3 md:col-span-2 lg:col-span-6 lg:col-start-7 lg:row-start-1",
     "order-4 lg:col-span-3 lg:col-start-1 lg:row-start-2",
     "order-5 lg:col-span-3 lg:col-start-4 lg:row-start-2",
     "order-6 lg:col-span-3 lg:col-start-7 lg:row-start-2",
@@ -44,7 +44,7 @@ function DashboardLoadingState() {
           <Card
             key={className}
             appearance={
-              index === 2 || index === 3 || index === 6 ? "glass" : "linen"
+              index === 1 || index === 3 || index === 6 ? "glass" : "linen"
             }
             className={`${className} min-h-72 gap-4 rounded-[2.25rem] p-7`}
           >
