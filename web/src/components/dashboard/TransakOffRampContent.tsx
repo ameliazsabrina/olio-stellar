@@ -47,6 +47,7 @@ export function TransakOffRampContent({
   const [prepPhase, setPrepPhase] = useState<string>("fund");
   const [selectedLeaf, setSelectedLeaf] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorRetryable, setErrorRetryable] = useState(false);
   const [settled, setSettled] = useState<TransakOrder | null>(null);
 
   const options = useMemo(() => claimableNotes(notes), [notes]);
@@ -71,6 +72,7 @@ export function TransakOffRampContent({
       return;
     }
     setError(null);
+    setErrorRetryable(false);
     setStep("preparing");
 
     const bridge: Bridge = createBridge();
@@ -134,6 +136,7 @@ export function TransakOffRampContent({
           ? `${msg} Your USDC is safe on a recovery account and can be reclaimed — it has not been lost.`
           : msg,
       );
+      setErrorRetryable(!released);
       setStep("select");
     }
   }
@@ -211,6 +214,11 @@ export function TransakOffRampContent({
           message={error}
           variant="error"
           toastId="transak-withdrawal-error"
+          action={
+            errorRetryable
+              ? { label: "Try again", onClick: () => void start() }
+              : undefined
+          }
         />
 
         <Button

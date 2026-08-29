@@ -250,8 +250,9 @@ export async function resolveUsernameOnChain(
       view_pubkey: toBytes(rec.view_pubkey),
       created: rec.created,
     };
-  } catch {
-    return null;
+  } catch (error) {
+    if (registryContractErrorCode(error) === 3) return null;
+    throw error;
   }
 }
 

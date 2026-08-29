@@ -8,7 +8,6 @@ import {
   Landmark,
   Loader,
   LockKeyhole,
-  ShieldCheck,
   Wallet,
   X,
 } from "lucide-react";
@@ -756,24 +755,19 @@ function WalletWithdrawal({
             autoCorrect="off"
             spellCheck={false}
             aria-invalid={fieldError ? "true" : undefined}
-            aria-describedby={
-              fieldError
-                ? "withdraw-destination-error"
-                : "withdraw-destination-hint"
-            }
+            aria-describedby="withdraw-destination-hint"
           />
-          {fieldError ? (
-            <p id="withdraw-destination-error" className="text-sm text-red-600">
-              {fieldError}
-            </p>
-          ) : (
-            <p
-              id="withdraw-destination-hint"
-              className="text-xs text-foreground/60"
-            >
-              Enter the external Stellar address that should receive the funds.
-            </p>
-          )}
+          <p
+            id="withdraw-destination-hint"
+            className="text-xs text-foreground/60"
+          >
+            Enter the external Stellar address that should receive the funds.
+          </p>
+          <ToastFeedback
+            message={fieldError}
+            variant="error"
+            toastId="withdraw-destination-error"
+          />
         </div>
 
         {submitError ? <InlineError message={submitError} /> : null}

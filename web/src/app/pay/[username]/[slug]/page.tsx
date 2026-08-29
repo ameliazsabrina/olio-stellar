@@ -2,8 +2,9 @@
 
 import { Loader } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "../../../../components/ui/card";
+import { ToastFeedback } from "../../../../components/ui/toast-feedback";
 import { usePaymentLinkBySlug } from "../../../../features/paymentLinks/hooks/usePaymentLink";
 import { type OlioAccount, resolveUsername } from "../../../../lib/stellar";
 import { PayForm } from "../PayForm";
@@ -12,18 +13,35 @@ export default function SlugPayPage() {
   const params = useParams<{ username: string; slug: string }>();
   const username = decodeURIComponent(params.username || "").toLowerCase();
   const slug = decodeURIComponent(params.slug || "").toLowerCase();
-  const link = usePaymentLinkBySlug(username, slug);
+  const {
+    link,
+    loading: linkLoading,
+    error: linkError,
+    retry: retryLink,
+  } = usePaymentLinkBySlug(username, slug);
   const [account, setAccount] = useState<OlioAccount | null | "loading">(
     "loading",
   );
+  const [accountError, setAccountError] = useState<string | null>(null);
 
-  useEffect(() => {
-    resolveUsername(username)
-      .then(setAccount)
-      .catch(() => setAccount(null));
+  const loadAccount = useCallback(async () => {
+    setAccount("loading");
+    setAccountError(null);
+    try {
+      setAccount(await resolveUsername(username));
+    } catch (error) {
+      setAccount(null);
+      setAccountError(
+        error instanceof Error ? error.message : "Could not load this account.",
+      );
+    }
   }, [username]);
 
-  if (account === "loading" || link === "loading") {
+  useEffect(() => {
+    void loadAccount();
+  }, [loadAccount]);
+
+  if (account === "loading" || linkLoading) {
     return (
       <div
         className="grid place-items-center"
@@ -35,6 +53,30 @@ export default function SlugPayPage() {
           aria-hidden="true"
         />
       </div>
+    );
+  }
+
+  if (linkError) {
+    return (
+      <ToastFeedback
+        title="Could not load payment link"
+        message={linkError}
+        variant="error"
+        toastId="public-payment-link-error"
+        action={{ label: "Try again", onClick: retryLink }}
+      />
+    );
+  }
+
+  if (accountError) {
+    return (
+      <ToastFeedback
+        title="Could not load recipient"
+        message={accountError}
+        variant="error"
+        toastId="public-recipient-error"
+        action={{ label: "Try again", onClick: () => void loadAccount() }}
+      />
     );
   }
 

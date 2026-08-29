@@ -83,6 +83,7 @@ export function OffRampContent({
   const [step, setStep] = useState<Step>("select");
   const [prepPhase, setPrepPhase] = useState<string>("fund");
   const [error, setError] = useState<string | null>(null);
+  const [errorRetryable, setErrorRetryable] = useState(false);
 
   // Live off-ramp session state, populated as the flow advances.
   const [interactive, setInteractive] = useState<{
@@ -188,6 +189,7 @@ export function OffRampContent({
       return;
     }
     setError(null);
+    setErrorRetryable(false);
     setStep("preparing");
     // Open the anchor window synchronously inside the click gesture, otherwise
     // the post-await window.open below is treated as programmatic and blocked.
@@ -330,9 +332,9 @@ export function OffRampContent({
       await onComplete?.();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Off-ramp failed.";
-      // Surface the failure IN the pre-opened tab instead of leaving a blank
-      // window (or silently closing it), so the cause is visible.
-      paintAnchorWindow(anchorWindow, "Withdrawal couldn't be prepared", msg);
+      // Keep errors in the app's toast system; the pre-opened helper tab should
+      // not become a second, inconsistent error surface.
+      if (anchorWindow && !anchorWindow.closed) anchorWindow.close();
       // If the note was already spent, the funds sit on the (persisted) bridge
       // account — say so rather than implying the money is simply gone.
       setError(
@@ -342,6 +344,7 @@ export function OffRampContent({
             : `${msg} Your USDC is safe on a recovery account and can be reclaimed — it has not been lost.`
           : msg,
       );
+      setErrorRetryable(!released);
       setStep("select");
     }
   }
@@ -376,6 +379,11 @@ export function OffRampContent({
           message={error}
           variant="error"
           toastId="off-ramp-error"
+          action={
+            errorRetryable
+              ? { label: "Try again", onClick: () => void start() }
+              : undefined
+          }
         />
 
         <Button
@@ -433,31 +441,32 @@ export function OffRampContent({
             {popupNotice}
           </p>
         ) : null}
-        <Button
-          variant="default"
-          className="min-h-11"
-          size="lg"
-          onClick={() => {
-            anchorWindowRef.current = window.open(
-              interactive.url,
-              "_blank",
-              "noopener,noreferrer",
-            );
-            if (!anchorWindowRef.current) {
-              setPopupNotice("Popup blocked. Continue in this tab instead.");
-            }
-          }}
-        >
-          <ExternalLink className="size-4" aria-hidden="true" />
-          Reopen secure {anchorLabel()} window
-        </Button>
-        <Button
-          variant="secondary"
-          className="min-h-11"
-          onClick={() => window.location.assign(interactive.url)}
-        >
-          Continue in this tab
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="default"
+            className="h-auto min-h-11 min-w-0 whitespace-normal px-3 py-2"
+            onClick={() => {
+              anchorWindowRef.current = window.open(
+                interactive.url,
+                "_blank",
+                "noopener,noreferrer",
+              );
+              if (!anchorWindowRef.current) {
+                setPopupNotice("Popup blocked. Continue in this tab instead.");
+              }
+            }}
+          >
+            <ExternalLink className="size-4" aria-hidden="true" />
+            Reopen secure {anchorLabel()} window
+          </Button>
+          <Button
+            variant="secondary"
+            className="h-auto min-h-11 min-w-0 whitespace-normal px-3 py-2"
+            onClick={() => window.location.assign(interactive.url)}
+          >
+            Continue in this tab
+          </Button>
+        </div>
         <div className="flex items-center justify-center gap-2 text-xs text-foreground/60">
           <Loader
             className="size-3.5 motion-safe:animate-spin"

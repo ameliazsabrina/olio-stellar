@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  Loader,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react";
+import { Check, Copy, ExternalLink, Loader, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   type AnchorInfo,
@@ -30,13 +23,12 @@ import {
 } from "../../lib/bridge";
 import { toBaseUnits } from "../../lib/crypto";
 import { shieldVerifiedCashIn } from "../../lib/moneygram-cash-in";
-import { moneyGramRampStatus } from "../../lib/moneygram-status";
 import { getAccount } from "../../lib/notes";
 import { explorerTxUrl, isMainnet } from "../../lib/stellar";
 import { api } from "../../trpc/client";
 import { Button } from "../ui/button";
-import { linenInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
 type State =
@@ -59,6 +51,7 @@ export function MoneyGramDepositContent({
   const [state, setState] = useState<State>("amount");
   const [amount, setAmount] = useState("15");
   const [error, setError] = useState<string | null>(null);
+  const [errorRetryable, setErrorRetryable] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [transaction, setTransaction] = useState<Sep24Transaction | null>(null);
@@ -92,6 +85,7 @@ export function MoneyGramDepositContent({
   async function shield(tx: Sep24Transaction, current: Session) {
     setState("shielding");
     setError(null);
+    setErrorRetryable(false);
     try {
       const account = getAccount();
       if (!account || !wallet.accountUnlocked)
@@ -128,6 +122,7 @@ export function MoneyGramDepositContent({
           ? `${cause.message} The USDC remains recoverable in your Privy/Olio account; retry shielding when ready.`
           : "Shielding failed. The USDC remains recoverable in your account.",
       );
+      setErrorRetryable(true);
       setTransaction(tx);
       setState("recoverable");
     }
@@ -160,12 +155,14 @@ export function MoneyGramDepositContent({
         setError(
           "MoneyGram is still processing this cash-in. You can safely close this dialog and check again later.",
         );
+        setErrorRetryable(true);
       } else {
         setError(
           cause instanceof Error
             ? cause.message
             : "Cash-in status check failed.",
         );
+        setErrorRetryable(true);
       }
       setState("recoverable");
     }
@@ -173,6 +170,7 @@ export function MoneyGramDepositContent({
 
   async function start() {
     setError(null);
+    setErrorRetryable(false);
     setNotice(null);
     if (!wallet.authenticated || !wallet.privyPublicKey) {
       setError("Sign in with Privy before adding cash.");
@@ -227,10 +225,16 @@ export function MoneyGramDepositContent({
           .filter((row) => row.kind === "cash-in" && row.status === "shielded")
           .map((row) => row.mgiId),
       );
+      // Only recover a deposit that represents real progress. A SEP-24
+      // deposit starts (and stays) `incomplete` when the user abandons
+      // MoneyGram's hosted flow; resurrecting one of those reopens an
+      // amount-less transaction ("Amount to pay: NaN") instead of starting a
+      // fresh deposit with the amount just entered.
       const recovering = history.find(
         (tx) =>
           tx.kind === "deposit" &&
           !locallyShielded.has(tx.id) &&
+          tx.status !== "incomplete" &&
           (tx.status === "completed" || !TERMINAL.has(tx.status)),
       );
       if (recovering) {
@@ -292,6 +296,7 @@ export function MoneyGramDepositContent({
           ? cause.message
           : "Could not start MoneyGram cash-in.",
       );
+      setErrorRetryable(true);
       setState("amount");
     }
   }
@@ -300,6 +305,7 @@ export function MoneyGramDepositContent({
     if (!session) return;
     setState("interactive");
     setError(null);
+    setErrorRetryable(false);
     await waitForSettlement(session);
   }
 
@@ -323,11 +329,17 @@ export function MoneyGramDepositContent({
           onChange={(event) => setAmount(event.target.value)}
           aria-invalid={error ? true : undefined}
         />
-        {error ? (
-          <p role="alert" className="text-xs text-red-600">
-            {error}
-          </p>
-        ) : null}
+        <ToastFeedback
+          title="Could not start cash-in"
+          message={error}
+          variant="error"
+          toastId="moneygram-cash-in-error"
+          action={
+            errorRetryable
+              ? { label: "Try again", onClick: () => void start() }
+              : undefined
+          }
+        />
         <Button variant="default" size="lg" onClick={start}>
           Continue to MoneyGram
         </Button>
@@ -338,7 +350,7 @@ export function MoneyGramDepositContent({
     return (
       <div className="grid justify-items-center gap-3 py-8 text-center text-sm text-foreground/70">
         <Loader className="size-5 motion-safe:animate-spin" />
-        Preparing your recoverable Stellar account and USDC trustline…
+        Preparing your account...
         {notice ? <p>{notice}</p> : null}
       </div>
     );
@@ -353,15 +365,22 @@ export function MoneyGramDepositContent({
           </div>
         ) : null}
         {notice ? <p>{notice}</p> : null}
-        {error ? (
-          <p role="alert" className="flex gap-2 text-red-600">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" /> {error}
-          </p>
-        ) : null}
+        <ToastFeedback
+          title="Cash-in needs attention"
+          message={error}
+          variant="error"
+          toastId="moneygram-cash-in-status-error"
+          action={
+            errorRetryable
+              ? { label: "Try again", onClick: () => void refreshStatus() }
+              : undefined
+          }
+        />
         {session.url ? (
-          <>
+          <div className="grid grid-cols-2 gap-3">
             <Button
               variant="default"
+              className="h-auto min-h-11 min-w-0 whitespace-normal px-3 py-2"
               onClick={() => {
                 popup.current = window.open(
                   session.url,
@@ -376,11 +395,12 @@ export function MoneyGramDepositContent({
             </Button>
             <Button
               variant="secondary"
+              className="h-auto min-h-11 min-w-0 whitespace-normal px-3 py-2"
               onClick={() => window.location.assign(session.url)}
             >
               Continue in this tab
             </Button>
-          </>
+          </div>
         ) : null}
         {state === "recoverable" ? (
           <Button variant="secondary" onClick={refreshStatus}>

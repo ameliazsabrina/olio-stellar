@@ -32,6 +32,7 @@ import {
 import { linenInsetClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { ToastFeedback } from "../ui/toast-feedback";
 
 const recoverySchema = z.object({
   destination: z
@@ -310,11 +311,11 @@ export function StrandedFundsRecovery({
                       aria-invalid={!!errors.destination}
                       {...register("destination")}
                     />
-                    {errors.destination ? (
-                      <p className="text-xs text-red-600">
-                        {errors.destination.message}
-                      </p>
-                    ) : null}
+                    <ToastFeedback
+                      message={errors.destination?.message}
+                      variant="error"
+                      toastId="recovery-destination-error"
+                    />
                     {hasDefaultDestination ? (
                       <button
                         type="button"
@@ -372,11 +373,19 @@ export function StrandedFundsRecovery({
                         </p>
                       ) : null}
 
-                      {error ? (
-                        <p role="alert" className="text-xs text-red-600">
-                          {error}
-                        </p>
-                      ) : null}
+                      <ToastFeedback
+                        title="Recovery not completed"
+                        message={error}
+                        variant="error"
+                        toastId={`recovery-error-${row.ref}`}
+                        action={{
+                          label: "Try again",
+                          onClick: () =>
+                            void handleSubmit((data) =>
+                              reclaim(row, data.destination),
+                            )(),
+                        }}
+                      />
 
                       {empty ? (
                         <Button

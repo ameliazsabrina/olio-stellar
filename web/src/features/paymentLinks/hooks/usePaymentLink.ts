@@ -3,16 +3,24 @@
 import { trpc } from "../../../trpc/react";
 import type { PaymentLink } from "../types";
 
-type LinkState = PaymentLink | null | "loading";
+type LinkState = {
+  link: PaymentLink | null;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
+};
 
 export function usePaymentLink(id: string | null): LinkState {
   const query = trpc.paymentLinks.get.useQuery(
     { id: id ?? "" },
     { enabled: !!id },
   );
-  if (!id) return null;
-  if (query.isPending) return "loading";
-  return query.data ?? null;
+  return {
+    link: id ? (query.data ?? null) : null,
+    loading: !!id && query.isPending,
+    error: id ? (query.error?.message ?? null) : null,
+    retry: () => void query.refetch(),
+  };
 }
 
 export function usePaymentLinkBySlug(
@@ -23,9 +31,13 @@ export function usePaymentLinkBySlug(
     { owner, slug: slug ?? "" },
     { enabled: !!owner && !!slug },
   );
-  if (!owner || !slug) return null;
-  if (query.isPending) return "loading";
-  return query.data ?? null;
+  const enabled = !!owner && !!slug;
+  return {
+    link: enabled ? (query.data ?? null) : null,
+    loading: enabled && query.isPending,
+    error: enabled ? (query.error?.message ?? null) : null,
+    retry: () => void query.refetch(),
+  };
 }
 
 export function usePaymentLinksByOwner(owner: string | null) {
@@ -50,6 +62,7 @@ export function usePaymentLinksByOwner(owner: string | null) {
   return {
     links: query.data ?? [],
     loading: !!owner && query.isPending,
+    error: query.error?.message ?? null,
     refresh,
     setLinks,
   };

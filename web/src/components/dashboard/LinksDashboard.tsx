@@ -24,6 +24,7 @@ import { payUrl } from "../../lib/paymentLinks";
 import { api } from "../../trpc/client";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { DashboardPageHeader } from "./DashboardPageHeader";
 import { LinkEditorDialog } from "./LinkEditorDialog";
 import { PaymentQrDialog } from "./PaymentQrDialog";
@@ -50,7 +51,7 @@ export function LinksDashboard({
   username: string;
   origin: string;
 }) {
-  const { links, loading, refresh, setLinks } =
+  const { links, loading, error, refresh, setLinks } =
     usePaymentLinksByOwner(username);
   const [createOpen, setCreateOpen] = useState(false);
   const payLink = username && origin ? `${origin}/pay/${username}` : "";
@@ -80,6 +81,13 @@ export function LinksDashboard({
       />
 
       <section className="grid gap-4" aria-label="Payment links">
+        <ToastFeedback
+          title="Could not load payment links"
+          message={error}
+          variant="error"
+          toastId="payment-links-load-error"
+          action={{ label: "Try again", onClick: () => void refresh() }}
+        />
         {(loading || links.length > 0) && (
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-heading text-xl font-semibold text-brand-linen">
@@ -149,6 +157,10 @@ function GeneratedLinkCard({
   const [qrOpen, setQrOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [failedAction, setFailedAction] = useState<
+    { kind: "archive"; nextArchived: boolean } | { kind: "delete" } | null
+  >(null);
   const [manageToken, setManageToken] = useState<string | null>(null);
   const qrTriggerRef = useRef<HTMLButtonElement>(null);
   const url = payUrl(origin, username, link.slug);
@@ -171,6 +183,8 @@ function GeneratedLinkCard({
 
   async function archive(nextArchived: boolean) {
     if (!manageToken) return;
+    setActionError(null);
+    setFailedAction(null);
     setBusy(true);
     try {
       onChanged(
@@ -184,6 +198,14 @@ function GeneratedLinkCard({
       if (isUnauthorized(e)) {
         removeManageToken(link.id);
         setManageToken(null);
+        setActionError(
+          "This device no longer has permission to manage the link.",
+        );
+      } else {
+        setActionError(
+          e instanceof Error ? e.message : "Could not update the link.",
+        );
+        setFailedAction({ kind: "archive", nextArchived });
       }
     } finally {
       setBusy(false);
@@ -193,6 +215,8 @@ function GeneratedLinkCard({
   async function remove() {
     if (!manageToken) return;
     if (!window.confirm(`Permanently delete ${link.slug}?`)) return;
+    setActionError(null);
+    setFailedAction(null);
     setBusy(true);
     try {
       await api.paymentLinks.delete.mutate({ id: link.id, manageToken });
@@ -202,6 +226,14 @@ function GeneratedLinkCard({
       if (isUnauthorized(e)) {
         removeManageToken(link.id);
         setManageToken(null);
+        setActionError(
+          "This device no longer has permission to manage the link.",
+        );
+      } else {
+        setActionError(
+          e instanceof Error ? e.message : "Could not delete the link.",
+        );
+        setFailedAction({ kind: "delete" });
       }
     } finally {
       setBusy(false);
@@ -210,6 +242,23 @@ function GeneratedLinkCard({
 
   return (
     <Card appearance="linen" className="relative justify-between gap-4">
+      <ToastFeedback
+        title="Link action not completed"
+        message={actionError}
+        variant="error"
+        toastId={`payment-link-action-error-${link.id}`}
+        action={
+          failedAction
+            ? {
+                label: "Try again",
+                onClick: () =>
+                  failedAction.kind === "archive"
+                    ? void archive(failedAction.nextArchived)
+                    : void remove(),
+              }
+            : undefined
+        }
+      />
       <div className="grid gap-3">
         <div className="min-w-0 pr-12">
           <div className="flex flex-wrap items-center gap-2">

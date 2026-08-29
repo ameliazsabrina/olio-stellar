@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 type ToastFeedbackProps = {
@@ -28,6 +28,8 @@ function ToastFeedback({
   const actionLabel = action?.label;
   const actionHref = action?.href;
   const actionOnClick = action?.onClick;
+  const actionOnClickRef = useRef(actionOnClick);
+  actionOnClickRef.current = actionOnClick;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: rich content is derived from message; message is the stable event key.
   useEffect(() => {
@@ -37,12 +39,12 @@ function ToastFeedback({
       id: toastId,
       description: title ? (content ?? message) : undefined,
       action:
-        actionLabel && (actionOnClick || actionHref)
+        actionLabel && (actionOnClickRef.current || actionHref)
           ? {
               label: actionLabel,
               onClick: () => {
-                if (actionOnClick) {
-                  actionOnClick();
+                if (actionOnClickRef.current) {
+                  actionOnClickRef.current();
                   return;
                 }
                 if (actionHref) {
@@ -52,15 +54,7 @@ function ToastFeedback({
             }
           : undefined,
     });
-  }, [
-    actionHref,
-    actionLabel,
-    actionOnClick,
-    message,
-    title,
-    toastId,
-    variant,
-  ]);
+  }, [actionHref, actionLabel, message, title, toastId, variant]);
 
   return null;
 }

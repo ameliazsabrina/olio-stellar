@@ -48,7 +48,10 @@ function CctpPayFormInner({
   lockedAmount?: string | null;
   chain: CctpChain;
 }) {
-  const { phase, status, start } = useCctpDeposit({ username, notePubkey });
+  const { phase, status, start, retry, canRetry } = useCctpDeposit({
+    username,
+    notePubkey,
+  });
   const { publicKey, signTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -144,6 +147,11 @@ function CctpPayFormInner({
           message={status?.msg}
           variant={status?.kind === "ok" ? "success" : "error"}
           toastId="cctp-payment-status"
+          action={
+            status?.kind === "err" && canRetry
+              ? { label: "Try again", onClick: () => void retry() }
+              : undefined
+          }
         />
       </form>
     </div>

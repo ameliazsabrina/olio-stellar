@@ -233,6 +233,11 @@ export function LinkEditorDialog({
             message={submitError}
             variant="error"
             toastId="link-submit-error"
+            action={
+              mode === "edit"
+                ? { label: "Try again", onClick: () => void submit() }
+                : undefined
+            }
           />
 
           <Button

@@ -101,6 +101,7 @@ export function DiscloseDialog({
               message={error}
               variant="error"
               toastId="disclosure-error"
+              action={{ label: "Try again", onClick: () => void build() }}
             />
             <Button variant="default" className="min-h-11" onClick={build}>
               Try again

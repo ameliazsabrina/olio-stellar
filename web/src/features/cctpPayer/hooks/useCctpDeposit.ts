@@ -16,6 +16,7 @@ export type CctpStartOpts =
 
 export type CctpPhase = "idle" | "burning" | "attesting" | "relaying" | "done";
 export type CctpStatus = { kind: "ok" | "err"; msg: string } | null;
+type PendingRelay = { txHash: string; sourceDomain: number; nonce: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -42,6 +43,45 @@ export function useCctpDeposit({
 }) {
   const [phase, setPhase] = useState<CctpPhase>("idle");
   const [status, setStatus] = useState<CctpStatus>(null);
+  const [pendingRelay, setPendingRelay] = useState<PendingRelay | null>(null);
+
+  const continueDeposit = useCallback(
+    async (pending: PendingRelay) => {
+      try {
+        setStatus(null);
+        setPhase("attesting");
+        const { message, attestation } = await waitForAttestation(
+          pending.sourceDomain,
+          pending.txHash,
+        );
+
+        setPhase("relaying");
+        const res = await api.cctp.relay.mutate({
+          username,
+          message,
+          attestation,
+          nonce: pending.nonce,
+        });
+
+        setPendingRelay(null);
+        setPhase("done");
+        setStatus({
+          kind: "ok",
+          msg: `Sent ${res.amount} USDC to @${username}. See the proof here.`,
+        });
+      } catch (error) {
+        setPhase("idle");
+        setStatus({
+          kind: "err",
+          msg:
+            error instanceof Error
+              ? error.message
+              : "Could not finish the cross-chain payment.",
+        });
+      }
+    },
+    [username],
+  );
 
   const start = useCallback(
     async (amount: string, opts: CctpStartOpts = { chain: "evm" }) => {
@@ -55,6 +95,7 @@ export function useCctpDeposit({
       }
       try {
         setPhase("burning");
+        setPendingRelay(null);
         // Both burns return the same shape; everything downstream is chain-agnostic.
         const { txHash, sourceDomain, nonce } =
           opts.chain === "solana"
@@ -71,25 +112,9 @@ export function useCctpDeposit({
                 amount,
               });
 
-        setPhase("attesting");
-        const { message, attestation } = await waitForAttestation(
-          sourceDomain,
-          txHash,
-        );
-
-        setPhase("relaying");
-        const res = await api.cctp.relay.mutate({
-          username,
-          message,
-          attestation,
-          nonce,
-        });
-
-        setPhase("done");
-        setStatus({
-          kind: "ok",
-          msg: `Sent ${res.amount} USDC to @${username}. See the proof here.`,
-        });
+        const pending = { txHash, sourceDomain, nonce };
+        setPendingRelay(pending);
+        await continueDeposit(pending);
       } catch (e) {
         setPhase("idle");
         setStatus({
@@ -98,8 +123,12 @@ export function useCctpDeposit({
         });
       }
     },
-    [username, notePubkey],
+    [continueDeposit, notePubkey],
   );
 
-  return { phase, status, start };
+  const retry = useCallback(async () => {
+    if (pendingRelay) await continueDeposit(pendingRelay);
+  }, [continueDeposit, pendingRelay]);
+
+  return { phase, status, start, retry, canRetry: pendingRelay !== null };
 }

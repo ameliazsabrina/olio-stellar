@@ -28,6 +28,7 @@ import { fromBaseUnits } from "../../lib/crypto";
 import { moneyGramCashInEnabled } from "../../lib/moneygram-status";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 
 type Row = RampSession & {
@@ -235,14 +236,16 @@ export function MoneyGramActivity() {
                     Returned or received USDC is ready in recovery.
                   </p>
                 ) : null}
-                {row.error ? (
-                  <p
-                    role="alert"
-                    className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
-                  >
-                    {row.error}
-                  </p>
-                ) : null}
+                <ToastFeedback
+                  title="Could not refresh MoneyGram status"
+                  message={row.error}
+                  variant="error"
+                  toastId={`moneygram-activity-error-${row.mgiId}`}
+                  action={{
+                    label: "Try again",
+                    onClick: () => void refresh(row),
+                  }}
+                />
               </div>
 
               <div className="flex flex-wrap gap-2 border-t border-border pt-4">

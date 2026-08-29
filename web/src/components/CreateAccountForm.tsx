@@ -33,7 +33,7 @@ export function CreateAccountForm({
   onClaimed: (username: string) => void;
   error?: string | null;
 }) {
-  const { getSigner } = useWallet();
+  const { getSigner, signIn } = useWallet();
   const {
     register,
     handleSubmit,
@@ -130,6 +130,7 @@ export function CreateAccountForm({
           message={error}
           variant="error"
           toastId="create-account-submit-error"
+          action={{ label: "Try again", onClick: signIn }}
         />
       </DialogContent>
     </Dialog>

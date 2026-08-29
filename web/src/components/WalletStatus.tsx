@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type AccountStatus, accountStatus } from "../lib/stellar";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { ToastFeedback } from "./ui/toast-feedback";
 import { useWallet } from "./WalletProvider";
 
 const fmt = (v: string) => {
@@ -18,15 +19,20 @@ export function WalletStatus() {
   const { address } = useWallet();
   const [status, setStatus] = useState<AccountStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!address) return;
     setBusy(true);
+    setError(null);
     try {
       setStatus(await accountStatus(address));
-    } catch {
+    } catch (cause) {
       setStatus(null);
+      setError(
+        cause instanceof Error ? cause.message : "Could not load the balance.",
+      );
     } finally {
       setBusy(false);
     }
@@ -76,6 +82,13 @@ export function WalletStatus() {
           {busy ? "Checking…" : "Refresh"}
         </Button>
       </div>
+      <ToastFeedback
+        title="Could not refresh account"
+        message={error}
+        variant="error"
+        toastId="wallet-status-error"
+        action={{ label: "Try again", onClick: () => void refresh() }}
+      />
     </Card>
   );
 }
