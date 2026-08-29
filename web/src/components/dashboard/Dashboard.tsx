@@ -3,7 +3,7 @@
 import {
   ArrowUpRight,
   Check,
-  CircleArrowDown,
+  ArrowDown,
   Copy,
   ExternalLink,
   Plus,
@@ -102,7 +102,7 @@ export function Dashboard() {
                   className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
                   aria-hidden="true"
                 >
-                  <CircleArrowDown className="size-4" />
+                  <ArrowDown className="size-4" />
                 </span>
               </div>
             }
