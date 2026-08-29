@@ -453,8 +453,11 @@ export async function bootstrapWallet(
       { upsert: true },
     );
   } catch (error) {
-    if ((error as { code?: number }).code === 11000)
+    if ((error as { code?: number }).code === 11000) {
+      const raced = await users.findOne({ privyUserId });
+      if (raced) return output(raced);
       throw new WalletConflictError();
+    }
     throw error;
   }
   const created = await users.findOne({ privyUserId });
