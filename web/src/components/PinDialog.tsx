@@ -1,7 +1,8 @@
 "use client";
 
 import { Loader } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -14,6 +15,7 @@ import { Input } from "./ui/input";
 import { ToastFeedback } from "./ui/toast-feedback";
 
 const PIN_RE = /^\d{6}$/;
+type ValidationState = "idle" | "valid" | "invalid";
 
 export type PinMode = "set" | "unlock" | "secure";
 
@@ -35,6 +37,9 @@ export function PinDialog({
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [localError, setLocalError] = useState("");
+  const [pinState, setPinState] = useState<ValidationState>("idle");
+  const [confirmState, setConfirmState] = useState<ValidationState>("idle");
+  const pinRef = useRef<HTMLInputElement>(null);
   const pinId = useId();
   const confirmId = useId();
   const resetKey = open ? mode : null;
@@ -44,7 +49,18 @@ export function PinDialog({
     setPin("");
     setConfirm("");
     setLocalError("");
+    setPinState("idle");
+    setConfirmState("idle");
   }, [resetKey]);
+
+  useEffect(() => {
+    if (!error) return;
+    setPinState("invalid");
+    if (mode === "unlock" && /incorrect pin/i.test(error)) {
+      setPin("");
+      pinRef.current?.focus();
+    }
+  }, [error, mode]);
 
   const dualField = mode === "set" || mode === "secure";
   const mandatory = mode === "set"; // only create blocks dismissal
@@ -69,16 +85,30 @@ export function PinDialog({
 
   const onlyDigits = (v: string) => v.replace(/\D/g, "").slice(0, 6);
 
+  const validatePin = () => {
+    const valid = PIN_RE.test(pin);
+    setPinState(valid ? "valid" : "invalid");
+    if (!valid) setLocalError("PIN must be exactly 6 digits.");
+    return valid;
+  };
+
+  const validateConfirm = () => {
+    const valid = PIN_RE.test(confirm) && pin === confirm;
+    setConfirmState(valid ? "valid" : "invalid");
+    if (!valid) {
+      setLocalError(
+        PIN_RE.test(confirm)
+          ? "The two PINs don't match."
+          : "Confirmation PIN must be exactly 6 digits.",
+      );
+    }
+    return valid;
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!PIN_RE.test(pin)) {
-      setLocalError("PIN must be exactly 6 digits.");
-      return;
-    }
-    if (dualField && pin !== confirm) {
-      setLocalError("The two PINs don't match.");
-      return;
-    }
+    if (!validatePin()) return;
+    if (dualField && !validateConfirm()) return;
     setLocalError("");
     onSubmit(pin);
   };
@@ -110,10 +140,11 @@ export function PinDialog({
               {dualField ? "New PIN" : "PIN"}
             </label>
             <Input
+              ref={pinRef}
               appearance="linen"
               id={pinId}
               autoFocus
-              className="min-h-11 text-center tracking-[0.5em]"
+              className={validationClass(pinState)}
               type="password"
               inputMode="numeric"
               autoComplete={dualField ? "new-password" : "current-password"}
@@ -121,7 +152,14 @@ export function PinDialog({
               value={pin}
               maxLength={6}
               disabled={submitting}
-              onChange={(e) => setPin(onlyDigits(e.target.value))}
+              aria-invalid={pinState === "invalid" || undefined}
+              onChange={(e) => {
+                setPin(onlyDigits(e.target.value));
+                setPinState("idle");
+                setConfirmState("idle");
+                setLocalError("");
+              }}
+              onBlur={validatePin}
             />
           </div>
 
@@ -136,7 +174,7 @@ export function PinDialog({
               <Input
                 appearance="linen"
                 id={confirmId}
-                className="min-h-11 text-center tracking-[0.5em]"
+                className={validationClass(confirmState)}
                 type="password"
                 inputMode="numeric"
                 autoComplete="new-password"
@@ -144,7 +182,13 @@ export function PinDialog({
                 value={confirm}
                 maxLength={6}
                 disabled={submitting}
-                onChange={(e) => setConfirm(onlyDigits(e.target.value))}
+                aria-invalid={confirmState === "invalid" || undefined}
+                onChange={(e) => {
+                  setConfirm(onlyDigits(e.target.value));
+                  setConfirmState("idle");
+                  setLocalError("");
+                }}
+                onBlur={validateConfirm}
               />
             </div>
           ) : null}
@@ -173,5 +217,13 @@ export function PinDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function validationClass(state: ValidationState): string {
+  return cn(
+    "min-h-11 text-center tracking-[0.5em]",
+    state === "valid" && "border-emerald-600 ring-1 ring-emerald-600/25",
+    state === "invalid" && "border-destructive ring-1 ring-destructive/30",
   );
 }

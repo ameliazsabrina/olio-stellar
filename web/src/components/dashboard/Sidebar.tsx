@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
+  Settings,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,6 +18,7 @@ import {
   DASHBOARD_PATH,
   HISTORY_PATH,
   LINKS_PATH,
+  SETTINGS_PATH,
   WITHDRAW_PATH,
 } from "../../lib/auth-routes";
 import {
@@ -49,7 +51,7 @@ const NAV_ITEMS = [
     icon: ArrowDownToLine,
   },
   { label: "History", href: HISTORY_PATH, icon: History },
-  // { label: "Settings", href: "/dashboard#settings", icon: Settings },
+  { label: "Settings", href: SETTINGS_PATH, icon: Settings },
 ] as const;
 
 function IdentityChip() {
@@ -143,7 +145,9 @@ export function DashboardSidebar() {
                       (href === WITHDRAW_PATH &&
                         activeHref.startsWith(WITHDRAW_PATH)) ||
                       (href === HISTORY_PATH &&
-                        activeHref.startsWith(HISTORY_PATH))
+                        activeHref.startsWith(HISTORY_PATH)) ||
+                      (href === SETTINGS_PATH &&
+                        activeHref.startsWith(SETTINGS_PATH))
                     }
                     className="data-[active=true]:bg-brand-obsidian-secondary data-[active=true]:text-brand-linen data-[active=true]:hover:bg-brand-obsidian-secondary data-[active=true]:hover:text-brand-linen group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-brand-obsidian-secondary"
                   >

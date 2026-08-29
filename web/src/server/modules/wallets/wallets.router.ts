@@ -3,13 +3,18 @@ import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import {
   WalletConflictError,
   WalletDeploymentError,
+  WalletEscrowAlreadyInitializedError,
   WalletEscrowClobberError,
+  WalletEscrowMissingError,
+  WalletEscrowRevisionConflictError,
   WalletMigrationError,
 } from "./wallets.errors";
 import {
   escrowOutput,
   optionalWalletOutput,
   privyWalletInput,
+  rotateEscrowInput,
+  rotateEscrowOutput,
   saveEscrowInput,
   walletOutput,
 } from "./wallets.schema";
@@ -18,15 +23,24 @@ import {
   currentWallet,
   getEscrow,
   restoreWallet,
+  rotateEscrow,
   saveEscrow,
 } from "./wallets.service";
 
 function mapError(error: unknown): never {
   if (
     error instanceof WalletConflictError ||
-    error instanceof WalletEscrowClobberError
+    error instanceof WalletEscrowClobberError ||
+    error instanceof WalletEscrowAlreadyInitializedError ||
+    error instanceof WalletEscrowRevisionConflictError
   ) {
     throw new TRPCError({ code: "CONFLICT", message: error.message });
+  }
+  if (error instanceof WalletEscrowMissingError) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: error.message,
+    });
   }
   if (error instanceof WalletDeploymentError) {
     throw new TRPCError({
@@ -62,4 +76,10 @@ export const walletsRouter = createTRPCRouter({
   getEscrow: protectedProcedure
     .output(escrowOutput)
     .query(({ ctx }) => getEscrow(ctx.privyUserId).catch(mapError)),
+  rotateEscrow: protectedProcedure
+    .input(rotateEscrowInput)
+    .output(rotateEscrowOutput)
+    .mutation(({ ctx, input }) =>
+      rotateEscrow(ctx.privyUserId, input).catch(mapError),
+    ),
 });

@@ -9,6 +9,7 @@ import {
   DASHBOARD_PATH,
   HISTORY_PATH,
   LINKS_PATH,
+  SETTINGS_PATH,
   WITHDRAW_PATH,
 } from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
@@ -26,6 +27,7 @@ const PAGE_LABELS: Record<string, string> = {
   [LINKS_PATH]: "Links",
   [WITHDRAW_PATH]: "Cash out",
   [HISTORY_PATH]: "History",
+  [SETTINGS_PATH]: "Settings",
 };
 
 export function DashboardShell({
@@ -125,14 +127,13 @@ function DashboardNavigation() {
           </span>
         </button>
 
-        <button
-          type="button"
-          disabled
-          className="hidden min-h-11 cursor-not-allowed rounded-full bg-brand-linen/16 px-5 text-sm font-medium text-brand-linen/70 ring-1 ring-brand-linen/20 backdrop-blur-md sm:block"
-          title="Settings coming soon"
+        <Link
+          href={SETTINGS_PATH}
+          className="hidden min-h-11 items-center rounded-full bg-brand-linen/16 px-5 text-sm font-medium text-brand-linen/80 ring-1 ring-brand-linen/20 backdrop-blur-md transition-colors hover:bg-brand-linen/24 hover:text-brand-linen focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen sm:flex"
+          title="Settings"
         >
           Settings
-        </button>
+        </Link>
 
         <DropdownMenu>
           <DropdownMenuTrigger

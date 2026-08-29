@@ -15,8 +15,9 @@ vi.mock("@privy-io/react-auth", () => ({
 describe("PrivyAppProvider", () => {
   it("exposes only Google, GitHub, and passkey login without auto-creating EVM wallets", async () => {
     vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-public-app");
-    const { PrivyAppProvider } =
-      await import("../src/components/PrivyAppProvider");
+    const { PrivyAppProvider } = await import(
+      "../src/components/PrivyAppProvider"
+    );
     render(
       <PrivyAppProvider>
         <div>child</div>

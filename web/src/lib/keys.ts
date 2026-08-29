@@ -4,6 +4,7 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { concatBytes, randomBytes } from "@noble/hashes/utils.js";
 import { bytesToHex, fromBE, hexToBytes, R } from "./crypto";
+import { BadPinError } from "./pin-errors";
 
 const utf8 = (s: string) => new TextEncoder().encode(s);
 const MASTER_INFO = utf8("olio.master.v1");
@@ -104,4 +105,42 @@ export function deserializeEscrow(t: EscrowTransport): EscrowBlob {
     salt: hexToBytes(t.masterSaltHex),
     params: t.kdfParams,
   };
+}
+
+export function verifyEscrowPin(
+  currentEscrow: EscrowTransport,
+  pin: string,
+): void {
+  assertPin(pin);
+  let master: Uint8Array | undefined;
+  try {
+    try {
+      master = decryptMaster(deserializeEscrow(currentEscrow), pin);
+    } catch {
+      throw new BadPinError();
+    }
+  } finally {
+    master?.fill(0);
+  }
+}
+
+export function rotateEscrow(
+  currentEscrow: EscrowTransport,
+  currentPin: string,
+  newPin: string,
+): EscrowTransport {
+  assertPin(currentPin);
+  assertPin(newPin);
+  const blob = deserializeEscrow(currentEscrow);
+  let master: Uint8Array | undefined;
+  try {
+    try {
+      master = decryptMaster(blob, currentPin);
+    } catch {
+      throw new BadPinError();
+    }
+    return serializeEscrow(encryptMaster(master, newPin, DEFAULT_KDF));
+  } finally {
+    master?.fill(0);
+  }
 }

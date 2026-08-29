@@ -113,8 +113,9 @@ export function ReceiptToken({
               <path
                 d={values.constellation
                   .slice(0, 3)
-                  .map((point, index) =>
-                    `${index === 0 ? "M" : "L"}${point.x} ${point.y}`,
+                  .map(
+                    (point, index) =>
+                      `${index === 0 ? "M" : "L"}${point.x} ${point.y}`,
                   )
                   .join(" ")}
                 stroke="currentColor"
@@ -156,7 +157,9 @@ export function ReceiptTokenStack({
   return (
     <span
       className={cn("inline-flex items-center", className)}
-      aria-label={placeholder ? "No private receipts yet" : `${total} private receipts`}
+      aria-label={
+        placeholder ? "No private receipts yet" : `${total} private receipts`
+      }
     >
       {visibleSeeds.map((seed, index) => (
         <ReceiptToken

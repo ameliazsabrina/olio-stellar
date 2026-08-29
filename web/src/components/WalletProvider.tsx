@@ -338,16 +338,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               console.warn("re-key on-chain ok but Mongo mirror failed", cause);
             }
           }
-          const { serializeEscrow, encryptMaster } =
-            await import("../lib/keys");
+          const { serializeEscrow, encryptMaster } = await import(
+            "../lib/keys"
+          );
           await api.wallets.saveEscrow.mutate(
             serializeEscrow(encryptMaster(master, pin)),
           );
           deriveAndStoreAccount(master);
         } else if (pinMode === "set") {
           const master = pendingMasterRef.current ?? randomMaster();
-          const { serializeEscrow, encryptMaster } =
-            await import("../lib/keys");
+          const { serializeEscrow, encryptMaster } = await import(
+            "../lib/keys"
+          );
           await api.wallets.saveEscrow.mutate(
             serializeEscrow(encryptMaster(master, pin)),
           );
@@ -359,8 +361,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             openPinModal("secure");
             return;
           }
-          const { decryptMaster, deserializeEscrow } =
-            await import("../lib/keys");
+          const { decryptMaster, deserializeEscrow } = await import(
+            "../lib/keys"
+          );
           let master: Uint8Array;
           try {
             master = decryptMaster(deserializeEscrow(wire), pin);

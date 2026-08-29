@@ -9,6 +9,7 @@ vi.mock("../src/server/modules/wallets/wallets.service", () => ({
   currentWallet: mocks.current,
   restoreWallet: mocks.restore,
   getEscrow: vi.fn(),
+  rotateEscrow: vi.fn(),
   saveEscrow: vi.fn(),
 }));
 

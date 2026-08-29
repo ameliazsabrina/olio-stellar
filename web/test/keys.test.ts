@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { R, viewPubkey } from "../src/lib/crypto";
+import { ownerPk, R, toBE32, viewPubkey } from "../src/lib/crypto";
 import {
   assertPin,
   DEFAULT_KDF,
@@ -10,8 +10,11 @@ import {
   deserializeEscrow,
   encryptMaster,
   randomMaster,
+  rotateEscrow,
   serializeEscrow,
+  verifyEscrowPin,
 } from "../src/lib/keys";
+import { BadPinError } from "../src/lib/pin-errors";
 
 const PRF = new Uint8Array(32).fill(0x11);
 
@@ -93,5 +96,41 @@ describe("escrow round-trip", () => {
     expect(restored.salt).toEqual(blob.salt);
     expect(restored.params).toEqual(blob.params);
     expect(decryptMaster(restored, "135790")).toEqual(master);
+  }, 20_000);
+});
+
+describe("escrow rotation", () => {
+  it("verifies a PIN without exposing the decrypted master", () => {
+    const current = serializeEscrow(encryptMaster(randomMaster(), "123456"));
+    expect(() => verifyEscrowPin(current, "123456")).not.toThrow();
+    expect(() => verifyEscrowPin(current, "654321")).toThrow(BadPinError);
+  }, 20_000);
+
+  it("re-wraps the same master and derived keys with fresh salt and ciphertext", async () => {
+    const master = randomMaster();
+    const current = serializeEscrow(encryptMaster(master, "123456"));
+    const before = deriveNoteSecrets(master);
+
+    const rotated = rotateEscrow(current, "123456", "654321");
+    const recovered = decryptMaster(deserializeEscrow(rotated), "654321");
+    const after = deriveNoteSecrets(recovered);
+
+    expect(recovered).toEqual(master);
+    expect(after.ownerSecret).toBe(before.ownerSecret);
+    expect(after.viewSk).toEqual(before.viewSk);
+    expect(toBE32(await ownerPk(after.ownerSecret))).toEqual(
+      toBE32(await ownerPk(before.ownerSecret)),
+    );
+    expect(viewPubkey(after.viewSk)).toEqual(viewPubkey(before.viewSk));
+    expect(rotated.masterSaltHex).not.toBe(current.masterSaltHex);
+    expect(rotated.encryptedMasterHex).not.toBe(current.encryptedMasterHex);
+    expect(() => decryptMaster(deserializeEscrow(rotated), "123456")).toThrow();
+  }, 30_000);
+
+  it("turns an authentication failure into BadPinError", () => {
+    const current = serializeEscrow(encryptMaster(randomMaster(), "123456"));
+    expect(() => rotateEscrow(current, "000000", "654321")).toThrow(
+      BadPinError,
+    );
   }, 20_000);
 });

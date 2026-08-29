@@ -64,8 +64,9 @@ describe("syncPoolIndex", () => {
   });
 
   it("publishes a new watermark only after completeness succeeds", async () => {
-    const { syncPoolIndex } =
-      await import("../src/server/modules/deposits/deposits.service");
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("synced");
@@ -84,8 +85,9 @@ describe("syncPoolIndex", () => {
 
   it("keeps the published watermark unchanged on a completeness gap", async () => {
     mocks.simulateRead.mockResolvedValue(1);
-    const { syncPoolIndex } =
-      await import("../src/server/modules/deposits/deposits.service");
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("degraded");
@@ -110,8 +112,9 @@ describe("syncPoolIndex", () => {
       scannedFromLedger: 50,
       latestLedger: 60,
     });
-    const { syncPoolIndex } =
-      await import("../src/server/modules/deposits/deposits.service");
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("synced");
@@ -135,8 +138,9 @@ describe("syncPoolIndex", () => {
       publishedLeafIndex: -1,
       nullifiersComplete: false,
     });
-    const { syncPoolIndex } =
-      await import("../src/server/modules/deposits/deposits.service");
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("synced");
@@ -153,8 +157,9 @@ describe("syncPoolIndex", () => {
 
   it("skips work when another worker owns the lease", async () => {
     mocks.stateFindOneAndUpdate.mockResolvedValue(null);
-    const { syncPoolIndex } =
-      await import("../src/server/modules/deposits/deposits.service");
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("skipped");

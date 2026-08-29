@@ -39,6 +39,16 @@ export function explorerTxUrl(txHash: string): string {
   return `https://stellar.expert/explorer/${net}/tx/${txHash}`;
 }
 
+export function explorerContractUrl(contractId: string): string {
+  const net = networkPassphrase === Networks.PUBLIC ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${net}/contract/${contractId}`;
+}
+
+export function explorerAccountUrl(publicKey: string): string {
+  const net = networkPassphrase === Networks.PUBLIC ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${net}/account/${publicKey}`;
+}
+
 const scAddr = (s: string) => new Address(s).toScVal();
 const scStr = (s: string) => nativeToScVal(s, { type: "string" });
 const scSym = (s: string) => nativeToScVal(s, { type: "symbol" });

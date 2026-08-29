@@ -25,12 +25,16 @@ import { relayXdr } from "../channels/channels.service";
 import {
   WalletConflictError,
   WalletDeploymentError,
-  WalletEscrowClobberError,
+  WalletEscrowAlreadyInitializedError,
+  WalletEscrowMissingError,
+  WalletEscrowRevisionConflictError,
   WalletMigrationError,
 } from "./wallets.errors";
 import type {
   EscrowOutput,
   PrivyWalletInput,
+  RotateEscrowInput,
+  RotateEscrowOutput,
   SaveEscrowInput,
   WalletOutput,
 } from "./wallets.schema";
@@ -478,24 +482,65 @@ export async function saveEscrow(
   input: SaveEscrowInput,
 ): Promise<void> {
   const users = await getUsers();
-  const doc = await users.findOne({ privyUserId });
-  if (!doc) {
-    throw new WalletMigrationError(
-      "No Olio wallet is linked to this Privy identity.",
-    );
-  }
   const result = await users.updateOne(
-    { _id: doc._id, privyUserId },
+    {
+      privyUserId,
+      $or: [
+        { encryptedMaster: { $exists: false } },
+        { masterSalt: { $exists: false } },
+        { kdfParams: { $exists: false } },
+      ],
+    },
     {
       $set: {
         encryptedMaster: binary(input.encryptedMasterHex),
         masterSalt: binary(input.masterSaltHex),
         kdfParams: input.kdfParams,
+        escrowRevision: 1,
         updatedAt: new Date(),
       },
     },
   );
-  if (result.matchedCount !== 1) throw new WalletEscrowClobberError();
+  if (result.matchedCount === 1) return;
+  if (!(await users.findOne({ privyUserId }))) {
+    throw new WalletMigrationError(
+      "No Olio wallet is linked to this Privy identity.",
+    );
+  }
+  throw new WalletEscrowAlreadyInitializedError();
+}
+
+export async function rotateEscrow(
+  privyUserId: string,
+  input: RotateEscrowInput,
+): Promise<RotateEscrowOutput> {
+  const users = await getUsers();
+  const revision = input.expectedRevision + 1;
+  const result = await users.updateOne(
+    {
+      privyUserId,
+      encryptedMaster: { $exists: true },
+      masterSalt: { $exists: true },
+      kdfParams: { $exists: true },
+      escrowRevision: input.expectedRevision,
+    },
+    {
+      $set: {
+        encryptedMaster: binary(input.escrow.encryptedMasterHex),
+        masterSalt: binary(input.escrow.masterSaltHex),
+        kdfParams: input.escrow.kdfParams,
+        escrowRevision: revision,
+        updatedAt: new Date(),
+      },
+    },
+  );
+  if (result.matchedCount === 1) return { revision };
+
+  const doc = await users.findOne({ privyUserId });
+  if (!doc?.encryptedMaster || !doc.masterSalt || !doc.kdfParams) {
+    throw new WalletEscrowMissingError();
+  }
+  throw new WalletEscrowRevisionConflictError();
 }
 
 export async function getEscrow(privyUserId: string): Promise<EscrowOutput> {
@@ -505,5 +550,6 @@ export async function getEscrow(privyUserId: string): Promise<EscrowOutput> {
     encryptedMasterHex: hex(doc.encryptedMaster),
     masterSaltHex: hex(doc.masterSalt),
     kdfParams: doc.kdfParams,
+    revision: doc.escrowRevision ?? 1,
   };
 }

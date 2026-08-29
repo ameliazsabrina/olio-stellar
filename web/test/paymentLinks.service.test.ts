@@ -258,7 +258,11 @@ describe("updateLink", () => {
   it("looks up by id, verifies the token, and updates without an owner filter", async () => {
     mocks.findOne.mockResolvedValue(storedDoc());
     mocks.findOneAndUpdate.mockResolvedValue(
-      storedDoc({ amount: "2000000", description: "Updated", label: "Updated" }),
+      storedDoc({
+        amount: "2000000",
+        description: "Updated",
+        label: "Updated",
+      }),
     );
 
     const out = await updateLink({

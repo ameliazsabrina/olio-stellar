@@ -4,6 +4,7 @@ export const DASHBOARD_PATH = "/dashboard";
 export const LINKS_PATH = "/links";
 export const WITHDRAW_PATH = "/withdraw";
 export const HISTORY_PATH = "/history";
+export const SETTINGS_PATH = "/settings";
 export const SIGN_IN_PATH = "/";
 export const REFRESH_PATH = "/refresh";
 
@@ -12,6 +13,7 @@ export const DASHBOARD_PATHS = [
   LINKS_PATH,
   WITHDRAW_PATH,
   HISTORY_PATH,
+  SETTINGS_PATH,
 ] as const;
 const authOnlyPublicRoutes = [SIGN_IN_PATH] as const;
 

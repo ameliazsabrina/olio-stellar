@@ -7,7 +7,7 @@ import { Toaster } from "../src/components/ui/sonner";
 function setup(props: Partial<React.ComponentProps<typeof PinDialog>> = {}) {
   const onSubmit = vi.fn();
   const onClose = vi.fn();
-  render(
+  const view = render(
     <>
       <PinDialog
         open
@@ -21,7 +21,7 @@ function setup(props: Partial<React.ComponentProps<typeof PinDialog>> = {}) {
       <Toaster />
     </>,
   );
-  return { onSubmit, onClose };
+  return { onSubmit, onClose, ...view };
 }
 
 describe("PinDialog — unlock mode", () => {
@@ -52,6 +52,15 @@ describe("PinDialog — unlock mode", () => {
     expect(onSubmit).toHaveBeenCalledWith("123456");
   });
 
+  it("colors a valid PIN input after field validation", async () => {
+    setup({ mode: "unlock" });
+    const input = screen.getByLabelText("PIN");
+    await userEvent.type(input, "123456");
+    await userEvent.tab();
+    expect(input).toHaveClass("border-emerald-600");
+    expect(input).not.toHaveAttribute("aria-invalid");
+  });
+
   it("rejects a short PIN with a local error and does not submit", async () => {
     const { onSubmit } = setup({ mode: "unlock" });
     await userEvent.type(screen.getByLabelText("PIN"), "123");
@@ -68,10 +77,29 @@ describe("PinDialog — unlock mode", () => {
   });
 
   it("surfaces a server-provided error (e.g. wrong PIN)", async () => {
-    setup({ mode: "unlock", error: "Incorrect PIN. Try again." });
+    const { onSubmit, onClose, rerender } = setup({ mode: "unlock" });
+    const input = screen.getByLabelText("PIN");
+    await userEvent.type(input, "123456");
+    rerender(
+      <>
+        <PinDialog
+          open
+          mode="unlock"
+          submitting={false}
+          error="Incorrect PIN. Try again."
+          onSubmit={onSubmit}
+          onClose={onClose}
+        />
+        <Toaster />
+      </>,
+    );
     expect(
       await screen.findByText("Incorrect PIN. Try again."),
     ).toBeInTheDocument();
+    expect(input).toHaveValue("");
+    expect(input).toHaveFocus();
+    expect(input).toHaveClass("border-destructive");
+    expect(input).toHaveAttribute("aria-invalid", "true");
   });
 });
 
@@ -94,6 +122,9 @@ describe("PinDialog — set mode", () => {
     await userEvent.type(screen.getByLabelText("Confirm PIN"), "654321");
     await userEvent.click(screen.getByRole("button", { name: /set pin/i }));
     expect(await screen.findByText(/don't match/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Confirm PIN")).toHaveClass(
+      "border-destructive",
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

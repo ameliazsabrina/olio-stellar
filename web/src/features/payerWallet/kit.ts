@@ -7,8 +7,9 @@ let kitPromise: Promise<Kit> | null = null;
 async function getKit(): Promise<Kit> {
   if (!kitPromise) {
     kitPromise = (async () => {
-      const { StellarWalletsKit, Networks } =
-        await import("@creit.tech/stellar-wallets-kit");
+      const { StellarWalletsKit, Networks } = await import(
+        "@creit.tech/stellar-wallets-kit"
+      );
       const [
         { FreighterModule },
         { xBullModule },

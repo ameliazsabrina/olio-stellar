@@ -614,8 +614,9 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   }
 
   @supports not (
-    (-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))
-  ) {
+      (-webkit-backdrop-filter: blur(1px)) or
+      (backdrop-filter: blur(1px))
+    ) {
     .surface-glass-control,
     .surface-glass-panel,
     .surface-glass-inset,

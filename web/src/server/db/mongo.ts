@@ -71,6 +71,7 @@ export type UserDoc = {
   encryptedMaster?: Binary;
   masterSalt?: Binary;
   kdfParams?: { m: number; t: number; p: number };
+  escrowRevision?: number;
   createdAt: Date;
   updatedAt: Date;
 };
