@@ -86,35 +86,53 @@ const purposeRows = [
   [
     "Run optional analytics, if enabled",
     "The categories stated in the applicable notice",
-    "[CONFIRM BASIS AND REQUIRED CONSENT FOR THE ENABLED TECHNOLOGIES]",
+    "Consent before activating optional analytics where required by applicable law; the relevant notice identifies the technologies and purposes.",
   ],
 ] as const;
 
 const providerRows = [
   [
-    "[CONTRACTED PRIVY ENTITY]",
-    "Authentication and configured wallet services; identifiers and sign-in information",
-    "[CONFIRM]",
-    "[CONFIRM]",
+    "Privy",
+    "Authentication and configured wallet services; account identifiers and sign-in information.",
+    "Responsibilities depend on the service and applicable agreement; independent processing is described in Privy’s privacy notice.",
+    "[CONFIRM CONTRACTED ENTITY, PROCESSING LOCATIONS, AND APPLICABLE TRANSFER SAFEGUARDS]"
   ],
   [
-    "[CONTRACTED SUMSUB ENTITY]",
-    "Configured KYC/KYB; submissions, technical information, and verification results",
-    "[CONFIRM BY PURPOSE]",
-    "[CONFIRM]",
+    "Sumsub",
+    "Configured identity and business verification; verification submissions, technical information, and results.",
+    "Processor for checks performed on Olio’s instructions; independent controller for specified own-purpose processing described in its notice.",
+    "[CONFIRM CONTRACTED ENTITY, ENABLED CHECKS, DATA REGION, AND TRANSFER SAFEGUARDS]"
   ],
   [
-    "[ENABLED PAYMENT / BRIDGE / ANCHOR PROVIDERS]",
-    "Selected route; customer information, payment amounts, addresses, and references as required",
-    "[CONFIRM]",
-    "[CONFIRM]",
+    "Circle CCTP / Iris",
+    "Cross-chain USDC transfer and attestation, where the selected route uses CCTP; public blockchain messages, transaction references, addresses, and amounts.",
+    "External protocol and attestation services; Olio separately processes its own payment-session records.",
+    "Public blockchain information is distributed across network participants. [CONFIRM APPLICABLE SERVICE TERMS AND OFF-CHAIN PROCESSING LOCATIONS]"
   ],
   [
-    "[HOSTING, DATABASE, LOGGING, AND SUPPORT PROVIDERS]",
-    "Infrastructure, operational records, and support",
-    "[CONFIRM]",
-    "[CONFIRM]",
+    "Application hosting",
+    "Olio-operated application services deployed to a virtual private server; service requests, account data, and operational information.",
+    "Olio controls application processing; the infrastructure provider’s role is governed by the hosting arrangement.",
+    "[CONFIRM VPS PROVIDER, SERVER COUNTRY/REGION, AND TRANSFER SAFEGUARDS]"
   ],
+  [
+    "Database hosting",
+    "MongoDB storage for account, payment, verification, and operational records.",
+    "Olio controls database processing. MongoDB identifies the database technology, not necessarily the hosting provider.",
+    "[CONFIRM SELF-HOSTED OR MANAGED DATABASE, HOSTING PROVIDER, REGION, AND SAFEGUARDS]"
+  ],
+  [
+    "Operational logs and backups",
+    "Application/container logs and database recovery copies. Deployment configuration uses size-based log rotation; backup arrangements require confirmation.",
+    "Olio manages operational processing; any external storage provider’s role depends on the actual arrangement.",
+    "[CONFIRM LOG ACCESS, BACKUP PROVIDER/LOCATION, RETENTION, AND SAFEGUARDS]"
+  ],
+  [
+    "Google Gmail — company contact mailbox",
+    "Support and privacy correspondence sent to ptpentahelixsistemterpercaya@gmail.com, including sender details, messages, and attachments.",
+    "Email service supporting the company contact mailbox; applicable account terms determine the provider’s responsibilities.",
+    "[CONFIRM ACCOUNT TERMS AND TRANSFER ARRANGEMENTS; CONFIRM THE SEPARATE OLIO-DOMAIN EMAIL HOST]"
+  ]
 ] as const;
 
 const retentionRows = [
@@ -905,9 +923,12 @@ export default function PrivacyPolicyPage() {
                 access.
               </p>
               <p>
-                <strong>Storage notice and preferences:</strong> [PUBLISHED
-                NOTICE / SETTINGS LINK WITH ACTUAL TECHNOLOGIES, PURPOSES,
-                PROVIDERS, AND LIFETIMES]
+                Browser local storage holds wallet secrets, account references,
+                cached wallet information, and your dashboard theme preference.
+                It generally persists across browser sessions until removed by
+                the application, you, or your browser. You can manage site data
+                through your browser settings. Removing wallet data can affect
+                access, so confirm your recovery method first.
               </p>
             </PolicySection>
 
@@ -1010,8 +1031,8 @@ export default function PrivacyPolicyPage() {
 
             <div className="mt-16 border-t border-line pt-8">
               <a
-                href="mailto:olio@olipay.xyz"
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-olive px-5 text-sm font-semibold text-paper transition-colors duration-150 hover:bg-olive-deep hover:text-paper focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
+                href="mailto:olio@oliopay.xyz"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ed-dark bg-ed-dark px-3 text-center text-sm font-semibold tracking-[0.02em] !text-ed-cream transition-opacity hover:!text-ed-cream hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ed-dark focus-visible:ring-offset-2 focus-visible:ring-offset-paper sm:px-5"
               >
                 <Mail className="size-4" aria-hidden="true" />
                 Contact the privacy team
@@ -1095,7 +1116,7 @@ function ContactLinks() {
       <a href="mailto:ptpentahelixsistemterpercaya@gmail.com">
         ptpentahelixsistemterpercaya@gmail.com
       </a>{" "}
-      / <a href="mailto:olio@olipay.xyz">olio@olipay.xyz</a>
+      / <a href="mailto:olio@oliopay.xyz">olio@oliopay.xyz</a>
     </>
   );
 }
