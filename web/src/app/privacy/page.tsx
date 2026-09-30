@@ -1042,7 +1042,7 @@ function PolicySection({
       className="scroll-mt-8 border-t border-line py-10 first-of-type:mt-12 sm:py-12"
     >
       <div className="mb-6 flex items-start gap-4">
-        <span className="mt-1 text-sm font-bold tabular-nums text-gold">
+        <span className="mt-1 text-sm font-bold tabular-nums text-ink">
           {String(number).padStart(2, "0")}
         </span>
         <h2 className="font-heading text-2xl font-bold tracking-[-0.025em] text-ink sm:text-3xl">
