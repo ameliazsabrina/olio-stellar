@@ -1,7 +1,8 @@
-import { BookText } from "lucide-react";
+import { BookText, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 
 const NAV_LINKS = [
+  { label: "Privacy Policy", href: "/privacy", Icon: ShieldCheck },
   {
     label: "Docs",
     href: "https://amelias-organization-20.gitbook.io/olio/",
@@ -53,8 +54,8 @@ export function Footer() {
                     <a
                       className="flex min-h-10 items-center gap-2 rounded-sm text-sm font-medium text-ed-cream/80 transition-colors duration-150 hover:text-ed-cream focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-ed-dark"
                       href={href}
-                      target="_blank"
-                      rel="noreferrer"
+                      target={href.startsWith("http") ? "_blank" : undefined}
+                      rel={href.startsWith("http") ? "noreferrer" : undefined}
                     >
                       <Icon className="size-4 shrink-0" aria-hidden="true" />
                       {label}
