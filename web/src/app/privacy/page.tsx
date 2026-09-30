@@ -241,21 +241,6 @@ export default function PrivacyPolicyPage() {
           </aside>
 
           <article className="min-w-0 max-w-3xl">
-            <DraftNote>
-              <strong>Publication status:</strong> revised draft for business
-              and legal review. Complete all bracketed fields, confirm the
-              enabled services and provider arrangements, and validate the
-              operational commitments before publication. Remove this notice
-              from the published version.
-            </DraftNote>
-            <DraftNote>
-              <strong>Contact verification:</strong>{" "}
-              <code>olio@olipay.xyz</code> follows the supplied visible address;
-              the supplied email hyperlink instead points to{" "}
-              <code>olio@oliopay.xyz</code>. Confirm the correct domain before
-              publication.
-            </DraftNote>
-
             <PolicySection number={1} id="who-we-are" title="Who we are">
               <p>
                 This Privacy Policy explains how{" "}
