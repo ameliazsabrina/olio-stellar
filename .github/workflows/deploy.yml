@@ -1,4 +1,4 @@
-name: Deploy web to Lightsail
+name: Deploy web to VPS
 
 on:
   push:
@@ -84,56 +84,38 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: docker-compose.yml
+          source: docker-compose.yml,Caddyfile
           target: /home/${{ secrets.SSH_USER }}/olio
           overwrite: true
 
       - name: Pull and restart on the box
         uses: appleboy/ssh-action@v1
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SEP10_CLIENT_SIGNING_SECRET: ${{ secrets.SEP10_CLIENT_SIGNING_SECRET }}
-          PRIVY_APP_ID: ${{ secrets.PRIVY_APP_ID }}
-          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
-          OLIO_WALLET_DEPLOYER_SECRET: ${{ secrets.OLIO_WALLET_DEPLOYER_SECRET }}
-          OLIO_ACCOUNT_WASM_HASH: ${{ secrets.OLIO_ACCOUNT_WASM_HASH }}
-          BRIDGE_SPONSOR_SECRET: ${{ secrets.BRIDGE_SPONSOR_SECRET }}
+          # The box holds nothing that can't be rebuilt: the entire runtime env
+          # lives in this one secret and is rewritten on every deploy.
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          DOMAIN: ${{ vars.DOMAIN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: MONGODB_URI,CRON_SECRET,SEP10_CLIENT_SIGNING_SECRET,PRIVY_APP_ID,PRIVY_APP_SECRET,OLIO_WALLET_DEPLOYER_SECRET,OLIO_ACCOUNT_WASM_HASH,BRIDGE_SPONSOR_SECRET
+          envs: PROD_ENV_FILE,DOMAIN
           script: |
             set -euo pipefail
             cd /home/${{ secrets.SSH_USER }}/olio
             umask 077
-            test -n "${MONGODB_URI}"
-            test -n "${CRON_SECRET}"
-            test -n "${SEP10_CLIENT_SIGNING_SECRET}"
-            test -n "${PRIVY_APP_ID}"
-            test -n "${PRIVY_APP_SECRET}"
-            test -n "${OLIO_WALLET_DEPLOYER_SECRET}"
-            test -n "${OLIO_ACCOUNT_WASM_HASH}"
-            test -n "${BRIDGE_SPONSOR_SECRET}"
-            secret_env="$(mktemp)"
-            grep -Ev '^(MONGODB_URI|CRON_SECRET|SEP10_CLIENT_SIGNING_SECRET|PRIVY_APP_ID|PRIVY_APP_SECRET|OLIO_WALLET_DEPLOYER_SECRET|OLIO_ACCOUNT_WASM_HASH|BRIDGE_SPONSOR_SECRET)=' .env.production > "${secret_env}" || true
-            {
-              printf '%s\n' "MONGODB_URI=${MONGODB_URI}"
-              printf '%s\n' "CRON_SECRET=${CRON_SECRET}"
-              printf '%s\n' "SEP10_CLIENT_SIGNING_SECRET=${SEP10_CLIENT_SIGNING_SECRET}"
-              printf '%s\n' "PRIVY_APP_ID=${PRIVY_APP_ID}"
-              printf '%s\n' "PRIVY_APP_SECRET=${PRIVY_APP_SECRET}"
-              printf '%s\n' "OLIO_WALLET_DEPLOYER_SECRET=${OLIO_WALLET_DEPLOYER_SECRET}"
-              printf '%s\n' "OLIO_ACCOUNT_WASM_HASH=${OLIO_ACCOUNT_WASM_HASH}"
-              printf '%s\n' "BRIDGE_SPONSOR_SECRET=${BRIDGE_SPONSOR_SECRET}"
-            } >> "${secret_env}"
-            mv "${secret_env}" .env.production
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            test -n "${PROD_ENV_FILE}"
+            test -n "${DOMAIN}"
+            for key in MONGODB_URI CRON_SECRET PRIVY_APP_ID PRIVY_APP_SECRET OLIO_WALLET_DEPLOYER_SECRET OLIO_ACCOUNT_WASM_HASH BRIDGE_SPONSOR_SECRET FEE_QUOTE_SIGNING_SECRET; do
+              printf '%s\n' "${PROD_ENV_FILE}" | grep -q "^${key}=." || { echo "PROD_ENV_FILE is missing ${key}" >&2; exit 1; }
+            done
+            printf '%s\n' "${PROD_ENV_FILE}" > .env.production.tmp
+            mv .env.production.tmp .env.production
             export OLIO_IMAGE="${{ needs.build-and-push.outputs.image }}"
-            grep -q '^OLIO_IMAGE=' .env && sed -i "s#^OLIO_IMAGE=.*#OLIO_IMAGE=${OLIO_IMAGE}#" .env || echo "OLIO_IMAGE=${OLIO_IMAGE}" >> .env
+            printf 'DOMAIN=%s\nOLIO_IMAGE=%s\n' "${DOMAIN}" "${OLIO_IMAGE}" > .env
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull web pool-indexer migrate
-            if ! docker compose up -d; then
+            if ! docker compose up -d --remove-orphans; then
               docker compose logs --no-color migrate || true
               exit 1
             fi
