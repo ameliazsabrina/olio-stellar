@@ -19,6 +19,11 @@ Share a link or QR code and get paid. Two flavors:
 
 Every link comes with a QR code for in-person or mobile payments.
 
+Checkout obtains and discloses the receiving client's signed 2% or 5%
+payer-funded service fee before wallet approval.
+The fee is added to the requested amount, so the recipient gets the link amount
+in full.
+
 ## History
 
 A private log of the payments you've received, readable only by you. Use it to

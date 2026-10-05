@@ -5,7 +5,7 @@ links without exposing their full payment history on a public ledger.
 
 Clients pay a link. Olio turns that payment into a private note in a Stellar
 shielded pool. The recipient can later claim the funds to a Stellar address,
-cash out through a SEP-24 anchor, or generate a disclosure bundle for accounting,
+generate a disclosure bundle for accounting,
 tax, bank, or audit review.
 
 This repository is the testnet implementation. It contains the Soroban
@@ -71,7 +71,7 @@ it does not learn which deposit event produced that note.
 - `circuits/` - Circom circuits for withdrawing and shielded transfers, plus
   scripts that export Soroban-compatible verification keys.
 - `web/` - Next.js app for onboarding, payment links, payer checkout, local note
-  scanning, proof generation, withdrawals, SEP-24 cash-out, CCTP payments, and
+  scanning, proof generation, withdrawals, CCTP payments, and
   disclosure bundles.
 - `scripts/deploy-testnet.sh` - builds and deploys the contracts to Stellar
   testnet, uploads the Olio account WASM, sets verifier keys, deploys CCTP
@@ -95,7 +95,13 @@ link or a managed link with a fixed amount and label.
 
 ### 3. Direct Stellar payment
 
-A Stellar payer pays USDC into `olio-pool.deposit`. The app computes:
+A Stellar payer pays USDC into `olio-pool.deposit`. The requested amount is the
+private-note principal. Fee policy v2 adds the receiving client's server-resolved
+2% or 5% Olio service fee, rounded down in base units, on top. A dedicated
+pricing authority signs the exact recipient-bound quote and the pool verifies it
+before settlement. The pool atomically pulls the signed gross total, forwards the fee
+to its governed treasury, and retains only the principal backing the note. The
+app computes:
 
 ```text
 owner_pk   = Poseidon(owner_secret)
@@ -111,10 +117,15 @@ metadata in the deposit event.
 A payer can burn testnet USDC on a supported source chain. Circle attests the
 burn, then the server relay mints USDC on Stellar to `olio-intake`.
 
-The relay verifies the CCTP message is bound to the intended recipient, then
+The payer burns principal plus the signed 2% or 5% fee. A domain-separated v3
+hook binds the canonical immutable payment-quote digest. The relay verifies
+the binding and exact gross amount, then
 calls `olio-intake.deposit_to_pool`. The intake contract forwards the minted USDC
-into `olio-pool` and creates the same kind of private note as a direct Stellar
-payment.
+into `olio-pool`; the pool forwards the fee and creates a note for the full
+requested principal.
+
+Private pool transfers are disabled in this deployment so they cannot bypass a
+recipient's configured checkout tier. Withdrawals remain available.
 
 Current testnet sources include:
 
@@ -145,16 +156,7 @@ The pool verifies the proof with Stellar's BN254 host functions, checks the root
 is known, checks the nullifier has not been used, records the nullifier, and
 transfers USDC to the destination.
 
-### 7. SEP-24 cash-out
-
-For bank cash-out, Olio creates a fresh single-use bridge account, withdraws the
-private note to that account, then opens a SEP-24 withdrawal session with the
-configured anchor. Bank details are handled by the anchor, not by Olio.
-
-On testnet the bridge account is funded by friendbot. A production deployment
-needs sponsorship and operational controls instead.
-
-### 8. Selective disclosure
+### 7. Selective disclosure
 
 A recipient can export evidence for a specific payment. The disclosure bundle
 contains the note amount, salt, owner key, Merkle path, root, commitment, pool,
@@ -246,6 +248,15 @@ The deploy script:
 - Creates a CCTP operator identity.
 - Deploys `olio-intake`.
 - Writes the resulting contract IDs and CCTP operator secret to `web/.env.local`.
+- Writes an eligible-but-uncertified `CCTP_ROUTE_MANIFEST`, preserves or
+  generates `CCTP_SESSION_KEY`, and sets `CCTP_WORKER_ENABLED=true`.
+
+Once the CCTP certification cases pass, certify the routes and copy the printed
+line into the VPS `.env.production`:
+
+```sh
+node scripts/certify-testnet.mjs certify-routes --run-id=<run> --env-file=web/.env.local
+```
 
 ## Web App
 
@@ -268,7 +279,7 @@ Useful routes:
 - `/` - landing and onboarding.
 - `/dashboard` - private balance overview.
 - `/links` - manage payment links.
-- `/withdraw` - withdraw to Stellar or cash out through SEP-24.
+- `/withdraw` - withdraw to Stellar.
 - `/history` - local payment history.
 - `/pay/<username>` - payer checkout.
 - `/pay/<username>/<slug>` - managed payment-link checkout.
@@ -276,15 +287,33 @@ Useful routes:
 ## Environment
 
 The web app reads public testnet configuration from `NEXT_PUBLIC_*` variables
-and server-only secrets from plain variables.
+and server-only secrets from plain variables. `web/.env.example` documents the
+local development file (`web/.env.local`); `.env.production.example` documents
+the file the VPS compose stack reads (`.env.production`).
 
 Important server-only values:
 
 - `MONGODB_URI` - MongoDB connection string.
-- `CRON_SECRET` - long random bearer token used by Vercel Cron to authorize the
-  one-minute pool-indexer request.
+- `CRON_SECRET` - long random bearer token that authorizes the internal
+  `/api/cron/*` routes. Only the compose sidecars (and the local
+  `pnpm cctp:worker` / `pnpm indexer:worker` loops)
+  present it.
 - `CHANNELS_API_KEY` - OpenZeppelin Relayer Channels key, when using Channels.
 - `CCTP_OPERATOR_SECRET` - Stellar secret key for the CCTP intake operator.
+- `CCTP_SESSION_KEY` - 32-byte hex AES-GCM key that seals cross-chain payment
+  recovery context at rest. Deployment-specific; rotating it makes every
+  unresolved session unreadable (see `docs/cctp-operations.md`).
+- `CCTP_ROUTE_MANIFEST` - operator assertion of which CCTP source domains are
+  `eligible` and `certified` for this pool/intake pair. `deploy-testnet.sh`
+  writes an eligible-but-uncertified manifest;
+  `certify-testnet.mjs certify-routes` flips `certified` once the CCTP
+  certification cases pass.
+- `CCTP_WORKER_ENABLED` - `true` lets `/api/cron/cctp-settlement` claim and
+  settle sessions. The route gate refuses new payments while it is `false`.
+- `CCTP_SOURCE_RPC_URLS` - optional JSON map of source domain to 1-3 HTTPS RPC
+  URLs, overriding the public defaults.
+- `CCTP_IRIS_TIMEOUT_MS` / `CCTP_IRIS_RPS` - Circle Iris request deadline and
+  deployment-wide requests-per-second budget.
 - `CIRCLE_API_KEY` - Circle API key for Iris attestation access if required.
 - `PRIVY_APP_ID` / `PRIVY_APP_SECRET` - server-only Privy token verification.
 - `OLIO_WALLET_DEPLOYER_SECRET` - low-float Stellar deployer for deterministic
@@ -297,18 +326,113 @@ register `https://auth.privy.io/api/v1/oauth/callback` with both OAuth providers
 Do not commit `web/.env.local`. The repository intentionally ignores `.env*`
 files except `.env.example`.
 
-Before deploying the asynchronous pool indexer, apply the Mongo migrations:
+### Background workers in development
+
+Two internal routes do asynchronous work and are driven by an external loop
+rather than by page traffic:
+
+| Route | Loop | Cadence | Purpose |
+|---|---|---|---|
+| `POST /api/cron/pool-indexer` | `pnpm --filter web indexer:worker` | 60 s | Mirrors pool deposits and nullifiers into MongoDB. |
+| `POST /api/cron/cctp-settlement` | `pnpm --filter web cctp:worker` | 15 s | Claims due cross-chain sessions and drains them (≈240 s budget per call). |
+
+Both loops are the same script (`web/scripts/cron-loop.mjs`) the VPS sidecars
+run, read `web/.env.local`, and target `OLIO_BASE_URL` (default
+`http://localhost:3000`). Without the settlement loop the CCTP route gate reports
+`worker_unavailable` and payers cannot start a cross-chain payment.
+
+`pnpm --filter web dev:all` starts `next dev` and both loops in one terminal
+(`concurrently`, prefixed `web` / `cctp` / `indexer`; Ctrl-C stops all
+three).
+Use `PORT=3005 OLIO_BASE_URL=http://localhost:3005 pnpm --filter web dev:all`
+to run it on another port.
+
+## Deployment
+
+Production runs as a compose stack (`docker-compose.yml`) on a single VPS. The
+services start in this order:
+
+1. `migrate` runs `migrate-mongo up` against `MONGODB_URI` and exits. Migrations
+   read `MONGO_POOL_STORAGE_SCOPE` from the environment, so the scoped
+   `cctp_sessions__<pool>` indexes are created for
+   the configured pool.
+2. `web` starts only after `migrate` succeeds and is healthy once `/` responds.
+3. `pool-indexer` and `cctp-settlement` sidecars start once
+   `web` is healthy.
+   Each runs `node web/scripts/<name>.mjs`, posts to its route with
+   `CRON_SECRET`, and records a heartbeat file on every successful call. Their
+   compose healthchecks fail when that heartbeat goes stale (3 min for the
+   indexer, 6 min for settlement — one full drain budget plus slack), so
+   `restart: unless-stopped` actually restarts a wedged loop.
+4. `caddy` terminates TLS for `DOMAIN`.
 
 ```sh
-pnpm --filter web migrate:up
+docker compose up -d
+docker compose ps
+docker compose logs -f cctp-settlement
+curl -s https://$DOMAIN/api/health/cctp | jq
 ```
 
-The production deployment schedules `/api/cron/pool-indexer` every minute.
-After deploying a new testnet pool contract, invoke that route once with
-`Authorization: Bearer <CRON_SECRET>` and confirm it reports `status: synced`
-before relying on the dashboard mirror. Contract-id changes automatically clear
-and rebuild the public encrypted deposit/nullifier mirror; they never clear user
-keys or other application collections.
+`GET /api/health/cctp` is unauthenticated and reports worker liveness, active
+and parked (`needs_attention`) session counts, and Iris circuit-breaker state.
+It returns `503` when the worker heartbeat is stale, a session is parked, or a
+circuit is flagged `denied`.
+
+If `web` restarts, the sidecars log `unavailable` until it is back; they do not
+need to be restarted. To add settlement capacity, run more sidecars — per-session
+leases keep concurrent workers safe:
+
+```sh
+docker compose up -d --scale cctp-settlement=2
+```
+
+After deploying a new testnet pool contract, wait for `pool-indexer` to report
+`status: synced` before relying on the dashboard mirror. Contract-id changes use
+a new scoped mirror and fail closed if a collection is paired with another pool;
+they never clear the old mirror, user keys, or other shared application
+collections.
+
+### CCTP route gate
+
+`cctp.readiness` decides per source domain whether a payer may start a
+cross-chain payment. The client queries it before enabling **Pay via CCTP** and
+shows the mapped reason; the server enforces the same gate on `createSession`
+and `prepareBurn`. Reason codes:
+
+| Reason | State | Meaning / fix |
+|---|---|---|
+| `eligibility_not_confirmed` | `eligibility_unavailable` | No manifest, or the domain is not `eligible`. Run `deploy-testnet.sh` or edit `CCTP_ROUTE_MANIFEST`. |
+| `route_not_certified` | `temporarily_unavailable` | Domain not `certified`, `CCTP_SESSION_KEY` missing, or `CCTP_WORKER_ENABLED != true`. Run `certify-testnet.mjs certify-routes` and set both variables. |
+| `upstream_backoff` / `upstream_denied_investigate` | `temporarily_unavailable` | Iris circuit breaker is open (retry after `retryAfterMs`) or Circle returned 403/451 — investigate, then `cctp-sessions.mjs circuit-reset <domain>`. |
+| `worker_unavailable` | `temporarily_unavailable` | No settlement heartbeat in the last 2 min. Check `docker compose ps cctp-settlement`. |
+| `storage_not_ready` | `temporarily_unavailable` | `cctp_sessions` indexes missing. Run the `migrate` service. |
+| `provider_fee_requires_gross_up` | `unsupported` | Circle charges a fee on this route; Olio does not gross up. |
+| `unsupported_source` | `unsupported` | Domain is not one of `0, 1, 3, 5, 6`. |
+
+Operational procedures — parked sessions, `CCTP_SESSION_KEY` rotation, backups,
+and the pre-mainnet checklist — live in `docs/cctp-operations.md`.
+
+## Identity verification (KYC/KYB)
+
+A business profile can verify its owner as an individual, or the company plus
+its owners and representatives, through Sumsub. Documents and selfies are
+collected inside the provider's hosted experience; Olio keeps only the sanitized
+evidence it needs. Olio — not the provider — decides eligibility: a GREEN result
+with incomplete evidence, an unresolved company owner, a mismatched level or the
+wrong environment never becomes an approval, and screening hits go to review
+rather than an automatic rejection.
+
+The webhook is authenticated with a separate secret and only wakes a durable
+worker, which re-reads the provider's current state before applying any
+revision-checked update; scheduled reconciliation runs whether or not a
+notification ever arrives. An approved case issues an *Identity Verified*
+credential that stays private until the owner publishes it at
+`/business/<publicId>`; it is suspended automatically if eligibility regresses,
+the linked Olio account changes, or the evidence goes stale.
+
+`SUMSUB_MODE=off` by default. Scope, configuration and policy mapping are in
+`docs/sumsub-verification.md`; running it, parked work and rollback are in
+`docs/verification-operations.md`.
 
 ## Testnet Payment Notes
 
@@ -344,9 +468,9 @@ This repo is testnet-stage. Before mainnet, Olio still needs:
 
 - A real multi-party trusted setup ceremony for production circuits.
 - Independent security review of the contracts, circuits, relay, and web flows.
-- Mainnet CCTP, SEP-24, Privy OAuth, wallet deployment, and account-migration hardening.
+- Mainnet CCTP, Privy OAuth, wallet deployment, and account-migration hardening.
 - Mainnet pool deployment under the rehearsed multisig admin process.
 - Monitoring and alerting for the bridge sponsor, relay, and indexer.
 - An account-merge sweep to recover residual XLM from cash-out bridges.
-- Clear compliance policy for supported anchors, disclosure, abuse handling, and
+- Clear compliance policy for disclosure, abuse handling, and
   jurisdiction-specific requirements.

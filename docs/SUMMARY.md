@@ -23,6 +23,7 @@
 * [How Olio Works](how-it-works.md)
 * [USDC & Cross-Chain Payments](usdc-and-cctp.md)
 * [Concepts](concepts.md)
+* [Identity Verification (KYC/KYB)](sumsub-verification.md)
 * [Security & Recovery](security.md)
 * [Multisig & Timelocked Governance](multisig-governance.md)
 
@@ -31,4 +32,5 @@
 * [FAQs](faqs.md)
 * [Glossary](glossary.md)
 * [Developer Reference](reference.md)
-* [MoneyGram Playground certification](moneygram-playground-certification.md)
+* [CCTP settlement operations](cctp-operations.md)
+* [Verification operations](verification-operations.md)

@@ -46,9 +46,3 @@ Privacy by default doesn't mean you can never prove anything. **Selective
 disclosure** lets you voluntarily prove that one specific payment happened — for
 your accountant, the tax office, or your bank — without revealing your other
 payments. Private by default, provable by choice.
-
-## Anchors (the crypto-to-bank bridge)
-
-An **anchor** is a regulated service that converts crypto to regular money and
-sends it to your bank. Olio connects to one for cash-out, and hands off the bank
-details to them directly — Olio never touches your banking info.

@@ -2,9 +2,6 @@
 
 Plain-language definitions for the words you'll bump into.
 
-**Anchor** — A regulated service that swaps crypto for regular money and sends it
-to your bank. Olio uses one for cash-out; you give it your bank details directly.
-
 **Blockchain** — A public, shared record of transactions. Great for trust, bad for
 privacy by default — which is the gap Olio fills.
 

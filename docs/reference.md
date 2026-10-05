@@ -34,23 +34,19 @@
 | Proof system | Groth16 over BN254 |
 | Hash | Poseidon (shared across circuit / contract / browser) |
 | Withdraw public signals | `[root, nullifier, recipient, amount]` |
-| Transfer public signals | `[root, nullifier, outCommitmentRecipient, outCommitmentChange]` |
+| Transfer public signals | Circuit retained, but pool transfer entry point is gated off in this deployment |
+| Olio fee policy v2 | Allowed rates `200` or `500` bps; `floor(principal * bps / 10_000)` |
+| Fee quote format | v1 canonical Soroban XDR, SHA-256, Ed25519 authorization |
+| Pool fee event | payer, treasury, principal, rate, fee, total, policy version, and opaque quote ID |
 
 ## CCTP
 
 | Key | Value |
 | --- | --- |
 | Stellar CCTP domain | `27` |
+| Olio hook binding | v3 canonical immutable payment-binding digest |
 | Solana USDC mint (testnet) | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
 | Testnet source chains | Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, Avalanche Fuji, Solana Devnet |
-
-## SEP-24 off-ramp
-
-| Key | Value |
-| --- | --- |
-| Anchor URL | `https://testanchor.stellar.org` |
-| Asset code | `USDC` |
-| Bridge funding (testnet) | friendbot (production: sponsored accounts) |
 
 ## Server-only secrets
 
@@ -62,6 +58,13 @@ Set in `web/.env.local` (never committed):
 | `CHANNELS_API_KEY` | OpenZeppelin Relayer (Channels) key for gasless submission |
 | `CCTP_OPERATOR_SECRET` | Stellar secret for the CCTP intake operator/relay |
 | `CIRCLE_API_KEY` | Circle API key for Iris attestation access |
+| `CRON_SECRET` | Bearer token for the internal `/api/cron/*` routes driven by the settlement and indexer loops |
+| `CCTP_SESSION_KEY` | 32-byte hex key sealing cross-chain recovery context; deployment-specific, see [CCTP settlement operations](cctp-operations.md) |
+| `CCTP_ROUTE_MANIFEST` | JSON assertion of eligible/certified CCTP source domains for this pool and intake |
+| `CCTP_WORKER_ENABLED` | `true` to let the settlement worker claim sessions; the route gate closes when `false` |
+| `CCTP_SOURCE_RPC_URLS` | Optional JSON map of source domain → HTTPS RPC URLs |
+| `CCTP_IRIS_TIMEOUT_MS` / `CCTP_IRIS_RPS` | Iris request deadline and shared requests-per-second budget |
+| `FEE_QUOTE_SIGNING_SECRET` | Dedicated Ed25519 pricing-authority seed; never expose to the browser |
 
 ## Prerequisites & build
 
@@ -86,7 +89,7 @@ cd circuits && npm install && ./build.sh      # circuits + Soroban VKs
 | `/` | Landing & onboarding |
 | `/dashboard` | Private balance overview |
 | `/links` | Manage payment links |
-| `/withdraw` | Withdraw to Stellar or SEP-24 cash-out |
+| `/withdraw` | Withdraw to Stellar |
 | `/history` | Local payment history |
 | `/pay/<username>` | Payer checkout |
 | `/pay/<username>/<slug>` | Managed payment-link checkout |

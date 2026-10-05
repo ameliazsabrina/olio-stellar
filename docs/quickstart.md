@@ -37,8 +37,7 @@ balance** — visible only to you.
 
 ## 5. Cash out whenever
 
-Move your balance to a Stellar wallet, or cash out to your **bank** through a
-SEP-24 anchor. See [Cashing Out](cashing-out.md).
+Move your balance to a Stellar wallet. See [Cashing Out](cashing-out.md).
 
 ---
 

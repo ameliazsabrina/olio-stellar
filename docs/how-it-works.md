@@ -39,6 +39,13 @@ Instead it deposits into a **shielded pool** contract, which stores a
 a Merkle tree. The pool holds the actual USDC in custody. Encrypted payment
 details ride along in the event log.
 
+**The payer funds Olio's service fee.** A server-side pricing authority resolves
+the recipient's stable registry owner and signs the applicable 2% or 5% quote.
+The pool verifies that quote, pulls principal plus fee atomically, sends the fee
+to Olio's governed treasury, and keeps only the principal backing the note.
+Withdrawals are not charged again. Private pool transfers are temporarily
+disabled to prevent bypassing a recipient's configured tier.
+
 **You scan for your own payments.** Your browser reads the pool's deposit events
 and tries to decrypt each one with your viewing key. The ones that decrypt are
 yours; the rest stay opaque. Nothing about this needs a server to know your

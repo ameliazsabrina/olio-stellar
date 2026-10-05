@@ -17,6 +17,14 @@ Start with [The Basics, No Jargon](new-to-crypto.md).
 No. Olio covers the network fees for you. You don't need to hold any special
 token just to get paid or cash out.
 
+## How much does Olio charge?
+
+The payer pays the receiving client's 2% or 5% Olio service fee on top of the
+requested payment. A 100 USDC request costs 102 or 105 USDC, while the recipient
+receives the full 100 USDC. Checkout
+shows the payment, fee, total, and recipient amount before approval. Third-party
+cash or on-ramp providers may quote separate fees.
+
 ## What is USDC?
 
 A digital dollar — a stablecoin worth ~$1. It's what you get paid in, so the
@@ -27,6 +35,10 @@ value doesn't swing around like other crypto.
 Yes. Olio uses Circle's CCTP to bring USDC over from Ethereum, Base, Arbitrum,
 Avalanche, or Solana. To you, it just shows up as a normal private payment. See
 [USDC & Cross-Chain Payments](usdc-and-cctp.md).
+
+## Can my client pay without any crypto at all?
+
+Payment links currently accept USDC on Stellar and supported CCTP networks.
 
 ## Do I need to hold USDC to receive money?
 
@@ -56,14 +68,14 @@ stays with your passkey and PIN, while funds sit in an on-chain pool rather than
 an Olio server account.
 
 For incident response, the pool's 2-of-3 governance can temporarily pause
-deposits, transfers, and withdrawals. Sensitive changes such as new contract
-code or proof rules require a public proposal and a 48-hour delay. See
+deposits and transfers, while valid withdrawals remain available. Sensitive
+changes such as new contract code or proof rules require a public proposal and
+a 48-hour delay. See
 [Multisig & Timelocked Governance](multisig-governance.md).
 
 ## How do I cash out to my bank?
 
-Olio connects to a regulated anchor that converts crypto to fiat. You enter your
-bank details directly with them; Olio never sees them. See
+Olio currently supports withdrawals to Stellar wallets. Bank cash-out is not available. See
 [Cashing Out](cashing-out.md).
 
 ## Can I prove a payment for taxes or accounting?

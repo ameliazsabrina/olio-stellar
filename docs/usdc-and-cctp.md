@@ -12,6 +12,11 @@ The simplest path: your client pays USDC on Stellar directly into Olio. It's
 fast, costs a fraction of a cent in network fees (which Olio covers), and settles
 in seconds.
 
+Checkout shows the requested payment, the receiving client's 2% or 5% Olio
+service fee, the payer's total,
+and the unchanged recipient amount before authorization. The service fee is
+added on top, never deducted from the private payment.
+
 ## Pay from another chain (CCTP)
 
 Your client's USDC is on Ethereum, Base, Arbitrum, Avalanche, or Solana? No
@@ -20,16 +25,28 @@ it over.
 
 Here's the idea without the plumbing:
 
-1. Your client "burns" (destroys) their USDC on their own chain.
+1. Your client burns the requested USDC plus the signed 2% or 5% Olio service fee on their own chain.
 2. Circle officially confirms the burn happened.
-3. That same amount of USDC is freshly created on Stellar and dropped straight
-   into Olio as a private payment to you.
+3. The gross amount is created on Stellar. Olio sends the service fee to its
+   treasury and places the full requested amount into a private note for you.
 
 This is Circle's own audited, native mechanism — the USDC isn't wrapped or
 IOU'd; it's real USDC recreated on the other side. To you, a cross-chain payment
 looks exactly like any other: it just shows up as a private note in your balance.
 
+The burn hook contains an opaque digest of the immutable signed payment terms.
+Retries never re-price principal, recipient, source wallet, or total. If Circle's
+attestation arrives after authorization expiry, Olio may renew only the time
+window over those same terms.
+
+Recovery also verifies the original source transaction and accepts a renewed
+authorization only when the burn itself occurred before the original quote
+expired. Mint and pool-deposit transaction hashes are checkpointed separately,
+so a server restart can resume either step without minting or collecting twice.
+
 ### Chains you can pay from (testnet)
+
+Choosing Base asks your wallet to switch to Base Sepolia automatically, or add the network if needed.
 
 * Ethereum Sepolia
 * Base Sepolia

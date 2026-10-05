@@ -54,12 +54,9 @@ payments don't reveal any of that.**
 3. Your client pays in USDC.
 4. The money shows up as a **private balance** only you can see.
 
-## Cashing out to real money
+## Withdrawing your balance
 
-When you want actual dollars in your bank, Olio connects to a regulated service
-called an **anchor** that handles the crypto-to-bank conversion. You enter your
-bank details with them directly — Olio never sees them. More in
-[Cashing Out](cashing-out.md).
+Send private payments to a Stellar wallet. See [Cashing Out](cashing-out.md).
 
 {% hint style="success" %}
 That's the whole foundation. Ready to try it? → [Quickstart](quickstart.md)

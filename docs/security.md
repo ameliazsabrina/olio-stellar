@@ -9,14 +9,13 @@ Olio is **self-custodial**. That means:
 
 * The app and its servers **can't** spend or move your money.
 * We **can't** see your private balance — it's decrypted only in your browser.
-* We **don't** hold your bank details — those go straight to the anchor at
-  cash-out.
 
 The pool contract does have limited governance and emergency controls. They are
 protected by a **2-of-3 multisig**, and sensitive changes must wait **48 hours**
 on-chain before they can take effect. The multisig can pause the pool
 immediately during an incident, which temporarily prevents deposits, transfers,
-and withdrawals. See [Multisig & Timelocked Governance](multisig-governance.md)
+but not withdrawals. This preserves an escape hatch for holders of valid notes.
+See [Multisig & Timelocked Governance](multisig-governance.md)
 for the exact powers and limits.
 
 The flip side: **your keys are your responsibility.** Which is why we built a
@@ -41,7 +40,6 @@ your PIN in the Olio app itself.
 
 * The privacy link between who paid you and what you withdraw.
 * Custody — funds live in an on-chain pool, not on our servers.
-* Your identity at cash-out — a throwaway account sits between you and the anchor.
 * Governance — no single operator key can pause the pool or propose a sensitive
   contract change.
 
@@ -59,6 +57,22 @@ Being honest here — Olio hides the *link* between payments, not everything:
 
 * When you cash out, the **amount and destination** are public on-chain.
 * If you withdraw right after getting paid, **timing** can hint at a connection.
+* To issue a recipient-bound fee quote, Olio's server sees the username, payer,
+  principal, commitment, and one-time note salt. It does not receive the
+  recipient's spending secret, and direct-payment salts are not persisted, but
+  this is a deliberate reduction from a browser-only proof flow.
+* For asynchronous CCTP recovery, the server temporarily retains the quote ID,
+  stable recipient owner, commitment, and issuance-time public note/view keys.
+  It does not retain the username or salt. The record expires automatically
+  after the recovery window and prevents a later key rotation from stranding an
+  already-burned payment.
+* The public fee event includes the rate and amount. It does not include the
+  username, payment-link ID, note/view key, or salt.
+
+The pool accepts only 200 or 500 bps, verifies a dedicated Ed25519 quote signer,
+checks expiry and exact arithmetic, and consumes each random quote ID once.
+Signer rotation is timelocked. Private transfers are disabled in this release
+because the current transfer circuit cannot enforce the hidden recipient tier.
 
 For the cleanest privacy, let funds rest and avoid withdrawing exact
 payment-sized amounts immediately. Full details in
