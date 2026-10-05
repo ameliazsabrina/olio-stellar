@@ -13,9 +13,9 @@ mod groth16;
 pub use groth16::{Proof, VerificationKey};
 
 #[cfg(test)]
-mod fixture;
-#[cfg(test)]
 mod deposit_fixture;
+#[cfg(test)]
+mod fixture;
 #[cfg(test)]
 mod test;
 #[cfg(test)]
@@ -29,6 +29,18 @@ const DAY_LEDGERS: u32 = 17_280;
 const TTL_THRESHOLD: u32 = DAY_LEDGERS * 30;
 const TTL_EXTEND: u32 = DAY_LEDGERS * 90;
 pub const TIMELOCK_SECONDS: u64 = 172_800;
+pub const BPS_DENOMINATOR: i128 = 10_000;
+pub const FEE_POLICY_VERSION: u32 = 2;
+pub const FEE_QUOTE_FORMAT_VERSION: u32 = 1;
+pub const DEFAULT_FEE_BPS: u32 = 200;
+pub const SPECIAL_FEE_BPS: u32 = 500;
+pub const DIRECT_MAX_LIFETIME_SECONDS: u64 = 15 * 60;
+pub const ASYNC_MAX_LIFETIME_SECONDS: u64 = 24 * 60 * 60;
+pub const ISSUED_AT_CLOCK_SKEW_SECONDS: u64 = 60;
+const QUOTE_TTL_THRESHOLD: u32 = DAY_LEDGERS * 2;
+const QUOTE_TTL_EXTEND: u32 = DAY_LEDGERS * 90;
+const PAYMENT_DOMAIN: &[u8] = b"OLIO_FEE_PAYMENT_V1";
+const AUTH_DOMAIN: &[u8] = b"OLIO_FEE_AUTH_V1";
 
 const BN254_FR_ORDER: [u8; 32] = [
     0x30, 0x64, 0x4e, 0x72, 0xe1, 0x31, 0xa0, 0x29, 0xb8, 0x50, 0x45, 0xb6, 0x81, 0x81, 0x58, 0x5d,
@@ -40,6 +52,62 @@ const BN254_FR_ORDER: [u8; 32] = [
 pub struct Config {
     pub asset: Address,
     pub depth: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeConfig {
+    pub allowed_fee_bps: Vec<u32>,
+    pub policy_version: u32,
+    pub recipient: Address,
+    pub signer: BytesN<32>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FeeChannel {
+    Direct,
+    Cctp,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeQuote {
+    pub format_version: u32,
+    pub policy_version: u32,
+    pub quote_id: BytesN<32>,
+    pub network_id: BytesN<32>,
+    pub pool: Address,
+    pub depositor: Address,
+    pub commitment: BytesN<32>,
+    pub payment_amount: i128,
+    pub fee_bps: u32,
+    pub fee_amount: i128,
+    pub total_amount: i128,
+    pub channel: FeeChannel,
+    pub source_domain: u32,
+    pub source_payer: BytesN<32>,
+    pub issued_at: u64,
+    pub expires_at: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PaymentBinding {
+    format_version: u32,
+    policy_version: u32,
+    quote_id: BytesN<32>,
+    network_id: BytesN<32>,
+    pool: Address,
+    depositor: Address,
+    commitment: BytesN<32>,
+    payment_amount: i128,
+    fee_bps: u32,
+    fee_amount: i128,
+    total_amount: i128,
+    channel: FeeChannel,
+    source_domain: u32,
+    source_payer: BytesN<32>,
 }
 
 #[contracttype]
@@ -58,6 +126,9 @@ enum DataKey {
     Nullifier(BytesN<32>),
     PendingGovernance,
     GovernanceNonce,
+    FeeRecipient,
+    FeeQuoteSigner,
+    UsedQuote(BytesN<32>),
 }
 
 #[contracttype]
@@ -74,6 +145,8 @@ pub enum GovernanceAction {
     Upgrade(BytesN<32>),
     SetVerifierKey(VerifierKind, VerificationKey),
     SetAdmin(Address),
+    SetFeeRecipient(Address),
+    SetFeeQuoteSigner(BytesN<32>),
 }
 
 #[contracttype]
@@ -84,6 +157,8 @@ pub enum GovernanceActionKind {
     WithdrawVerifier,
     TransferVerifier,
     Admin,
+    FeeRecipient,
+    FeeQuoteSigner,
 }
 
 #[contracttype]
@@ -119,6 +194,12 @@ pub enum Error {
     InvalidVerifierKey = 17,
     TimestampOverflow = 18,
     ProposalIdOverflow = 19,
+    ArithmeticOverflow = 20,
+    InvalidFeeRecipient = 21,
+    InvalidQuote = 22,
+    QuoteExpired = 23,
+    QuoteAlreadyUsed = 24,
+    TransferDisabled = 25,
 }
 
 #[contractevent(topics = ["pause"])]
@@ -174,6 +255,19 @@ pub struct GovernanceCancelledEvent {
     pub execute_at: u64,
 }
 
+#[contractevent(topics = ["fee"])]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeCollectedEvent {
+    pub payer: Address,
+    pub fee_recipient: Address,
+    pub payment_amount: i128,
+    pub fee_amount: i128,
+    pub total_amount: i128,
+    pub policy_version: u32,
+    pub fee_bps: u32,
+    pub quote_id: BytesN<32>,
+}
+
 #[contract]
 pub struct PoolContract;
 
@@ -183,6 +277,8 @@ impl PoolContract {
         env: Env,
         admin: Address,
         asset: Address,
+        fee_recipient: Address,
+        fee_quote_signer: BytesN<32>,
         depth: u32,
         deposit_vk: VerificationKey,
         withdraw_vk: VerificationKey,
@@ -191,6 +287,9 @@ impl PoolContract {
         let store = env.storage().instance();
         if depth == 0 || depth > MAX_DEPTH {
             panic_with_error!(&env, Error::InvalidDepth);
+        }
+        if fee_recipient == env.current_contract_address() {
+            panic_with_error!(&env, Error::InvalidFeeRecipient);
         }
         if validate_verifier_key(&deposit_vk, &VerifierKind::Deposit).is_err()
             || validate_verifier_key(&withdraw_vk, &VerifierKind::Withdraw).is_err()
@@ -213,6 +312,8 @@ impl PoolContract {
 
         store.set(&DataKey::Config, &Config { asset, depth });
         store.set(&DataKey::Admin, &admin);
+        store.set(&DataKey::FeeRecipient, &fee_recipient);
+        store.set(&DataKey::FeeQuoteSigner, &fee_quote_signer);
         store.set(&DataKey::Paused, &false);
         store.set(&DataKey::VkDeposit, &deposit_vk);
         store.set(&DataKey::Vk, &withdraw_vk);
@@ -228,20 +329,36 @@ impl PoolContract {
         env: Env,
         from: Address,
         commitment: BytesN<32>,
-        amount: i128,
+        payment_amount: i128,
+        quote: FeeQuote,
+        signature: BytesN<64>,
         proof: Proof,
         ephemeral_pk: BytesN<32>,
         ciphertext: Bytes,
     ) -> Result<u32, Error> {
         from.require_auth();
         require_not_paused(&env)?;
-        if amount <= 0 || amount > u64::MAX as i128 {
+        if payment_amount <= 0 || payment_amount > u64::MAX as i128 {
             return Err(Error::InvalidAmount);
         }
         let commitment_field = to_u256(&env, &commitment);
         if commitment_field >= bn254_fr_order(&env) {
             return Err(Error::InvalidFieldElement);
         }
+        validate_quote(&env, &from, &commitment, payment_amount, &quote)?;
+        let authorization_digest = authorization_digest(&env, &quote);
+        let signer = load_fee_quote_signer(&env)?;
+        env.crypto().ed25519_verify(
+            &signer,
+            &Bytes::from_array(&env, &authorization_digest.to_array()),
+            &signature,
+        );
+        let used_key = DataKey::UsedQuote(quote.quote_id.clone());
+        let persistent = env.storage().persistent();
+        if persistent.has(&used_key) {
+            return Err(Error::QuoteAlreadyUsed);
+        }
+
         let vk: VerificationKey = env
             .storage()
             .instance()
@@ -250,18 +367,30 @@ impl PoolContract {
         let signals = vec![
             &env,
             Bn254Fr::from_u256(commitment_field.clone()),
-            Bn254Fr::from_u256(U256::from_u128(&env, amount as u128)),
+            Bn254Fr::from_u256(U256::from_u128(&env, payment_amount as u128)),
         ];
         if !groth16::verify(&env, &vk, &proof, &signals) {
             return Err(Error::InvalidProof);
         }
         let config = load_config(&env)?;
+        let fee_recipient = load_fee_recipient(&env)?;
+        let fee_amount = quote.fee_amount;
+        let total_amount = quote.total_amount;
         token::Client::new(&env, &config.asset).transfer(
             &from,
             &env.current_contract_address(),
-            &amount,
+            &total_amount,
         );
+        if fee_amount > 0 {
+            token::Client::new(&env, &config.asset).transfer(
+                &env.current_contract_address(),
+                &fee_recipient,
+                &fee_amount,
+            );
+        }
 
+        persistent.set(&used_key, &true);
+        persistent.extend_ttl(&used_key, QUOTE_TTL_THRESHOLD, QUOTE_TTL_EXTEND);
         let leaf_index = insert(&env, &config, &commitment_field)?;
 
         env.storage()
@@ -271,6 +400,17 @@ impl PoolContract {
             (symbol_short!("deposit"),),
             (leaf_index, commitment, ephemeral_pk, ciphertext),
         );
+        FeeCollectedEvent {
+            payer: from,
+            fee_recipient,
+            payment_amount,
+            fee_amount,
+            total_amount,
+            policy_version: FEE_POLICY_VERSION,
+            fee_bps: quote.fee_bps,
+            quote_id: quote.quote_id,
+        }
+        .publish(&env);
         Ok(leaf_index)
     }
 
@@ -282,7 +422,6 @@ impl PoolContract {
         nullifier: BytesN<32>,
         proof: Proof,
     ) -> Result<(), Error> {
-        require_not_paused(&env)?;
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
@@ -337,82 +476,53 @@ impl PoolContract {
     #[allow(clippy::too_many_arguments)]
     pub fn transfer(
         env: Env,
-        root: BytesN<32>,
-        nullifier: BytesN<32>,
-        proof: Proof,
-        recipient_commitment: BytesN<32>,
-        recipient_ephemeral_pk: BytesN<32>,
-        recipient_ciphertext: Bytes,
-        change_commitment: BytesN<32>,
-        change_ephemeral_pk: BytesN<32>,
-        change_ciphertext: Bytes,
+        _root: BytesN<32>,
+        _nullifier: BytesN<32>,
+        _proof: Proof,
+        _recipient_commitment: BytesN<32>,
+        _recipient_ephemeral_pk: BytesN<32>,
+        _recipient_ciphertext: Bytes,
+        _change_commitment: BytesN<32>,
+        _change_ephemeral_pk: BytesN<32>,
+        _change_ciphertext: Bytes,
     ) -> Result<(u32, u32), Error> {
         require_not_paused(&env)?;
-        let config = load_config(&env)?;
-        let vk: VerificationKey = env
-            .storage()
-            .instance()
-            .get(&DataKey::VkTransfer)
-            .ok_or(Error::VerifierKeyNotSet)?;
-
-        if !root_is_known(&env, &root) {
-            return Err(Error::UnknownRoot);
-        }
-        let store = env.storage().persistent();
-        if store.has(&DataKey::Nullifier(nullifier.clone())) {
-            return Err(Error::DoubleSpend);
-        }
-
-        let signals = vec![
-            &env,
-            Bn254Fr::from_u256(to_u256(&env, &root)),
-            Bn254Fr::from_u256(to_u256(&env, &nullifier)),
-            Bn254Fr::from_u256(to_u256(&env, &recipient_commitment)),
-            Bn254Fr::from_u256(to_u256(&env, &change_commitment)),
-        ];
-        if !groth16::verify(&env, &vk, &proof, &signals) {
-            return Err(Error::InvalidProof);
-        }
-
-        store.set(&DataKey::Nullifier(nullifier.clone()), &true);
-        store.extend_ttl(
-            &DataKey::Nullifier(nullifier.clone()),
-            TTL_THRESHOLD,
-            TTL_EXTEND,
-        );
-
-        let recipient_leaf = to_u256(&env, &recipient_commitment);
-        let recipient_index = insert(&env, &config, &recipient_leaf)?;
-        let change_leaf = to_u256(&env, &change_commitment);
-        let change_index = insert(&env, &config, &change_leaf)?;
-
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
-        env.events().publish(
-            (symbol_short!("deposit"),),
-            (
-                recipient_index,
-                recipient_commitment,
-                recipient_ephemeral_pk,
-                recipient_ciphertext,
-            ),
-        );
-        env.events().publish(
-            (symbol_short!("deposit"),),
-            (
-                change_index,
-                change_commitment,
-                change_ephemeral_pk,
-                change_ciphertext,
-            ),
-        );
-        env.events().publish((symbol_short!("spend"),), nullifier);
-        Ok((recipient_index, change_index))
+        Err(Error::TransferDisabled)
     }
 
     pub fn get_config(env: Env) -> Result<Config, Error> {
         load_config(&env)
+    }
+
+    pub fn fee_recipient(env: Env) -> Result<Address, Error> {
+        load_fee_recipient(&env)
+    }
+
+    pub fn fee_config(env: Env) -> Result<FeeConfig, Error> {
+        Ok(FeeConfig {
+            allowed_fee_bps: vec![&env, DEFAULT_FEE_BPS, SPECIAL_FEE_BPS],
+            policy_version: FEE_POLICY_VERSION,
+            recipient: load_fee_recipient(&env)?,
+            signer: load_fee_quote_signer(&env)?,
+        })
+    }
+
+    pub fn quote_fee(_env: Env, payment_amount: i128, fee_bps: u32) -> Result<(i128, i128), Error> {
+        calculate_fee(payment_amount, fee_bps)
+    }
+
+    pub fn payment_binding_digest(env: Env, quote: FeeQuote) -> BytesN<32> {
+        payment_binding_digest(&env, &quote)
+    }
+
+    pub fn authorization_digest(env: Env, quote: FeeQuote) -> BytesN<32> {
+        authorization_digest(&env, &quote)
+    }
+
+    pub fn is_quote_used(env: Env, quote_id: BytesN<32>) -> bool {
+        env.storage()
+            .persistent()
+            .has(&DataKey::UsedQuote(quote_id))
     }
 
     pub fn current_root(env: Env) -> Result<BytesN<32>, Error> {
@@ -496,6 +606,14 @@ impl PoolContract {
         propose_governance(&env, GovernanceAction::SetAdmin(new_admin))
     }
 
+    pub fn propose_fee_recipient(env: Env, new_recipient: Address) -> Result<u64, Error> {
+        propose_governance(&env, GovernanceAction::SetFeeRecipient(new_recipient))
+    }
+
+    pub fn propose_fee_quote_signer(env: Env, new_signer: BytesN<32>) -> Result<u64, Error> {
+        propose_governance(&env, GovernanceAction::SetFeeQuoteSigner(new_signer))
+    }
+
     pub fn execute_governance(env: Env, proposal_id: u64) -> Result<(), Error> {
         let pending: PendingGovernance = env
             .storage()
@@ -557,6 +675,16 @@ impl PoolContract {
                 }
                 .publish(&env);
             }
+            GovernanceAction::SetFeeRecipient(new_recipient) => {
+                env.storage()
+                    .instance()
+                    .set(&DataKey::FeeRecipient, &new_recipient);
+            }
+            GovernanceAction::SetFeeQuoteSigner(new_signer) => {
+                env.storage()
+                    .instance()
+                    .set(&DataKey::FeeQuoteSigner, &new_signer);
+            }
         }
         Ok(())
     }
@@ -601,6 +729,11 @@ fn propose_governance(env: &Env, action: GovernanceAction) -> Result<u64, Error>
     require_admin(env)?;
     if let GovernanceAction::SetVerifierKey(kind, vk) = &action {
         validate_verifier_key(vk, kind)?;
+    }
+    if let GovernanceAction::SetFeeRecipient(recipient) = &action {
+        if recipient == &env.current_contract_address() {
+            return Err(Error::InvalidFeeRecipient);
+        }
     }
     let store = env.storage().instance();
     if store.has(&DataKey::PendingGovernance) {
@@ -649,6 +782,8 @@ fn governance_action_kind(action: &GovernanceAction) -> GovernanceActionKind {
             GovernanceActionKind::TransferVerifier
         }
         GovernanceAction::SetAdmin(_) => GovernanceActionKind::Admin,
+        GovernanceAction::SetFeeRecipient(_) => GovernanceActionKind::FeeRecipient,
+        GovernanceAction::SetFeeQuoteSigner(_) => GovernanceActionKind::FeeQuoteSigner,
     }
 }
 
@@ -679,6 +814,115 @@ fn load_config(env: &Env) -> Result<Config, Error> {
         .instance()
         .get(&DataKey::Config)
         .ok_or(Error::NotInitialized)
+}
+
+fn load_fee_recipient(env: &Env) -> Result<Address, Error> {
+    env.storage()
+        .instance()
+        .get(&DataKey::FeeRecipient)
+        .ok_or(Error::NotInitialized)
+}
+
+fn load_fee_quote_signer(env: &Env) -> Result<BytesN<32>, Error> {
+    env.storage()
+        .instance()
+        .get(&DataKey::FeeQuoteSigner)
+        .ok_or(Error::NotInitialized)
+}
+
+fn calculate_fee(payment_amount: i128, fee_bps: u32) -> Result<(i128, i128), Error> {
+    if payment_amount <= 0 || payment_amount > u64::MAX as i128 {
+        return Err(Error::InvalidAmount);
+    }
+    if fee_bps != DEFAULT_FEE_BPS && fee_bps != SPECIAL_FEE_BPS {
+        return Err(Error::InvalidQuote);
+    }
+    let fee_amount = payment_amount
+        .checked_mul(fee_bps as i128)
+        .ok_or(Error::ArithmeticOverflow)?
+        / BPS_DENOMINATOR;
+    let total_amount = payment_amount
+        .checked_add(fee_amount)
+        .ok_or(Error::ArithmeticOverflow)?;
+    Ok((fee_amount, total_amount))
+}
+
+fn payment_binding(quote: &FeeQuote) -> PaymentBinding {
+    PaymentBinding {
+        format_version: quote.format_version,
+        policy_version: quote.policy_version,
+        quote_id: quote.quote_id.clone(),
+        network_id: quote.network_id.clone(),
+        pool: quote.pool.clone(),
+        depositor: quote.depositor.clone(),
+        commitment: quote.commitment.clone(),
+        payment_amount: quote.payment_amount,
+        fee_bps: quote.fee_bps,
+        fee_amount: quote.fee_amount,
+        total_amount: quote.total_amount,
+        channel: quote.channel.clone(),
+        source_domain: quote.source_domain,
+        source_payer: quote.source_payer.clone(),
+    }
+}
+
+fn payment_binding_digest(env: &Env, quote: &FeeQuote) -> BytesN<32> {
+    let domain = Bytes::from_slice(env, PAYMENT_DOMAIN);
+    env.crypto()
+        .sha256(&(domain, payment_binding(quote)).to_xdr(env))
+        .to_bytes()
+}
+
+fn authorization_digest(env: &Env, quote: &FeeQuote) -> BytesN<32> {
+    let domain = Bytes::from_slice(env, AUTH_DOMAIN);
+    let binding = payment_binding_digest(env, quote);
+    env.crypto()
+        .sha256(&(domain, binding, quote.issued_at, quote.expires_at).to_xdr(env))
+        .to_bytes()
+}
+
+fn validate_quote(
+    env: &Env,
+    from: &Address,
+    commitment: &BytesN<32>,
+    payment_amount: i128,
+    quote: &FeeQuote,
+) -> Result<(), Error> {
+    if quote.format_version != FEE_QUOTE_FORMAT_VERSION
+        || quote.policy_version != FEE_POLICY_VERSION
+        || quote.network_id != env.ledger().network_id()
+        || quote.pool != env.current_contract_address()
+        || &quote.depositor != from
+        || &quote.commitment != commitment
+        || quote.payment_amount != payment_amount
+    {
+        return Err(Error::InvalidQuote);
+    }
+    let now = env.ledger().timestamp();
+    if quote.issued_at > now.saturating_add(ISSUED_AT_CLOCK_SKEW_SECONDS)
+        || quote.expires_at < now
+        || quote.expires_at < quote.issued_at
+    {
+        return Err(Error::QuoteExpired);
+    }
+    let lifetime = quote.expires_at - quote.issued_at;
+    let zero_source =
+        quote.source_domain == 0 && quote.source_payer == BytesN::from_array(env, &[0; 32]);
+    let max_lifetime = match quote.channel {
+        FeeChannel::Direct if zero_source => DIRECT_MAX_LIFETIME_SECONDS,
+        FeeChannel::Cctp if quote.source_payer != BytesN::from_array(env, &[0; 32]) => {
+            ASYNC_MAX_LIFETIME_SECONDS
+        }
+        _ => return Err(Error::InvalidQuote),
+    };
+    if lifetime == 0 || lifetime > max_lifetime {
+        return Err(Error::InvalidQuote);
+    }
+    let (fee, total) = calculate_fee(payment_amount, quote.fee_bps)?;
+    if fee != quote.fee_amount || total != quote.total_amount {
+        return Err(Error::InvalidQuote);
+    }
+    Ok(())
 }
 
 fn require_admin(env: &Env) -> Result<Address, Error> {

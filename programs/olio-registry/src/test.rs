@@ -42,7 +42,10 @@ fn duplicate_username_rejected() {
     let name = String::from_str(&env, "dinar");
 
     client.register(&a, &name, &pk(&env, 1), &pk(&env, 201));
-    let err = client.try_register(&b, &name, &pk(&env, 2), &pk(&env, 202)).err().unwrap();
+    let err = client
+        .try_register(&b, &name, &pk(&env, 2), &pk(&env, 202))
+        .err()
+        .unwrap();
     assert_eq!(err, Ok(Error::UsernameTaken));
 }
 
@@ -53,9 +56,19 @@ fn one_username_per_owner() {
     let client = setup(&env);
 
     let owner = Address::generate(&env);
-    client.register(&owner, &String::from_str(&env, "dinar"), &pk(&env, 1), &pk(&env, 203));
+    client.register(
+        &owner,
+        &String::from_str(&env, "dinar"),
+        &pk(&env, 1),
+        &pk(&env, 203),
+    );
     let err = client
-        .try_register(&owner, &String::from_str(&env, "dinar2"), &pk(&env, 2), &pk(&env, 204))
+        .try_register(
+            &owner,
+            &String::from_str(&env, "dinar2"),
+            &pk(&env, 2),
+            &pk(&env, 204),
+        )
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::OwnerHasUsername));
@@ -69,7 +82,12 @@ fn too_short_rejected() {
 
     let owner = Address::generate(&env);
     let err = client
-        .try_register(&owner, &String::from_str(&env, "ab"), &pk(&env, 1), &pk(&env, 205))
+        .try_register(
+            &owner,
+            &String::from_str(&env, "ab"),
+            &pk(&env, 1),
+            &pk(&env, 205),
+        )
         .err()
         .unwrap();
     assert_eq!(err, Ok(Error::UsernameTooShort));

@@ -27,3 +27,15 @@ coverage/
 !.env.production.example
 
 backups/
+# Local working material: drafts, generated media, run outputs.
+output/
+plans/
+artifacts/testnet-certification/
+web/artifacts/verification-onboarding/
+web/artifacts/verification-qa/playwright-report/
+web/artifacts/verification-qa/test-results/
+web/playwright/.cache/
+.next-dev/
+
+# Release split helper (local only).
+release-split/

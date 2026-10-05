@@ -98,11 +98,8 @@ impl CustomAccountInterface for OlioAccount {
             return Err(Error::WrongSigner);
         }
         let payload = Bytes::from(signature_payload);
-        env.crypto().ed25519_verify(
-            &signature.public_key,
-            &payload,
-            &signature.signature,
-        );
+        env.crypto()
+            .ed25519_verify(&signature.public_key, &payload, &signature.signature);
         extend_ttl(&env);
         Ok(())
     }

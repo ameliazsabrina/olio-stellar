@@ -11,7 +11,9 @@
 //! rotatable note key, and simple length validation (richer charset rules are
 //! enforced by the frontend).
 
-use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, String};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, String,
+};
 
 const MIN_LEN: u32 = 3;
 const MAX_LEN: u32 = 32;

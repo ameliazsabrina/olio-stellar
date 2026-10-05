@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 6,
+    "address": 5,
     "nonce": 0,
     "mux_id": 0
   },
@@ -48,6 +48,7 @@
       ]
     ],
     [],
+    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
@@ -55,10 +56,10 @@
           "function": {
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
-              "function_name": "propose_admin",
+              "function_name": "propose_fee_quote_signer",
               "args": [
                 {
-                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
+                  "bytes": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca"
                 }
               ]
             }
@@ -69,12 +70,13 @@
     ],
     [],
     [],
+    [],
     []
   ],
   "ledger": {
     "protocol_version": 26,
-    "sequence_number": 1036802,
-    "timestamp": 0,
+    "sequence_number": 0,
+    "timestamp": 172800,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
@@ -227,7 +229,7 @@
                         ]
                       },
                       "val": {
-                        "bytes": "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"
+                        "bytes": "1398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93ca"
                       }
                     },
                     {
@@ -349,66 +351,6 @@
                       },
                       "val": {
                         "bool": false
-                      }
-                    },
-                    {
-                      "key": {
-                        "vec": [
-                          {
-                            "symbol": "PendingGovernance"
-                          }
-                        ]
-                      },
-                      "val": {
-                        "map": [
-                          {
-                            "key": {
-                              "symbol": "action"
-                            },
-                            "val": {
-                              "vec": [
-                                {
-                                  "symbol": "SetAdmin"
-                                },
-                                {
-                                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4"
-                                }
-                              ]
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "execute_at"
-                            },
-                            "val": {
-                              "u64": "172800"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "payload_hash"
-                            },
-                            "val": {
-                              "bytes": "48fdd2f3813c4b847cd2dda5c41d8b0cd0250a91aaf8b6f9d95e1409ebc9bbdc"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "proposal_id"
-                            },
-                            "val": {
-                              "u64": "1"
-                            }
-                          },
-                          {
-                            "key": {
-                              "symbol": "proposed_at"
-                            },
-                            "val": {
-                              "u64": "0"
-                            }
-                          }
-                        ]
                       }
                     },
                     {
@@ -711,7 +653,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 2592002
+        "live_until": 1555200
       },
       {
         "entry": {
@@ -880,7 +822,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 2592002
+        "live_until": 1555200
       }
     ]
   },

@@ -49,8 +49,6 @@
         }
       ]
     ],
-    [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
@@ -61,7 +59,7 @@
               "function_name": "deposit_to_pool",
               "args": [
                 {
-                  "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                  "bytes": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
                 },
                 {
                   "i128": "600"
@@ -85,7 +83,7 @@
                         "symbol": "commitment"
                       },
                       "val": {
-                        "bytes": "0101010101010101010101010101010101010101010101010101010101010101"
+                        "bytes": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
                       }
                     },
                     {
@@ -109,7 +107,7 @@
                         "symbol": "fee_amount"
                       },
                       "val": {
-                        "i128": "12"
+                        "i128": "30"
                       }
                     },
                     {
@@ -117,7 +115,7 @@
                         "symbol": "fee_bps"
                       },
                       "val": {
-                        "u32": 200
+                        "u32": 500
                       }
                     },
                     {
@@ -197,20 +195,20 @@
                         "symbol": "total_amount"
                       },
                       "val": {
-                        "i128": "612"
+                        "i128": "630"
                       }
                     }
                   ]
                 },
                 {
-                  "bytes": "07070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707"
+                  "bytes": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d"
                 },
                 "void",
                 {
-                  "bytes": "0202020202020202020202020202020202020202020202020202020202020202"
+                  "bytes": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
                 },
                 {
-                  "bytes": "09090909090909090909090909090909"
+                  "bytes": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"
                 }
               ]
             }
@@ -431,7 +429,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "612"
+                      "i128": "630"
                     }
                   },
                   {
@@ -483,7 +481,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "388"
+                      "i128": "370"
                     }
                   },
                   {
