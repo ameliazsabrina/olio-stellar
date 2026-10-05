@@ -187,10 +187,9 @@ describe("shared verification controller", () => {
     await waitFor(() =>
       expect(mocks.refresh).toHaveBeenCalledWith({ businessId: "biz" }),
     );
-    expect(await screen.findByText("4. Submitted")).toHaveAttribute(
-      "aria-current",
-      "step",
-    );
+    expect(
+      await screen.findByRole("listitem", { current: "step" }),
+    ).toHaveTextContent("Submitted");
   });
   it("coalesces bursts of SDK status events into one refresh", async () => {
     mocks.data.business = { businessId: "biz", type: "individual" };

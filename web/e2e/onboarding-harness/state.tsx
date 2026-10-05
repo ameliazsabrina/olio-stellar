@@ -83,6 +83,7 @@ export const trpc = {
       return business;
     }),
     bindAccount: mutation(refresh),
+    updateProfile: mutation(refresh),
   },
   notifications: {
     list: {
@@ -145,3 +146,32 @@ export function SumsubVerification({
     change();
   },
 };
+
+// Stand-ins for Next-only modules the controller imports.
+export const useDashboardTheme = () => ({
+  theme: "painting" as const,
+  toggleTheme: () => {},
+});
+export default function Image({
+  src,
+  alt,
+  width,
+  height,
+  className,
+}: {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  className?: string;
+}) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+    />
+  );
+}

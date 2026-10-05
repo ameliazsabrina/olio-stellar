@@ -6,10 +6,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { RotateCw } from "lucide-react";
+import Image from "next/image";
+import { Check, LogOut, Moon, RotateCw, Sun, XIcon } from "lucide-react";
 import { useWallet } from "../../components/WalletProvider";
+import { useDashboardTheme } from "../../components/dashboard/DashboardBackground";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogTitle,
   DialogDescription,
@@ -22,6 +25,11 @@ import { SumsubVerification } from "./SumsubVerification";
 import { OPEN_VERIFICATION } from "./openVerification";
 const steps = ["Profile", "Preparation", "Verification", "Submitted"];
 const REFRESH_COOLDOWN_MS = 15_000;
+// Header controls from the Figma onboarding frames (03 Screens, section 1).
+const headerGlassClass =
+  "border border-white/30 bg-linear-to-b from-brand-obsidian/50 to-brand-obsidian/64 backdrop-blur-[14px]";
+const alertClass =
+  "rounded-xl border px-3.5 py-2.5 text-[13px] leading-[19px] border-(--status-danger-border) bg-(--status-danger-bg) text-(--status-danger-fg)";
 type RefreshStatus = { firstSubmittedAt?: string | null };
 function isThrottled(error: unknown): boolean {
   return (
@@ -137,10 +145,10 @@ function AccountVerification({ children }: { children: ReactNode }) {
         let status = lastRefresh.current.status;
         try {
           const due =
-            force ||
-            Date.now() - lastRefresh.current.at >= REFRESH_COOLDOWN_MS;
+            force || Date.now() - lastRefresh.current.at >= REFRESH_COOLDOWN_MS;
           if (businessId && due) {
-            status = (await refresh.mutateAsync({ businessId }))?.status ?? null;
+            status =
+              (await refresh.mutateAsync({ businessId }))?.status ?? null;
             lastRefresh.current = { at: Date.now(), status };
           }
           setError("");
@@ -247,6 +255,34 @@ function AccountVerification({ children }: { children: ReactNode }) {
   }
   const busy =
     create.isPending || bind.isPending || rename.isPending || start.isPending;
+  const { theme, toggleTheme } = useDashboardTheme();
+  const isCompany = (data?.business?.type ?? type) === "company";
+  const canGoBack = step > 0 && step < 3 && !confirming;
+  const copy = [
+    {
+      title: data?.business
+        ? `Your ${data.business.type} profile`
+        : "Create your profile",
+      description:
+        "Submit your details once to start using Olio. You can use your dashboard while we review them.",
+    },
+    {
+      title: "Get your documents ready",
+      description: isCompany
+        ? "Have your company registration documents and identification for owners and representatives ready."
+        : "Have your government-issued ID ready. You may be asked to take a selfie.",
+    },
+    {
+      title: `Verify your ${isCompany ? "company" : "identity"}`,
+      description:
+        "Documents and selfies go straight to our verification partner. This takes a few minutes.",
+    },
+    {
+      title: "Submission received",
+      description:
+        "We are reviewing your details. You can use your dashboard in the meantime.",
+    },
+  ][step];
   return (
     <>
       {ready && fresh && boundData?.submitted ? (
@@ -263,186 +299,305 @@ function AccountVerification({ children }: { children: ReactNode }) {
         }}
       >
         <DialogContent
-          size="lg"
-          appearance="linen"
-          showCloseButton={!required}
-          className="sm:max-w-2xl"
+          showCloseButton={false}
+          overlayClassName="bg-transparent bg-[linear-gradient(180deg,rgb(26_31_18/0.7)_0%,rgb(26_31_18/0.7)_40%,rgb(26_31_18/0.45)_70%,rgb(26_31_18/0.45)_100%)]"
+          className="inset-0 top-0 left-0 flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-transparent p-0 text-brand-linen ring-0 backdrop-blur-none sm:max-w-none sm:p-0 data-open:zoom-in-100 data-closed:zoom-out-100"
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => void refreshStatus()}
-            disabled={refreshing || !businessId}
-            aria-label={
-              refreshing ? "Refreshing submission status" : "Refresh status"
-            }
-            title="Refresh submission status"
-            className={`absolute top-3 rounded-full sm:top-4 ${required ? "right-3 sm:right-4" : "right-14 sm:right-15"}`}
-          >
-            <RotateCw
-              className={`size-4 ${refreshing ? "motion-safe:animate-spin" : ""}`}
-              aria-hidden="true"
+          <header className="flex items-center justify-between gap-3 px-4 pt-4 pb-4 sm:gap-4 sm:px-8 sm:pt-8">
+            <Image
+              src="/assets/olio-white.svg"
+              alt="Olio"
+              width={72}
+              height={72}
+              className="-my-3 size-16 shrink-0 sm:size-[4.5rem]"
             />
-          </Button>
-          <DialogTitle className={required ? "pr-12" : "pr-24"}>
-            Verify your{" "}
-            {data?.business?.type === "company" ? "company" : "identity"}
-          </DialogTitle>
-          <DialogDescription>
-            Submit your details once to start using Olio. You can use your
-            dashboard while we review them.
-          </DialogDescription>
-          <ol
-            aria-label="Verification progress"
-            className="grid grid-cols-4 gap-2 text-xs"
-          >
-            {steps.map((label, index) => (
-              <li
-                key={label}
-                aria-current={step === index ? "step" : undefined}
-                className={`border-t-2 pt-2 ${step === index ? "border-foreground font-semibold" : "border-border text-muted-foreground"}`}
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <ol
+                aria-label="Verification progress"
+                className={`${headerGlassClass} flex items-center gap-1.5 rounded-full px-3 py-2.5 text-[11px] leading-[15px] sm:gap-2 sm:px-4`}
               >
-                {index + 1}. {label}
-              </li>
-            ))}
-          </ol>
-          {selectedBusiness && selected.isError ? (
-            <p role="alert">
-              This verification is no longer available to your account.
-            </p>
-          ) : null}
-          {query.isError ? (
-            <p role="alert">
-              Verification status is unavailable. Retry to continue.
-            </p>
-          ) : null}
-          {data && !data.serviceAvailable ? (
-            <p role="alert">
-              Verification is temporarily unavailable. Please retry shortly.
-            </p>
-          ) : null}
-          <div
-            key={step}
-            className="min-w-0 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 space-y-4"
-          >
-            {step === 0 && (
-              <>
-                {data?.business ? (
-                  <>
-                    <p>
-                      Your {data.business.type} profile. Profile type is locked.
-                    </p>
-                    {nameEditable ? (
-                      <label className="block">
+                {steps.map((label, index) => {
+                  const done = index < step;
+                  const current = index === step;
+                  const marker = (
+                    <span
+                      aria-hidden="true"
+                      className={`flex size-6 shrink-0 items-center justify-center rounded-full ${
+                        current
+                          ? "bg-brand-linen text-brand-obsidian"
+                          : done
+                            ? "bg-brand-linen/85 text-brand-obsidian"
+                            : "border border-[#3c4132] bg-[#262b1c] text-[#a2a698]"
+                      }`}
+                    >
+                      {done ? (
+                        <Check className="size-3" strokeWidth={2.5} />
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
+                  );
+                  const text = (
+                    <span
+                      className={`whitespace-nowrap max-sm:sr-only ${current ? "text-brand-linen" : "text-brand-linen/88"}`}
+                    >
+                      {label}
+                    </span>
+                  );
+                  return (
+                    <li
+                      key={label}
+                      aria-current={current ? "step" : undefined}
+                      className="flex items-center gap-1.5 sm:gap-2"
+                    >
+                      {index > 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className="h-px w-3 bg-[#3c4132] sm:w-6"
+                        />
+                      ) : null}
+                      {done && canGoBack ? (
+                        <button
+                          type="button"
+                          onClick={() => setStep(index)}
+                          className="flex items-center gap-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen sm:gap-2"
+                        >
+                          {marker}
+                          {text}
+                        </button>
+                      ) : (
+                        <>
+                          {marker}
+                          {text}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={
+                  theme === "painting"
+                    ? "Use dark dashboard theme"
+                    : "Use painting dashboard theme"
+                }
+                title={theme === "painting" ? "Use dark theme" : "Use painting"}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/24 bg-brand-obsidian/45 text-brand-linen backdrop-blur-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
+              >
+                {theme === "painting" ? (
+                  <Moon className="size-[18px]" aria-hidden="true" />
+                ) : (
+                  <Sun className="size-[18px]" aria-hidden="true" />
+                )}
+              </button>
+              {!required ? (
+                <DialogClose
+                  render={
+                    <button
+                      type="button"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/24 bg-brand-obsidian/45 text-brand-linen backdrop-blur-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen"
+                    />
+                  }
+                >
+                  <XIcon className="size-[18px]" aria-hidden="true" />
+                  <span className="sr-only">Close</span>
+                </DialogClose>
+              ) : null}
+            </div>
+          </header>
+          <div className="flex flex-1 items-start justify-center px-4 pt-2 pb-8 sm:items-center sm:px-8 sm:pb-16">
+            <section
+              className={`theme-linen surface-linen-panel relative flex w-full flex-col gap-3 rounded-[28px] p-5 text-(--control-foreground) sm:p-10 ${step === 2 && !confirming ? "max-w-2xl" : "max-w-[528px]"}`}
+            >
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void refreshStatus()}
+                disabled={refreshing || !businessId}
+                aria-label={
+                  refreshing ? "Refreshing submission status" : "Refresh status"
+                }
+                title="Refresh submission status"
+                className="absolute top-3 right-3 rounded-full sm:top-6 sm:right-6"
+              >
+                <RotateCw
+                  className={`size-4 ${refreshing ? "motion-safe:animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+              </Button>
+              <p className="pr-10 text-[11px] leading-[14px] font-semibold tracking-[0.14em] text-(--control-muted) uppercase">
+                Step {step + 1}
+              </p>
+              <DialogTitle className="pr-10 text-[26px] leading-8 tracking-[-0.02em] sm:text-[30px] sm:leading-9">
+                {copy.title}
+              </DialogTitle>
+              <DialogDescription className="max-w-none text-[13px] leading-[19px] text-(--control-muted)">
+                {copy.description}
+              </DialogDescription>
+              <div className="h-2 sm:h-4" aria-hidden="true" />
+              {selectedBusiness && selected.isError ? (
+                <p role="alert" className={alertClass}>
+                  This verification is no longer available to your account.
+                </p>
+              ) : null}
+              {query.isError ? (
+                <p role="alert" className={alertClass}>
+                  Verification status is unavailable. Retry to continue.
+                </p>
+              ) : null}
+              {data && !data.serviceAvailable ? (
+                <p role="alert" className={alertClass}>
+                  Verification is temporarily unavailable. Please retry shortly.
+                </p>
+              ) : null}
+              <div
+                key={step}
+                className="min-w-0 space-y-3 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+              >
+                {step === 0 &&
+                  (data?.business ? (
+                    <>
+                      <p className="text-[13px] leading-[19px] text-(--control-muted)">
+                        Profile type is locked.
+                      </p>
+                      {nameEditable ? (
+                        <label className="grid gap-2 text-[13px] font-medium">
+                          Display name (optional)
+                          <Input
+                            appearance="linen"
+                            value={displayName}
+                            maxLength={80}
+                            disabled={busy}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                          />
+                        </label>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <fieldset disabled={busy} className="grid gap-2">
+                        <legend className="mb-2 text-[13px] font-medium">
+                          Profile type
+                        </legend>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["individual", "company"] as const).map((value) => (
+                            <label
+                              key={value}
+                              className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-(--control-border) bg-(--control) px-3.5 py-2.5 text-sm capitalize transition-colors has-checked:border-(--control-foreground) has-focus-visible:ring-2 has-focus-visible:ring-ring/45"
+                            >
+                              <input
+                                type="radio"
+                                name="profile-type"
+                                checked={type === value}
+                                onChange={() => setType(value)}
+                                className="accent-(--action)"
+                              />
+                              {value}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                      <label className="grid gap-2 text-[13px] font-medium">
                         Display name (optional)
                         <Input
+                          appearance="linen"
                           value={displayName}
                           maxLength={80}
-                          disabled={busy}
                           onChange={(e) => setDisplayName(e.target.value)}
                         />
                       </label>
+                    </>
+                  ))}
+                {step === 1 && (
+                  <p className="rounded-xl border border-(--control-border) bg-(--control) px-3.5 py-3 text-xs leading-[17px] text-(--control-muted)">
+                    Documents and selfies are collected by our verification
+                    partner. Olio stores your verification status. Your public
+                    badge is optional.
+                  </p>
+                )}
+                {step === 2 &&
+                  (confirming ? (
+                    <p
+                      role="status"
+                      className="text-[13px] leading-[19px] text-(--control-muted)"
+                    >
+                      Confirming submission… We are waiting for server
+                      confirmation. You can retry the status check.
+                    </p>
+                  ) : (
+                    <SumsubVerification
+                      appearance="linen"
+                      getToken={getToken}
+                      onSubmitted={confirmSubmission}
+                      onStatusChanged={(reviewed) =>
+                        reviewed ? confirmSubmission() : void check()
+                      }
+                    />
+                  ))}
+                {step === 3 && (
+                  <>
+                    <p
+                      role="status"
+                      className="rounded-xl border border-(--control-border) bg-(--control) px-3.5 py-3 text-sm leading-[21px]"
+                    >
+                      {data?.status?.userMessage ??
+                        "Your submission was received."}
+                    </p>
+                    {data?.status?.nextAction === "resubmit" ||
+                    data?.status?.nextAction === "continue" ? (
+                      <Button variant="secondary" onClick={() => setStep(2)}>
+                        Provide additional information
+                      </Button>
                     ) : null}
                   </>
-                ) : (
-                  <>
-                    <fieldset disabled={busy}>
-                      <legend className="mb-2 font-medium">Profile type</legend>
-                      <div className="flex gap-6">
-                        {(["individual", "company"] as const).map((value) => (
-                          <label key={value} className="flex gap-2 capitalize">
-                            <input
-                              type="radio"
-                              name="profile-type"
-                              checked={type === value}
-                              onChange={() => setType(value)}
-                            />
-                            {value}
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                    <label className="block">
-                      Display name (optional)
-                      <Input
-                        value={displayName}
-                        maxLength={80}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                      />
-                    </label>
-                  </>
                 )}
-              </>
-            )}
-            {step === 1 && (
-              <>
-                <p>
-                  {(data?.business?.type ?? type) === "company"
-                    ? "Have your company registration documents and identification for owners and representatives ready."
-                    : "Have your government-issued ID ready. You may be asked to take a selfie."}
+              </div>
+              {error && (
+                <p role="alert" className={alertClass}>
+                  {error}
                 </p>
-                <p>
-                  Documents and selfies are collected by our verification
-                  partner. Olio stores your verification status. Your public
-                  badge is optional.
-                </p>
-              </>
-            )}
-            {step === 2 &&
-              (confirming ? (
-                <p role="status">
-                  Confirming submission… We are waiting for server confirmation.
-                  You can retry the status check.
-                </p>
-              ) : (
-                <SumsubVerification
-                  appearance="linen"
-                  getToken={getToken}
-                  onSubmitted={confirmSubmission}
-                  onStatusChanged={(reviewed) =>
-                    reviewed ? confirmSubmission() : void check()
-                  }
-                />
-              ))}
-            {step === 3 && (
-              <>
-                <p role="status">
-                  {data?.status?.userMessage ?? "Your submission was received."}
-                </p>
-                {data?.status?.nextAction === "resubmit" ||
-                data?.status?.nextAction === "continue" ? (
-                  <Button onClick={() => setStep(2)}>
-                    Provide additional information
-                  </Button>
-                ) : null}
+              )}
+              {step < 2 && (
                 <Button
+                  className="w-full"
+                  disabled={busy || !data?.serviceAvailable}
+                  onClick={() => void next()}
+                >
+                  {busy ? "Please wait…" : "Continue"}
+                </Button>
+              )}
+              {step === 3 && (
+                <Button
+                  className="w-full"
                   onClick={() => setRequested(false)}
                   disabled={!data?.submitted}
                 >
                   Continue to dashboard
                 </Button>
-              </>
-            )}
+              )}
+              {canGoBack ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setStep(step - 1)}
+                >
+                  Back
+                </Button>
+              ) : null}
+            </section>
           </div>
-          {error && <p role="alert">{error}</p>}
-          <div className="flex flex-wrap gap-2">
-            {step > 0 && step < 3 && !confirming && (
-              <Button variant="outline" onClick={() => setStep(step - 1)}>
-                Back
-              </Button>
-            )}
-            {step < 2 && (
-              <Button
-                disabled={busy || !data?.serviceAvailable}
-                onClick={() => void next()}
-              >
-                {busy ? "Please wait…" : "Continue"}
-              </Button>
-            )}
-            <Button variant="ghost" onClick={() => void wallet.disconnect()}>
+          <footer className="flex justify-end px-4 pb-4 sm:px-8 sm:pb-8">
+            <Button
+              variant="destructive"
+              onClick={() => void wallet.disconnect()}
+            >
+              <LogOut aria-hidden="true" />
               Sign out
             </Button>
-          </div>
+          </footer>
         </DialogContent>
       </Dialog>
     </>

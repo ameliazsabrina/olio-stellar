@@ -30,6 +30,8 @@ const server = await createServer({
       { find: /.*\/WalletProvider$/, replacement: fixture },
       { find: /.*\/trpc\/react$/, replacement: fixture },
       { find: /^\.\/SumsubVerification$/, replacement: fixture },
+      { find: /.*\/DashboardBackground$/, replacement: fixture },
+      { find: /^next\/image$/, replacement: fixture },
       { find: "@", replacement: path.join(root, "src") },
     ],
   },
@@ -79,7 +81,10 @@ try {
     if (!(await page.getByRole("dialog").isVisible()))
       throw new Error("Required modal dismissed");
     await page.getByLabel("Display name (optional)").fill("Ayu Pratama");
+    await page.screenshot({ path: path.join(output, `${name}-profile.png`) });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByText(/government-issued ID/).waitFor();
+    await page.screenshot({ path: path.join(output, `${name}-prepare.png`) });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page
       .getByRole("button", { name: "Submit provider documents" })
@@ -96,6 +101,8 @@ try {
     if (await page.getByText("Dashboard is available").count())
       throw new Error("SDK callback unlocked access");
     await page.evaluate(() => window.verificationQA.confirm());
+    await page.getByRole("button", { name: "Continue to dashboard" }).waitFor();
+    await page.screenshot({ path: path.join(output, `${name}-submitted.png`) });
     await page.getByRole("button", { name: "Continue to dashboard" }).click();
     await page.getByRole("button", { name: /Notifications/ }).click();
     await page.getByText("Notifications", { exact: true }).waitFor();
