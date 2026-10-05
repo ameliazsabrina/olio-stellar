@@ -1,6 +1,8 @@
+import { StrKey } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import { cctpBinding } from "@/lib/cctp";
 import { parseCctpMessage } from "@/lib/cctpMessage";
+import type { SignedFeeQuote } from "@/lib/fee-quote";
 
 // Build a CCTP V2 message by writing each field at its ABSOLUTE offset, written
 // out as literals here (not imported from the parser) so this test independently
@@ -10,6 +12,7 @@ function buildMessage(opts: {
   mintRecipient: Uint8Array; // 32B
   amount: bigint; // canonical 6-dec, written as u256 BE @216
   hookData: Uint8Array;
+  messageSender?: Uint8Array;
 }): string {
   const bytes = new Uint8Array(376 + opts.hookData.length);
   // sourceDomain u32 @4
@@ -27,11 +30,33 @@ function buildMessage(opts: {
     v >>= 8n;
   }
   // hookData @376
+  bytes.set(opts.messageSender ?? new Uint8Array(32), 248);
   bytes.set(opts.hookData, 376);
   return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 const filled = (n: number, byte: number) => new Uint8Array(n).fill(byte);
+const pool = StrKey.encodeContract(filled(32, 9));
+const depositor = StrKey.encodeContract(filled(32, 8));
+const quote = (overrides: Partial<SignedFeeQuote> = {}): SignedFeeQuote => ({
+  formatVersion: 1,
+  policyVersion: 2,
+  quoteId: filled(32, 1),
+  networkId: filled(32, 2),
+  pool,
+  depositor,
+  commitment: filled(32, 3),
+  paymentAmount: 10_000_000n,
+  feeBps: 200,
+  feeAmount: 200_000n,
+  totalAmount: 10_200_000n,
+  channel: "cctp",
+  sourceDomain: 1,
+  sourcePayer: filled(32, 4),
+  issuedAt: 100n,
+  expiresAt: 200n,
+  ...overrides,
+});
 
 describe("parseCctpMessage", () => {
   it("reads mintRecipient, amount, and hookData at the V2 offsets", () => {
@@ -49,6 +74,7 @@ describe("parseCctpMessage", () => {
     expect([...msg.mintRecipient]).toEqual([...mintRecipient]);
     expect(msg.amount).toBe(5_000000n);
     expect([...msg.hookData]).toEqual([...hookData]);
+    expect([...msg.messageSender]).toEqual([...new Uint8Array(32)]);
     // canonical 6-dec → Stellar 7-dec is ×10: 5 USDC = 50_000000 stroops.
     expect(msg.amount * 10n).toBe(50_000000n);
   });
@@ -76,28 +102,32 @@ describe("parseCctpMessage", () => {
 
 describe("cctpBinding parity (client burn ↔ server relay check)", () => {
   it("recomputes the same commitment the parser reads from hookData", () => {
-    // The payer's burn.ts sets hookData = cctpBinding(notePubkey, nonce); the
+    // The payer binds payee, nonce, principal, and policy into hookData; the
     // relay recomputes it from the resolved payee. This asserts both sides agree.
-    const notePubkey = filled(32, 0x11);
-    const nonce = filled(32, 0x22);
-    const hookData = cctpBinding(notePubkey, nonce);
+    const signed = quote();
+    const hookData = cctpBinding(signed);
 
     const hex = buildMessage({
       sourceDomain: 1,
       mintRecipient: filled(32, 0),
       amount: 1_000000n,
       hookData,
+      messageSender: signed.sourcePayer,
     });
 
     const parsed = parseCctpMessage(hex);
-    expect([...parsed.hookData]).toEqual([...cctpBinding(notePubkey, nonce)]);
+    expect([...parsed.hookData]).toEqual([...cctpBinding(signed)]);
   });
 
-  it("changes if the payee note key or nonce changes (second preimage)", () => {
-    const base = cctpBinding(filled(32, 0x11), filled(32, 0x22));
-    const otherPayee = cctpBinding(filled(32, 0x33), filled(32, 0x22));
-    const otherNonce = cctpBinding(filled(32, 0x11), filled(32, 0x44));
+  it("changes if any authenticated payment field changes", () => {
+    const base = cctpBinding(quote());
+    const otherPayee = cctpBinding(quote({ commitment: filled(32, 0x33) }));
+    const otherNonce = cctpBinding(quote({ quoteId: filled(32, 0x44) }));
+    const otherPrincipal = cctpBinding(quote({ paymentAmount: 20_000_000n }));
+    const otherPolicy = cctpBinding(quote({ policyVersion: 3 as 2 }));
     expect([...otherPayee]).not.toEqual([...base]);
     expect([...otherNonce]).not.toEqual([...base]);
+    expect([...otherPrincipal]).not.toEqual([...base]);
+    expect([...otherPolicy]).not.toEqual([...base]);
   });
 });

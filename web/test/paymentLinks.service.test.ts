@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
 import {
+  PaymentLinkBusinessMismatchError,
   PaymentLinkStoreError,
   PaymentLinkUnauthorizedError,
 } from "../src/server/modules/paymentLinks/paymentLinks.errors";
@@ -17,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   toArray: vi.fn(),
   sort: vi.fn(),
   find: vi.fn(),
+  businessOwnsUsername: vi.fn(),
+  publishedPublicIdsFor: vi.fn(),
 }));
 
 vi.mock("../src/server/db/mongo", () => ({
@@ -28,8 +31,15 @@ vi.mock("../src/server/db/mongo", () => ({
     find: mocks.find,
   }),
 }));
+vi.mock("../src/server/modules/businesses/businesses.service", () => ({
+  businessOwnsUsername: mocks.businessOwnsUsername,
+}));
+vi.mock("../src/server/modules/passport/passport.service", () => ({
+  publishedPublicIdsFor: mocks.publishedPublicIdsFor,
+}));
 
 import {
+  claimLinkForBusiness,
   createLink,
   deleteLink,
   getLink,
@@ -45,6 +55,8 @@ beforeEach(() => {
   mocks.find.mockReturnValue({ sort: mocks.sort });
   mocks.sort.mockReturnValue({ toArray: mocks.toArray });
   mocks.toArray.mockResolvedValue([]);
+  mocks.businessOwnsUsername.mockResolvedValue(true);
+  mocks.publishedPublicIdsFor.mockResolvedValue(new Map());
 });
 
 describe("createLink", () => {
@@ -88,6 +100,8 @@ describe("createLink", () => {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       archivedAt: null,
+      businessClaimed: false,
+      verifiedBusinessPublicId: null,
     });
     expect(link).not.toHaveProperty("manageTokenHash");
   });
@@ -161,6 +175,8 @@ describe("getLink", () => {
       createdAt: createdAt.toISOString(),
       updatedAt: createdAt.toISOString(),
       archivedAt: null,
+      businessClaimed: false,
+      verifiedBusinessPublicId: null,
     });
   });
 
@@ -228,6 +244,8 @@ describe("listLinksByOwner", () => {
         createdAt: createdAt.toISOString(),
         updatedAt: null,
         archivedAt: null,
+        businessClaimed: false,
+        verifiedBusinessPublicId: null,
       },
     ]);
   });
@@ -378,5 +396,66 @@ describe("deleteLink", () => {
       deleteLink({ id: "l1", manageToken: "guessed" }),
     ).rejects.toBeInstanceOf(PaymentLinkUnauthorizedError);
     expect(mocks.deleteOne).not.toHaveBeenCalled();
+  });
+});
+
+describe("claimLinkForBusiness", () => {
+  it("binds the link to the caller's business only when the business owns the username", async () => {
+    const doc = storedDoc();
+    mocks.findOne.mockResolvedValue(doc);
+    mocks.findOneAndUpdate.mockResolvedValue({
+      ...doc,
+      businessId: "biz_123456789",
+    });
+    const out = await claimLinkForBusiness("did:privy:alice", {
+      id: doc._id,
+      manageToken: TOKEN,
+      businessId: "biz_123456789",
+    });
+    expect(mocks.businessOwnsUsername).toHaveBeenCalledWith(
+      "did:privy:alice",
+      "biz_123456789",
+      "alice",
+    );
+    expect(mocks.findOneAndUpdate.mock.calls[0][1].$set.businessId).toBe(
+      "biz_123456789",
+    );
+    expect(out.businessClaimed).toBe(true);
+    expect(out.verifiedBusinessPublicId).toBeNull();
+  });
+
+  it("refuses when the username is not bound to the business", async () => {
+    mocks.findOne.mockResolvedValue(storedDoc());
+    mocks.businessOwnsUsername.mockResolvedValue(false);
+    await expect(
+      claimLinkForBusiness("did:privy:mallory", {
+        id: "abc123",
+        manageToken: TOKEN,
+        businessId: "biz_123456789",
+      }),
+    ).rejects.toBeInstanceOf(PaymentLinkBusinessMismatchError);
+    expect(mocks.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it("still requires the manage token before consulting business ownership", async () => {
+    mocks.findOne.mockResolvedValue(storedDoc());
+    await expect(
+      claimLinkForBusiness("did:privy:alice", {
+        id: "abc123",
+        manageToken: "wrong",
+        businessId: "biz_123456789",
+      }),
+    ).rejects.toBeInstanceOf(PaymentLinkUnauthorizedError);
+    expect(mocks.businessOwnsUsername).not.toHaveBeenCalled();
+  });
+
+  it("exposes a public identity id only when the business has a published badge", async () => {
+    const doc = storedDoc({ businessId: "biz_123456789" });
+    mocks.findOne.mockResolvedValue(doc);
+    mocks.publishedPublicIdsFor.mockResolvedValue(
+      new Map([["biz_123456789", "pub_abcdef"]]),
+    );
+    const out = await getLink(doc._id);
+    expect(out?.verifiedBusinessPublicId).toBe("pub_abcdef");
   });
 });

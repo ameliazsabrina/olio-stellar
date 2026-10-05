@@ -5,8 +5,8 @@ import {
   merkleProof,
   ownerPk as ownerPkHash,
   poseidonHash,
-  toBE32,
   TREE_DEPTH,
+  toBE32,
 } from "./crypto";
 import type { LocalAccount, MyNote, ScanResult } from "./notes";
 import { networkPassphrase, poolId } from "./stellar";

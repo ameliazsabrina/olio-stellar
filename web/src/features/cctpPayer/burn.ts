@@ -2,27 +2,29 @@
 
 import { StrKey } from "@stellar/stellar-sdk";
 import {
+  type AddEthereumChainParameter,
   bytesToHex,
   createPublicClient,
   createWalletClient,
   custom,
   type EIP1193Provider,
   erc20Abi,
+  http,
   parseUnits,
 } from "viem";
 import {
   CCTP_STELLAR_DOMAIN,
   cctpBinding,
+  cctpRpcPath,
+  EVM_SOURCES,
   type EvmSource,
   evmSourceByChainId,
 } from "../../lib/cctp";
+import { fromBaseUnits } from "../../lib/crypto";
+import type { FeeQuoteEnvelope } from "../../lib/fee-quote";
 
-// USDC is 6 decimals on every EVM chain.
 const EVM_USDC_DECIMALS = 6;
 
-// CCTP V2 TokenMessenger.depositForBurnWithHook (standard, finalized transfer).
-// The trailing hookData carries our payee-binding commitment; it rides along in
-// the attested message so the relay can verify who the burn was meant for.
 const tokenMessengerAbi = [
   {
     name: "depositForBurnWithHook",
@@ -55,6 +57,76 @@ export function getEvmProvider(): EIP1193Provider {
   return provider;
 }
 
+export const evmChainIdHex = (source: EvmSource): `0x${string}` =>
+  `0x${source.chainId.toString(16)}`;
+export const evmChainParams = (
+  source: EvmSource,
+): AddEthereumChainParameter => ({
+  chainId: evmChainIdHex(source),
+  chainName: source.name,
+  nativeCurrency: source.nativeCurrency,
+  rpcUrls: [source.rpcUrl],
+  blockExplorerUrls: [new URL(source.explorerTx).origin],
+});
+
+function errorCode(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const value = error as { code?: unknown; data?: { originalError?: unknown } };
+  // MetaMask can wrap the actionable wallet error in a generic JSON-RPC error.
+  const nested = errorCode(value.data?.originalError);
+  if (nested !== undefined) return nested;
+  const code = Number(value.code);
+  return value.code != null && Number.isFinite(code) ? code : undefined;
+}
+const errorMessage = (error: unknown) =>
+  error instanceof Error
+    ? error.message
+    : String((error as { message?: unknown } | null)?.message ?? error);
+const isUnrecognizedChain = (error: unknown) =>
+  errorCode(error) === 4902 ||
+  /unrecognized chain|wallet_addEthereumChain/i.test(errorMessage(error));
+const isUserRejection = (error: unknown) =>
+  errorCode(error) === 4001 ||
+  /user rejected|user denied/i.test(errorMessage(error));
+
+export async function ensureEvmChain(
+  source: EvmSource,
+  provider = getEvmProvider(),
+) {
+  if (
+    Number(await provider.request({ method: "eth_chainId" })) === source.chainId
+  )
+    return;
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: evmChainIdHex(source) }],
+    });
+  } catch (error) {
+    if (isUserRejection(error))
+      throw new Error(`Switch your wallet to ${source.name} to continue.`);
+    if (isUnrecognizedChain(error)) {
+      try {
+        await provider.request({
+          method: "wallet_addEthereumChain",
+          params: [evmChainParams(source)],
+        });
+      } catch (addError) {
+        if (isUserRejection(addError))
+          throw new Error(`Add ${source.name} to your wallet to continue.`);
+      }
+    }
+  }
+  // Adding a chain need not select it. Trust the wallet's actual network, not RPC success.
+  if (
+    Number(await provider.request({ method: "eth_chainId" })) !== source.chainId
+  ) {
+    throw new Error(
+      `Your wallet is still on another network. Switch it to ${source.name} and try again.`,
+    );
+  }
+}
+
 /// Stellar contract (C…) → 32-byte CCTP mintRecipient. Circle's Stellar minter
 /// interprets the mintRecipient bytes unconditionally as a contract-id hash
 /// (`AddressPayload::ContractIdHash`), so the intake **must** be a contract and
@@ -68,24 +140,87 @@ export function stellarContractToBytes32(contractId: string): `0x${string}` {
 export type BurnResult = {
   txHash: `0x${string}`;
   sourceDomain: number;
-  nonce: `0x${string}`;
 };
 
-/// Approve (if needed) and burn `amount` USDC on the connected EVM chain,
-/// minting to the intake **contract** on Stellar. The burn is bound to the payee
-/// via a salted commitment in hookData (keccak256(payeeNotePubkey ‖ nonce)); the
-/// random nonce is returned so the relay can recompute and verify the binding.
-/// Returns the burn tx hash, source domain, and nonce.
-export async function burnToStellar(params: {
-  intakeContract: string;
-  payeeNotePubkey: Uint8Array;
-  amount: string;
-}): Promise<BurnResult> {
+export async function detectEvmSourceDomain(): Promise<number | null> {
+  const provider = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
+  if (!provider) return null;
+  try {
+    const chainIdHex = (await provider.request({
+      method: "eth_chainId",
+    })) as string;
+    return evmSourceByChainId(Number.parseInt(chainIdHex, 16))?.domain ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function onEvmChainChanged(
+  listener: (chainIdHex: string) => void,
+): () => void {
+  const provider = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
+  if (!provider?.on || !provider.removeListener) return () => {};
+  provider.on("chainChanged", listener);
+  return () => provider.removeListener?.("chainChanged", listener);
+}
+
+export function onEvmAccountsChanged(
+  listener: (accounts: string[]) => void,
+): () => void {
+  const provider = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
+  if (!provider?.on || !provider.removeListener) return () => {};
+  provider.on("accountsChanged", listener);
+  return () => provider.removeListener?.("accountsChanged", listener);
+}
+
+export async function evmCctpIdentity(expectedDomain?: number): Promise<{
+  sourceDomain: number;
+  sourcePayer: string;
+}> {
+  const expected =
+    expectedDomain === undefined ? undefined : EVM_SOURCES[expectedDomain];
   const provider = getEvmProvider();
   const [account] = (await provider.request({
     method: "eth_requestAccounts",
   })) as `0x${string}`[];
   if (!account) throw new Error("No EVM account authorized.");
+  if (expected) await ensureEvmChain(expected, provider);
+  const chainIdHex = (await provider.request({
+    method: "eth_chainId",
+  })) as string;
+  const source = evmSourceByChainId(Number.parseInt(chainIdHex, 16));
+  if (!source)
+    throw new Error("Switch your wallet to a supported CCTP testnet.");
+  if (expected && source.domain !== expected.domain)
+    throw new Error(`Switch your wallet to ${expected.name} to continue.`);
+  return {
+    sourceDomain: source.domain,
+    sourcePayer: account.slice(2).padStart(64, "0").toLowerCase(),
+  };
+}
+
+export async function burnToStellar(params: {
+  intakeContract: string;
+  feeQuote: FeeQuoteEnvelope;
+  beforeBurn?: () => Promise<void>;
+  onSubmitted?: (txHash: string) => Promise<void>;
+}): Promise<BurnResult> {
+  if (
+    params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000))
+  ) {
+    throw new Error("The fee quote expired before the CCTP burn.");
+  }
+  const provider = getEvmProvider();
+  const [account] = (await provider.request({
+    method: "eth_requestAccounts",
+  })) as `0x${string}`[];
+  if (!account) throw new Error("No EVM account authorized.");
+
+  // The signed quote, not the wallet's current network, determines where funds burn.
+  const quotedSource = EVM_SOURCES[params.feeQuote.quote.sourceDomain];
+  if (!quotedSource)
+    throw new Error("Unsupported EVM source in the signed fee quote.");
+  await ensureEvmChain(quotedSource, provider);
 
   const chainIdHex = (await provider.request({
     method: "eth_chainId",
@@ -97,15 +232,29 @@ export async function burnToStellar(params: {
       "Switch your wallet to a CCTP testnet (Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, or Avalanche Fuji).",
     );
   }
+  const sourcePayer = account.slice(2).padStart(64, "0").toLowerCase();
+  if (
+    params.feeQuote.quote.sourceDomain !== source.domain ||
+    bytesToHex(params.feeQuote.quote.sourcePayer).slice(2).toLowerCase() !==
+      sourcePayer
+  ) {
+    throw new Error(
+      "Connected EVM wallet does not match the signed fee quote.",
+    );
+  }
 
-  const publicClient = createPublicClient({ transport: custom(provider) });
+  const publicClient = createPublicClient({
+    transport: http(cctpRpcPath(source.domain), { retryCount: 0 }),
+  });
   const walletClient = createWalletClient({ transport: custom(provider) });
 
-  const amountUnits = parseUnits(params.amount, EVM_USDC_DECIMALS);
+  const amountUnits = parseUnits(
+    fromBaseUnits(params.feeQuote.quote.totalAmount),
+    EVM_USDC_DECIMALS,
+  );
   const mintRecipient = stellarContractToBytes32(params.intakeContract);
 
-  const nonce = crypto.getRandomValues(new Uint8Array(32));
-  const hookData = bytesToHex(cctpBinding(params.payeeNotePubkey, nonce));
+  const hookData = bytesToHex(cctpBinding(params.feeQuote.quote));
 
   const allowance = await publicClient.readContract({
     address: source.usdc,
@@ -122,9 +271,28 @@ export async function burnToStellar(params: {
       functionName: "approve",
       args: [source.tokenMessenger, amountUnits],
     });
-    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: approveHash,
+      timeout: 120_000,
+    });
+    if (receipt.status !== "success")
+      throw new Error("USDC approval failed. No payment was submitted.");
   }
 
+  await params.beforeBurn?.();
+  const currentAccounts = (await provider.request({
+    method: "eth_accounts",
+  })) as string[];
+  const currentChain = await provider.request({ method: "eth_chainId" });
+  if (
+    currentAccounts[0]?.toLowerCase() !== account.toLowerCase() ||
+    Number.parseInt(String(currentChain), 16) !== source.chainId
+  )
+    throw new Error(
+      "Your wallet account or network changed. Review the payment again.",
+    );
+  if (params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000)))
+    throw new Error("The fee quote expired before the CCTP burn.");
   const txHash = await walletClient.writeContract({
     account,
     chain: null,
@@ -142,6 +310,6 @@ export async function burnToStellar(params: {
       hookData,
     ],
   });
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
-  return { txHash, sourceDomain: source.domain, nonce: bytesToHex(nonce) };
+  await params.onSubmitted?.(txHash);
+  return { txHash, sourceDomain: source.domain };
 }

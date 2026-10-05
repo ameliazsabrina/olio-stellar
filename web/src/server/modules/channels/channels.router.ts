@@ -1,3 +1,4 @@
+import { authorizeRelay } from "./channels.authorization";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
@@ -35,7 +36,8 @@ export const channelsRouter = createTRPCRouter({
   relaySoroban: publicProcedure
     .input(relayInput)
     .output(relayResultOutput)
-    .mutation(({ input }) =>
-      relaySoroban(input.func, input.auth).catch(mapError),
-    ),
+    .mutation(async ({ input, ctx }) => {
+      await authorizeRelay(input.func, ctx.privyUserId);
+      return relaySoroban(input.func, input.auth).catch(mapError);
+    }),
 });

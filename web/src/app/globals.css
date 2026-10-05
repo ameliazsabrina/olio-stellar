@@ -274,6 +274,61 @@
   --section-space: clamp(5rem, 9vw, 7rem);
   --section-space-compact: clamp(3.5rem, 7vw, 6rem);
   --motion-product: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Component tokens from the Figma "02 Components" page. */
+  --action: #4c5d34;
+  --action-foreground: #f5f3ea;
+  --inverse: #f5f3ea;
+  --inverse-foreground: #1a1f12;
+  --control: #f5f3ea;
+  --control-foreground: #20261a;
+  --control-border: #d6d6c8;
+  --control-muted: #6b6e5d;
+  --field-border: #828574;
+  --line-soft: #e5e3d8;
+  --status-neutral-bg: #e8e9dd;
+  --status-neutral-border: #d6d6c8;
+  --status-neutral-fg: #62665c;
+  --status-success-bg: #eaeae4;
+  --status-success-border: #cfd3c6;
+  --status-success-fg: #2f3a20;
+  --status-warning-bg: #f2ede2;
+  --status-warning-border: #dfd2b7;
+  --status-warning-fg: #7d5d1a;
+  --status-danger-bg: #f0e7e3;
+  --status-danger-border: #dfcac4;
+  --status-danger-fg: #8c3a2b;
+  --status-muted-bg: #f0efec;
+  --status-muted-border: #e5e3d8;
+  --status-muted-fg: #6b6e5d;
+}
+
+:where(.theme-product, body:has(.theme-product)) {
+  --action: #f5f3ea;
+  --action-foreground: #1a1f12;
+  --inverse: #f5f3ea;
+  --inverse-foreground: #1a1f12;
+  --control: rgb(245 243 234 / 0.1);
+  --control-foreground: #f5f3ea;
+  --control-border: rgb(245 243 234 / 0.18);
+  --control-muted: rgb(245 243 234 / 0.66);
+  --field-border: rgb(245 243 234 / 0.32);
+  --line-soft: rgb(245 243 234 / 0.12);
+  --status-neutral-bg: rgb(245 243 234 / 0.1);
+  --status-neutral-border: rgb(245 243 234 / 0.2);
+  --status-neutral-fg: rgb(245 243 234 / 0.85);
+  --status-success-bg: rgb(181 196 143 / 0.16);
+  --status-success-border: rgb(181 196 143 / 0.34);
+  --status-success-fg: #d3dcb6;
+  --status-warning-bg: rgb(216 178 94 / 0.15);
+  --status-warning-border: rgb(216 178 94 / 0.34);
+  --status-warning-fg: #ecd297;
+  --status-danger-bg: rgb(224 138 118 / 0.15);
+  --status-danger-border: rgb(224 138 118 / 0.34);
+  --status-danger-fg: #f2b3a3;
+  --status-muted-bg: rgb(245 243 234 / 0.06);
+  --status-muted-border: rgb(245 243 234 / 0.12);
+  --status-muted-fg: rgb(245 243 234 / 0.66);
 }
 
 :where(.theme-product, body:has(.theme-product)) {
@@ -444,6 +499,31 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   --border-default: rgb(26 31 18 / 0.16);
   --border-strong: rgb(26 31 18 / 0.28);
   --focus-ring: var(--color-brand-obsidian);
+  --action: #4c5d34;
+  --action-foreground: #f5f3ea;
+  --inverse: #f5f3ea;
+  --inverse-foreground: #1a1f12;
+  --control: #f5f3ea;
+  --control-foreground: #20261a;
+  --control-border: #d6d6c8;
+  --control-muted: #6b6e5d;
+  --field-border: #828574;
+  --line-soft: #e5e3d8;
+  --status-neutral-bg: #e8e9dd;
+  --status-neutral-border: #d6d6c8;
+  --status-neutral-fg: #62665c;
+  --status-success-bg: #eaeae4;
+  --status-success-border: #cfd3c6;
+  --status-success-fg: #2f3a20;
+  --status-warning-bg: #f2ede2;
+  --status-warning-border: #dfd2b7;
+  --status-warning-fg: #7d5d1a;
+  --status-danger-bg: #f0e7e3;
+  --status-danger-border: #dfcac4;
+  --status-danger-fg: #8c3a2b;
+  --status-muted-bg: #f0efec;
+  --status-muted-border: #e5e3d8;
+  --status-muted-fg: #6b6e5d;
 }
 
 @layer components {
@@ -569,14 +649,16 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   }
 
   .surface-linen-panel {
-    border-color: rgb(26 31 18 / 0.1);
+    border: 1px solid rgb(255 255 255 / 0.4);
     background:
-      radial-gradient(circle at 8% 0%, rgb(255 255 255 / 0.7), transparent 34%),
-      var(--color-brand-linen);
+      linear-gradient(150deg, rgb(255 255 255 / 0.3) 0%, transparent 60%),
+      rgb(240 238 234 / 0.94);
     color: var(--color-brand-obsidian);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.8),
-      0 18px 48px rgb(26 31 18 / 0.06);
+      inset 0 1px 1px rgb(255 255 255 / 0.22),
+      0 16px 20px rgb(32 38 26 / 0.14);
   }
 
   .dashboard-bento {
@@ -722,6 +804,31 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   --border: rgb(245 243 234 / 0.16);
   --input: rgb(245 243 234 / 0.2);
   --ring: var(--color-brand-linen);
+  --action: #f5f3ea;
+  --action-foreground: #1a1f12;
+  --inverse: #f5f3ea;
+  --inverse-foreground: #1a1f12;
+  --control: rgb(245 243 234 / 0.1);
+  --control-foreground: #f5f3ea;
+  --control-border: rgb(245 243 234 / 0.18);
+  --control-muted: rgb(245 243 234 / 0.66);
+  --field-border: rgb(245 243 234 / 0.32);
+  --line-soft: rgb(245 243 234 / 0.12);
+  --status-neutral-bg: rgb(245 243 234 / 0.1);
+  --status-neutral-border: rgb(245 243 234 / 0.2);
+  --status-neutral-fg: rgb(245 243 234 / 0.85);
+  --status-success-bg: rgb(181 196 143 / 0.16);
+  --status-success-border: rgb(181 196 143 / 0.34);
+  --status-success-fg: #d3dcb6;
+  --status-warning-bg: rgb(216 178 94 / 0.15);
+  --status-warning-border: rgb(216 178 94 / 0.34);
+  --status-warning-fg: #ecd297;
+  --status-danger-bg: rgb(224 138 118 / 0.15);
+  --status-danger-border: rgb(224 138 118 / 0.34);
+  --status-danger-fg: #f2b3a3;
+  --status-muted-bg: rgb(245 243 234 / 0.06);
+  --status-muted-border: rgb(245 243 234 / 0.12);
+  --status-muted-fg: rgb(245 243 234 / 0.66);
 }
 
 [data-dashboard-theme="dark"] .surface-linen-panel {

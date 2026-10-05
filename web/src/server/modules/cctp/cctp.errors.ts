@@ -25,3 +25,11 @@ export class CctpRelayError extends Error {
     this.name = "CctpRelayError";
   }
 }
+
+export type CctpErrorCode = "timeout" | "throttled" | "denied" | "upstream" | "transport" | "malformed" | "unsupported" | "configuration" | "lease_lost" | "pending" | "unauthorized" | "binding";
+export class CctpOperationalError extends Error {
+  constructor(public readonly code: CctpErrorCode, public readonly retryAfterMs = 30_000) {
+    super(code === "unauthorized" ? "Payment recovery authorization is invalid." : code === "binding" ? "Payment evidence does not match the accepted quote." : "Cross-chain payment service is temporarily unavailable. Existing payments remain recoverable.");
+    this.name = "CctpOperationalError";
+  }
+}

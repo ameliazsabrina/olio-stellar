@@ -1,14 +1,17 @@
 "use client";
+import { openVerification } from "../../features/verification/openVerification";
 
 import {
   ArrowDownToLine,
   AtSign,
+  BadgeCheck,
   ChevronDown,
   History,
   LayoutDashboard,
   Link2,
   LogOut,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,7 +21,9 @@ import {
   DASHBOARD_PATH,
   HISTORY_PATH,
   LINKS_PATH,
+  PASSPORT_PATH,
   SETTINGS_PATH,
+  VERIFICATION_PATH,
   WITHDRAW_PATH,
 } from "../../lib/auth-routes";
 import {
@@ -51,6 +56,8 @@ const NAV_ITEMS = [
     icon: ArrowDownToLine,
   },
   { label: "History", href: HISTORY_PATH, icon: History },
+  { label: "Verification", href: VERIFICATION_PATH, icon: ShieldCheck },
+  { label: "Passport", href: PASSPORT_PATH, icon: BadgeCheck },
   { label: "Settings", href: SETTINGS_PATH, icon: Settings },
 ] as const;
 
@@ -132,7 +139,13 @@ export function DashboardSidebar() {
                       <Link
                         href={href}
                         title={label}
-                        onClick={() => {
+                        onClick={(event) => {
+                          if (href === VERIFICATION_PATH) {
+                            event.preventDefault();
+                            openVerification();
+                            setOpenMobile(false);
+                            return;
+                          }
                           setActiveHref(href);
                           setOpenMobile(false);
                         }}
@@ -147,7 +160,11 @@ export function DashboardSidebar() {
                       (href === HISTORY_PATH &&
                         activeHref.startsWith(HISTORY_PATH)) ||
                       (href === SETTINGS_PATH &&
-                        activeHref.startsWith(SETTINGS_PATH))
+                        activeHref.startsWith(SETTINGS_PATH)) ||
+                      (href === VERIFICATION_PATH &&
+                        activeHref.startsWith(VERIFICATION_PATH)) ||
+                      (href === PASSPORT_PATH &&
+                        activeHref.startsWith(PASSPORT_PATH))
                     }
                     className="data-[active=true]:bg-brand-obsidian-secondary data-[active=true]:text-brand-linen data-[active=true]:hover:bg-brand-obsidian-secondary data-[active=true]:hover:text-brand-linen group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-brand-obsidian-secondary"
                   >

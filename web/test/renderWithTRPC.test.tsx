@@ -6,7 +6,7 @@ import { usePaymentLink } from "../src/features/paymentLinks/hooks/usePaymentLin
 import { renderWithTRPC } from "./renderWithTRPC";
 
 function HookConsumer() {
-  const link = usePaymentLink(null);
+  const { link } = usePaymentLink(null);
   const { isCreating } = useCreatePaymentLink();
   return <div>{`${link === null ? "no-link" : "link"}:${isCreating}`}</div>;
 }

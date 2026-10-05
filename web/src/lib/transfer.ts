@@ -20,8 +20,8 @@ export type TransferResult = {
   provingMs: number;
 };
 
-/// Pick the smallest single unspent note that covers `amount`. Returns null if
-/// no single note is large enough (v1 can't combine notes).
+export const PRIVATE_TRANSFERS_ENABLED: boolean = false;
+
 export function selectInputNote(
   notes: MyNote[],
   amount: bigint,
@@ -31,7 +31,6 @@ export function selectInputNote(
   return candidates.reduce((best, n) => (n.amount < best.amount ? n : best));
 }
 
-/// The largest single unspent note — the max a v1 transfer can send in one go.
 export function largestNote(notes: MyNote[]): bigint {
   return notes
     .filter((n) => !n.spent)
@@ -45,6 +44,11 @@ export async function sendTransfer(params: {
   recipient: OlioAccount;
   amount: bigint; // recipient amount, base units
 }): Promise<TransferResult> {
+  if (!PRIVATE_TRANSFERS_ENABLED) {
+    throw new Error(
+      "Private transfers are temporarily unavailable while recipient-specific fees are enforced.",
+    );
+  }
   const { signer, acct, scan, recipient, amount } = params;
 
   const inNote = selectInputNote(scan.notes, amount);

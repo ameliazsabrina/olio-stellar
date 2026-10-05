@@ -116,9 +116,9 @@ export function ActivityFeed({
           <fieldset
             className={cn(
               appearance === "glass"
-                ? glassSegmentedClass
-                : "rounded-xl bg-secondary ring-1 ring-border",
-              "flex w-fit items-center gap-1 p-1",
+                ? cn(glassSegmentedClass, "gap-1 p-1")
+                : "gap-2",
+              "flex w-fit items-center",
             )}
           >
             <legend className="sr-only">Filter activity</legend>
@@ -128,11 +128,22 @@ export function ActivityFeed({
                 type="button"
                 aria-pressed={tab === t}
                 onClick={() => setTab(t)}
-                className={`min-h-10 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  tab === t
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={cn(
+                  "font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  appearance === "glass"
+                    ? cn(
+                        "min-h-10 rounded-lg px-3 py-2 text-sm",
+                        tab === t
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )
+                    : cn(
+                        "rounded-full border px-3.5 py-1.5 text-[13px] leading-[18px]",
+                        tab === t
+                          ? "border-brand-obsidian bg-brand-obsidian text-brand-linen"
+                          : "border-(--control-border) bg-(--control) text-(--control-muted) hover:text-(--control-foreground)",
+                      ),
+                )}
               >
                 {t}
               </button>

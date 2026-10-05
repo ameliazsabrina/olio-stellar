@@ -12,9 +12,6 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mocks.pathname,
 }));
 vi.mock("next/image", () => ({ default: () => null }));
-vi.mock("../src/lib/moneygram-status", () => ({
-  moneyGramBannerCopy: "MoneyGram integration is in progress.",
-}));
 vi.mock("../src/components/WalletProvider", () => ({
   useWallet: () => ({
     usernameModalOpen: false,
@@ -46,7 +43,7 @@ beforeEach(() => {
   mocks.pathname = "/dashboard";
 });
 
-describe("AppShell MoneyGram announcement", () => {
+describe("AppShell", () => {
   it("keeps the product marker off the landing page", () => {
     mocks.pathname = "/";
     const { container } = render(<AppShell>Landing content</AppShell>);
@@ -80,32 +77,8 @@ describe("AppShell MoneyGram announcement", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
-  it("shows the linked announcement on middleware-protected routes", () => {
+  it("has no integration announcement", () => {
     render(<AppShell>Protected content</AppShell>);
-
-    expect(
-      screen.getByRole("status", { name: "MoneyGram integration status" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Get to know about MoneyGram" }),
-    ).toHaveAttribute("href", "https://www.moneygram.com/us/en/ramps");
-    expect(
-      screen.getByRole("link", { name: "Get to know about MoneyGram" }),
-    ).toHaveClass("underline");
-  });
-
-  it.each([
-    "/",
-    "/pay/alice",
-    "/not-protected",
-  ])("does not show the announcement on public route %s", (pathname) => {
-    mocks.pathname = pathname;
-    render(<AppShell>Public content</AppShell>);
-
-    expect(
-      screen.queryByRole("status", {
-        name: "MoneyGram integration status",
-      }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

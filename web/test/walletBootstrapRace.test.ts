@@ -4,12 +4,14 @@ import { Ok } from "@stellar/stellar-sdk/contract";
 
 const mocks = vi.hoisted(() => ({
   getPrivyUser: vi.fn(),
+  getPrivyUserByWalletAddress: vi.fn(),
   getUsers: vi.fn(),
   clientFrom: vi.fn(),
 }));
 
 vi.mock("../src/server/lib/privy", () => ({
   getPrivyUser: mocks.getPrivyUser,
+  getPrivyUserByWalletAddress: mocks.getPrivyUserByWalletAddress,
 }));
 vi.mock("../src/server/db/mongo", () => ({ getUsers: mocks.getUsers }));
 vi.mock("../src/server/modules/channels/channels.service", () => ({
@@ -22,9 +24,9 @@ vi.mock("@stellar/stellar-sdk/contract", async (importOriginal) => {
 });
 
 import {
+  accountSalt,
   bootstrapWallet,
   deriveAccountContractId,
-  accountSalt,
 } from "../src/server/modules/wallets/wallets.service";
 
 const did = "did:privy:racer";

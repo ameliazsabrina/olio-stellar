@@ -9,6 +9,7 @@ import {
   fetchPoolEventsSince,
   networkPassphrase,
   parseDepositEvent,
+  parseFeeEvent,
   parseSpentEvent,
   poolId,
   simulateRead,
@@ -16,10 +17,14 @@ import {
 import {
   type DepositDoc,
   getDeposits,
+  getFees,
   getIndexerState,
   getSpentNullifiers,
 } from "../../db/mongo";
-import { DepositIndexGapError } from "./deposits.errors";
+import {
+  DepositIndexGapError,
+  PoolConfigurationMismatchError,
+} from "./deposits.errors";
 import type { DepositOutput, PoolSnapshotOutput } from "./deposits.schema";
 
 const LEASE_MS = 50_000;
@@ -31,6 +36,7 @@ export type PoolSyncResult = {
   toLedger: number;
   depositsUpserted: number;
   nullifiersUpserted: number;
+  feesUpserted: number;
   durationMs: number;
   error?: string;
 };
@@ -75,32 +81,6 @@ async function releaseLease(owner: string): Promise<void> {
   );
 }
 
-async function resetForConfiguredPool(owner: string): Promise<void> {
-  const [deposits, nullifiers, states] = await Promise.all([
-    getDeposits(),
-    getSpentNullifiers(),
-    getIndexerState(),
-  ]);
-  await Promise.all([deposits.deleteMany({}), nullifiers.deleteMany({})]);
-  await states.updateOne(
-    { _id: "pool", leaseOwner: owner },
-    {
-      $set: {
-        poolId,
-        lastLedger: 0,
-        lastLeafIndex: -1,
-        publishedLedger: 0,
-        publishedLeafIndex: -1,
-        updatedAt: new Date(),
-        health: "degraded",
-        nullifiersComplete: true,
-        lastError: "Pool mirror is awaiting its initial synchronization",
-      },
-      $unset: { indexedAt: "" },
-    },
-  );
-}
-
 export async function syncPoolIndex(): Promise<PoolSyncResult> {
   const startedAt = Date.now();
   const owner = randomUUID();
@@ -111,6 +91,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       toLedger: 0,
       depositsUpserted: 0,
       nullifiersUpserted: 0,
+      feesUpserted: 0,
       durationMs: Date.now() - startedAt,
     };
   }
@@ -118,10 +99,9 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
   const states = await getIndexerState();
   let fromLedger = 0;
   try {
-    let state = await states.findOne({ _id: "pool" });
+    const state = await states.findOne({ _id: "pool" });
     if (state?.poolId && state.poolId !== poolId) {
-      await resetForConfiguredPool(owner);
-      state = await states.findOne({ _id: "pool" });
+      throw new PoolConfigurationMismatchError(state.poolId, poolId);
     }
     fromLedger = state?.publishedLedger ?? state?.lastLedger ?? 0;
 
@@ -138,6 +118,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
 
     const depositOps = [];
     const nullifierOps = [];
+    const feeOps = [];
     for (const event of events) {
       const deposit = parseDepositEvent(event);
       if (deposit) {
@@ -175,11 +156,36 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
           },
         });
       }
+      const fee = parseFeeEvent(event);
+      if (fee) {
+        feeOps.push({
+          updateOne: {
+            filter: { _id: event.id },
+            update: {
+              $set: {
+                txHash: event.txHash,
+                ledger: event.ledger,
+                payer: fee.payer,
+                feeRecipient: fee.feeRecipient,
+                paymentAmount: fee.paymentAmount.toString(),
+                feeAmount: fee.feeAmount.toString(),
+                totalAmount: fee.totalAmount.toString(),
+                policyVersion: fee.policyVersion,
+                feeBps: fee.feeBps,
+                quoteId: fee.quoteId,
+                ts: new Date(event.ledgerClosedAt),
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
     }
 
-    const [deposits, nullifiers] = await Promise.all([
+    const [deposits, nullifiers, fees] = await Promise.all([
       getDeposits(),
       getSpentNullifiers(),
+      getFees(),
     ]);
     await Promise.all([
       depositOps.length
@@ -187,6 +193,9 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
         : Promise.resolve(),
       nullifierOps.length
         ? nullifiers.bulkWrite(nullifierOps, { ordered: false })
+        : Promise.resolve(),
+      feeOps.length
+        ? fees.bulkWrite(feeOps, { ordered: false })
         : Promise.resolve(),
     ]);
 
@@ -226,6 +235,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       toLedger: latestLedger,
       depositsUpserted: depositOps.length,
       nullifiersUpserted: nullifierOps.length,
+      feesUpserted: feeOps.length,
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {
@@ -247,6 +257,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       toLedger: fromLedger,
       depositsUpserted: 0,
       nullifiersUpserted: 0,
+      feesUpserted: 0,
       durationMs: Date.now() - startedAt,
       error: message,
     };
@@ -293,7 +304,9 @@ export async function getPoolSnapshot(
   let state = await states.findOne({ _id: "pool" });
 
   const published =
-    state?.poolId === poolId && (state.publishedLeafIndex ?? -1) >= 0;
+    state?.poolId === poolId &&
+    typeof state.publishedLedger === "number" &&
+    typeof state.publishedLeafIndex === "number";
   const cooled = Date.now() - lastHealAttempt > HEAL_COOLDOWN_MS;
   if (!published) {
     if (healInFlight || cooled) {

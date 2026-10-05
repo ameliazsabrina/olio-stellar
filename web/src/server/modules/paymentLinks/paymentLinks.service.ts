@@ -3,13 +3,17 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { MongoServerError } from "mongodb";
 import type { PaymentLinkDoc } from "../../db/mongo";
 import { getPaymentLinks } from "../../db/mongo";
+import { businessOwnsUsername } from "../businesses/businesses.service";
+import { publishedPublicIdsFor } from "../passport/passport.service";
 import {
+  PaymentLinkBusinessMismatchError,
   PaymentLinkSlugUnavailableError,
   PaymentLinkStoreError,
   PaymentLinkUnauthorizedError,
 } from "./paymentLinks.errors";
 import type {
   ArchiveLinkInput,
+  ClaimLinkInput,
   CreateLinkInput,
   CreateLinkResult,
   DeleteLinkInput,
@@ -48,7 +52,10 @@ function assertManageAuthorized(
   }
 }
 
-function toOutput(doc: PaymentLinkDoc): LinkOutput {
+function toOutput(
+  doc: PaymentLinkDoc,
+  verifiedBusinessPublicId: string | null = null,
+): LinkOutput {
   const description = doc.description ?? doc.label ?? null;
   return {
     id: doc._id,
@@ -62,7 +69,15 @@ function toOutput(doc: PaymentLinkDoc): LinkOutput {
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt?.toISOString() ?? null,
     archivedAt: doc.archivedAt?.toISOString() ?? null,
+    businessClaimed: typeof doc.businessId === "string",
+    verifiedBusinessPublicId,
   };
+}
+
+async function withIdentity(doc: PaymentLinkDoc): Promise<LinkOutput> {
+  if (!doc.businessId) return toOutput(doc);
+  const published = await publishedPublicIdsFor([doc.businessId]);
+  return toOutput(doc, published.get(doc.businessId) ?? null);
 }
 
 export async function createLink(
@@ -103,7 +118,7 @@ export async function getLink(id: string): Promise<LinkOutput | null> {
     _id: id,
     $or: [{ state: "active" }, { state: { $exists: false } }],
   });
-  return doc ? toOutput(doc) : null;
+  return doc ? withIdentity(doc) : null;
 }
 
 export async function resolveLink(
@@ -115,7 +130,7 @@ export async function resolveLink(
     slug: input.slug,
     state: "active",
   });
-  return doc ? toOutput(doc) : null;
+  return doc ? withIdentity(doc) : null;
 }
 
 export async function listLinksByOwner(
@@ -126,7 +141,7 @@ export async function listLinksByOwner(
     .find({ owner: input.owner })
     .sort({ createdAt: -1 })
     .toArray();
-  return docs.map(toOutput);
+  return docs.map((doc) => toOutput(doc));
 }
 
 export async function updateLink(input: UpdateLinkInput): Promise<LinkOutput> {
@@ -171,6 +186,35 @@ export async function setLinkArchived(
   return toOutput(res);
 }
 
+export async function claimLinkForBusiness(
+  privyUserId: string,
+  input: ClaimLinkInput,
+): Promise<LinkOutput> {
+  const links = await getPaymentLinks();
+  const doc = await links.findOne({ _id: input.id });
+  assertManageAuthorized(doc, input.manageToken);
+  const owns = await businessOwnsUsername(
+    privyUserId,
+    input.businessId,
+    doc.owner,
+  );
+  if (!owns) throw new PaymentLinkBusinessMismatchError();
+  const now = new Date();
+  const res = await links.findOneAndUpdate(
+    { _id: input.id, manageTokenHash: doc.manageTokenHash },
+    {
+      $set: {
+        businessId: input.businessId,
+        businessClaimedAt: now,
+        updatedAt: now,
+      },
+    },
+    { returnDocument: "after" },
+  );
+  if (!res) throw new PaymentLinkStoreError(input.id);
+  return withIdentity(res);
+}
+
 export async function deleteLink(input: DeleteLinkInput): Promise<boolean> {
   const links = await getPaymentLinks();
   const doc = await links.findOne({ _id: input.id });
@@ -189,6 +233,7 @@ function isDuplicateKeyError(e: unknown): e is MongoServerError {
 }
 
 export {
+  PaymentLinkBusinessMismatchError,
   PaymentLinkSlugUnavailableError,
   PaymentLinkStoreError,
   PaymentLinkUnauthorizedError,

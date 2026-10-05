@@ -13,7 +13,7 @@ vi.mock("@privy-io/react-auth", () => ({
 }));
 
 describe("PrivyAppProvider", () => {
-  it("exposes only Google, GitHub, and passkey login without auto-creating EVM wallets", async () => {
+  it("exposes only Google, passkey, and email login without auto-creating EVM wallets", async () => {
     vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-public-app");
     const { PrivyAppProvider } = await import(
       "../src/components/PrivyAppProvider"
@@ -25,7 +25,7 @@ describe("PrivyAppProvider", () => {
     );
     expect(captured.props?.appId).toBe("privy-public-app");
     expect(captured.props?.config).toMatchObject({
-      loginMethods: ["google", "email", "passkey"],
+      loginMethods: ["google", "passkey", "email"],
       embeddedWallets: {
         ethereum: { createOnLogin: "off" },
         solana: { createOnLogin: "off" },

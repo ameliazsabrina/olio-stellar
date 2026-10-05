@@ -5,25 +5,18 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
-  Landmark,
   Loader,
   LockKeyhole,
   Wallet,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { offRampEnabled } from "../../lib/anchor";
 import { LINKS_PATH } from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
-import {
-  moneyGramCashInEnabled,
-  moneyGramCashOutStatusEnabled,
-  moneyGramRampStatus,
-} from "../../lib/moneygram-status";
 import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 import {
   claimableNotes,
@@ -47,18 +40,11 @@ import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
 import { DashboardPageHeader } from "./DashboardPageHeader";
-import { OffRampContent } from "./OffRampContent";
 import { StrandedFundsRecovery } from "./StrandedFundsRecovery";
 import { useMyNotes } from "./useMyNotes";
 
-const MoneyGramActivity = lazy(() =>
-  import("./MoneyGramActivity").then((module) => ({
-    default: module.MoneyGramActivity,
-  })),
-);
-
 type WalletStep = "form" | "review" | "proving";
-type DialogView = "method" | "wallet" | "anchor";
+type DialogView = "method" | "wallet";
 type WithdrawalTarget =
   | { kind: "one"; note: MyNote }
   | { kind: "all"; notes: MyNote[] };
@@ -116,7 +102,6 @@ export function WithdrawDashboard() {
   const [target, setTarget] = useState<WithdrawalTarget | null>(null);
   const [dialogView, setDialogView] = useState<DialogView>("method");
   const [walletStep, setWalletStep] = useState<WalletStep>("form");
-  const [bankBusy, setBankBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const withdrawalRunIdRef = useRef(0);
   const {
@@ -132,28 +117,23 @@ export function WithdrawDashboard() {
 
   const options = useMemo(() => claimableNotes(notes), [notes]);
   const destination = watch("destination");
-  const dialogBusy = bankBusy || walletStep === "proving";
-  const selectedNote = target?.kind === "one" ? target.note : null;
+  const dialogBusy = walletStep === "proving";
   const selectedTotal = targetTotal(target);
   const recoveryJoinsPaymentGrid =
     accountUnlocked && !loading && !notesError && options.length > 0;
   const showMethodBack =
-    !dialogBusy &&
-    (dialogView === "anchor" ||
-      (dialogView === "wallet" && walletStep === "form"));
+    !dialogBusy && dialogView === "wallet" && walletStep === "form";
 
   function openWithdrawal(nextTarget: WithdrawalTarget) {
     withdrawalRunIdRef.current += 1;
     setTarget(nextTarget);
     setDialogView("method");
     setWalletStep("form");
-    setBankBusy(false);
     setSubmitError(null);
     reset({ destination: "" });
   }
 
   function closeWithdrawal() {
-    if (bankBusy) return;
     withdrawalRunIdRef.current += 1;
     setTarget(null);
     setDialogView("method");
@@ -224,7 +204,6 @@ export function WithdrawDashboard() {
         }
         await refresh();
         if (isCurrentRun()) {
-          setBankBusy(false);
           setWalletStep("form");
           setTarget(null);
         }
@@ -252,7 +231,6 @@ export function WithdrawDashboard() {
       });
       await refresh();
       if (isCurrentRun()) {
-        setBankBusy(false);
         setWalletStep("form");
         setTarget(null);
       }
@@ -285,10 +263,7 @@ export function WithdrawDashboard() {
       <DashboardPageHeader
         title="Withdraw"
         description={
-          <>
-            Choose a private payment, then send it to a Stellar wallet or cash
-            it out through an available anchor.
-          </>
+          <>Choose a private payment, then send it to a Stellar wallet.</>
         }
       />
 
@@ -355,12 +330,6 @@ export function WithdrawDashboard() {
         </section>
       )}
 
-      {moneyGramCashInEnabled ? (
-        <Suspense fallback={null}>
-          <MoneyGramActivity />
-        </Suspense>
-      ) : null}
-
       <Dialog
         open={target !== null}
         onOpenChange={(open) => {
@@ -408,29 +377,25 @@ export function WithdrawDashboard() {
             </div>
 
             <div className="size-10">
-              {!bankBusy ? (
-                <DialogClose
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-foreground/60 hover:bg-foreground/10 hover:text-foreground"
-                    />
-                  }
-                >
-                  <X className="size-5" aria-hidden="true" />
-                  <span className="sr-only">Close</span>
-                </DialogClose>
-              ) : null}
+              <DialogClose
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-foreground/60 hover:bg-foreground/10 hover:text-foreground"
+                  />
+                }
+              >
+                <X className="size-5" aria-hidden="true" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
             </div>
           </div>
 
           <div>
             {target && dialogView === "method" ? (
               <WithdrawalMethodPicker
-                bulk={target.kind === "all"}
                 onWallet={() => setDialogView("wallet")}
-                onAnchor={() => setDialogView("anchor")}
               />
             ) : null}
 
@@ -449,16 +414,6 @@ export function WithdrawDashboard() {
                 onBack={() => setWalletStep("form")}
                 onConfirm={confirm}
               />
-            ) : null}
-
-            {target && dialogView === "anchor" && selectedNote ? (
-              moneyGramCashOutStatusEnabled && offRampEnabled ? (
-                <OffRampContent
-                  note={selectedNote}
-                  onBusyChange={setBankBusy}
-                  onComplete={refresh}
-                />
-              ) : null
             ) : null}
           </div>
         </DialogContent>
@@ -640,18 +595,7 @@ function AllPaymentsSketch() {
   );
 }
 
-function WithdrawalMethodPicker({
-  bulk,
-  onWallet,
-  onAnchor,
-}: {
-  bulk: boolean;
-  onWallet: () => void;
-  onAnchor: () => void;
-}) {
-  const moneyGramCashOutEnabled =
-    moneyGramCashOutStatusEnabled && offRampEnabled;
-
+function WithdrawalMethodPicker({ onWallet }: { onWallet: () => void }) {
   return (
     <fieldset className="grid gap-3">
       <legend className="mb-1 text-sm font-semibold text-foreground">
@@ -671,35 +615,6 @@ function WithdrawalMethodPicker({
           </span>
           <span className="mt-1 block text-xs leading-5 text-foreground/60">
             Private and on-chain. Send to a G… or C… Stellar address.
-          </span>
-        </span>
-        <ArrowRight
-          className="size-4 shrink-0 text-foreground/65"
-          aria-hidden="true"
-        />
-      </button>
-
-      <button
-        type="button"
-        onClick={onAnchor}
-        disabled={bulk || !moneyGramCashOutEnabled}
-        className={`${linenInsetClass} flex min-h-20 items-center gap-4 border border-foreground/18 p-4 text-left transition-colors duration-200 hover:border-foreground/30 hover:bg-foreground/12 focus-visible:ring-2 focus-visible:ring-foreground/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-foreground/18 disabled:hover:bg-foreground/8`}
-      >
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-foreground ring-1 ring-foreground/15">
-          <Landmark className="size-5" aria-hidden="true" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-foreground">
-            MoneyGram cash pickup
-          </span>
-          <span className="mt-1 block text-xs leading-5 text-foreground/60">
-            {bulk
-              ? "Cash anchors process one private payment at a time."
-              : moneyGramRampStatus === "whitelisting"
-                ? "Sandbox access pending. We’re completing MoneyGram integration and will enable cash pickup after approval."
-                : moneyGramCashOutEnabled
-                  ? "Cash out as local currency. Identity and payout details stay with the anchor."
-                  : "MoneyGram cash pickup is unavailable on this network."}
           </span>
         </span>
         <ArrowRight

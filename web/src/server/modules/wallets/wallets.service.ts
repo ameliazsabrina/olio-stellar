@@ -20,7 +20,7 @@ import { Binary } from "mongodb";
 import { env } from "../../../env";
 import { getServerEnv } from "../../../env.server";
 import { getUsers, type UserDoc } from "../../db/mongo";
-import { getPrivyUser } from "../../lib/privy";
+import { getPrivyUser, getPrivyUserByWalletAddress } from "../../lib/privy";
 import { relayXdr } from "../channels/channels.service";
 import {
   WalletConflictError,
@@ -85,10 +85,9 @@ type PrivyLinkedAccount = {
   connector_type?: string;
 };
 
-async function verifiedPrivyWallets(
-  privyUserId: string,
-): Promise<PrivyWalletInput[]> {
-  const user = await getPrivyUser(privyUserId);
+type PrivyUserLike = { id: string; linked_accounts: unknown[] };
+
+function ownedStellarWallets(user: PrivyUserLike): PrivyWalletInput[] {
   const wallets = new Map<string, PrivyWalletInput>();
   for (const account of user.linked_accounts) {
     const candidate = account as unknown as PrivyLinkedAccount;
@@ -105,8 +104,6 @@ async function verifiedPrivyWallets(
     ) {
       continue;
     }
-    // Privy's current wallet handle wins when stale and current handles share
-    // the same cryptographic Stellar address.
     if (!wallets.has(candidate.address)) {
       wallets.set(candidate.address, {
         privyWalletId: candidate.id,
@@ -115,6 +112,14 @@ async function verifiedPrivyWallets(
     }
   }
   return [...wallets.values()];
+}
+
+async function verifiedPrivyWallets(
+  privyUserId: string,
+): Promise<PrivyWalletInput[]> {
+  return ownedStellarWallets(
+    (await getPrivyUser(privyUserId)) as unknown as PrivyUserLike,
+  );
 }
 
 export function accountSalt(privyUserId: string): Buffer {
@@ -142,20 +147,40 @@ export function deriveAccountContractId(
   return StrKey.encodeContract(hash(preimage.toXDR()));
 }
 
-export async function assertPrivyWalletOwned(
-  privyUserId: string,
-  wallet: PrivyWalletInput,
-): Promise<void> {
-  const match = (await verifiedPrivyWallets(privyUserId)).some(
+function owns(wallets: PrivyWalletInput[], wallet: PrivyWalletInput): boolean {
+  return wallets.some(
     (candidate) =>
       candidate.privyWalletId === wallet.privyWalletId &&
       candidate.privyWalletAddress === wallet.privyWalletAddress,
   );
-  if (!match) {
-    throw new WalletConflictError(
-      "The submitted Stellar wallet is not a user-owned Privy wallet linked to this identity.",
-    );
+}
+
+const OWNERSHIP_RETRY_DELAYS_MS = [200, 600, 1200];
+
+export async function assertPrivyWalletOwned(
+  privyUserId: string,
+  wallet: PrivyWalletInput,
+): Promise<void> {
+  if (owns(await verifiedPrivyWallets(privyUserId), wallet)) return;
+
+  for (const delay of OWNERSHIP_RETRY_DELAYS_MS) {
+    await sleep(delay);
+    if (owns(await verifiedPrivyWallets(privyUserId), wallet)) return;
   }
+
+  const byAddress = (await getPrivyUserByWalletAddress(
+    wallet.privyWalletAddress,
+  )) as PrivyUserLike | null;
+  if (
+    byAddress?.id === privyUserId &&
+    owns(ownedStellarWallets(byAddress), wallet)
+  ) {
+    return;
+  }
+
+  throw new WalletConflictError(
+    "The submitted Stellar wallet is not a user-owned Privy wallet linked to this identity.",
+  );
 }
 
 export async function restoreWallet(

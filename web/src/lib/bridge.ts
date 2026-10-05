@@ -8,13 +8,12 @@ import {
   TransactionBuilder,
 } from "@stellar/stellar-sdk";
 import { api } from "../trpc/client";
-import { friendbotUrl, horizon, offRampAsset } from "./anchor";
+import { friendbotUrl, horizon, offRampAsset } from "./stellar-payments";
 import { fromBaseUnits, toBaseUnits } from "./crypto";
 import type { LocalAccount, MyNote, ScanResult } from "./notes";
 import { isMainnet, networkPassphrase, type Signer } from "./stellar";
 import { withdrawNote } from "./withdraw";
 
-// Fresh single-use classic G-account for SEP-24 off-ramp and claimable-balance payouts; per-op to avoid reuse linkage.
 export type Bridge = {
   keypair: Keypair;
   publicKey: string;
@@ -25,18 +24,13 @@ export function createBridge(): Bridge {
   return { keypair, publicKey: keypair.publicKey() };
 }
 
-// --- stranded-fund recovery net ---------------------------------------------
-// The bridge holds the withdrawn USDC for the brief window between releasing the
-// note and settling to the anchor. Its key is otherwise in-memory only, so a
-// crash/close in that window would strand the funds forever. We persist the
-// secret (keyed by the SEP-24 transaction id) right before releasing and clear
-// it once the withdrawal completes, so an interrupted off-ramp is recoverable.
 const BRIDGE_STORE_PREFIX = "olio.offramp.bridge.";
+// Read-only compatibility for recovering pre-retirement bridge keys.
 const RAMP_SESSION_PREFIX = "olio.moneygram.ramp.v1.";
 
 export type RampFlowKind = "cash-out" | "cash-in";
 export type RampSession = {
-  version: 1;
+  version: 1 | 2;
   ref: string;
   mgiId: string;
   kind: RampFlowKind;
@@ -46,12 +40,6 @@ export type RampSession = {
   status: string;
   createdAt: number;
   updatedAt: number;
-  stellarHash?: string;
-  externalTransactionId?: string;
-  moreInfoUrl?: string;
-  operationId?: string;
-  shieldingHash?: string;
-  transferHash?: string;
 };
 
 export type StrandedBridge = {
@@ -63,88 +51,6 @@ export type StrandedBridge = {
   at: number;
 };
 
-export function persistRampSession(
-  bridge: Bridge,
-  input: {
-    mgiId: string;
-    kind: RampFlowKind;
-    amount: bigint;
-    status?: string;
-  },
-): RampSession {
-  const now = Date.now();
-  const record: RampSession = {
-    version: 1,
-    ref: input.mgiId,
-    mgiId: input.mgiId,
-    kind: input.kind,
-    secret: bridge.keypair.secret(),
-    publicKey: bridge.publicKey,
-    amount: input.amount.toString(),
-    status: input.status ?? "incomplete",
-    createdAt: now,
-    updatedAt: now,
-  };
-  if (typeof localStorage !== "undefined") {
-    try {
-      localStorage.setItem(
-        RAMP_SESSION_PREFIX + input.mgiId,
-        JSON.stringify(record),
-      );
-      window.dispatchEvent(new Event("olio:ramp-session"));
-    } catch {}
-  }
-  return record;
-}
-
-export function persistCashInSession(input: {
-  mgiId: string;
-  publicKey: string;
-  amount: bigint;
-  status?: string;
-}): RampSession {
-  const now = Date.now();
-  const record: RampSession = {
-    version: 1,
-    ref: input.mgiId,
-    mgiId: input.mgiId,
-    kind: "cash-in",
-    publicKey: input.publicKey,
-    amount: input.amount.toString(),
-    status: input.status ?? "incomplete",
-    createdAt: now,
-    updatedAt: now,
-  };
-  if (typeof localStorage !== "undefined") {
-    try {
-      localStorage.setItem(
-        RAMP_SESSION_PREFIX + input.mgiId,
-        JSON.stringify(record),
-      );
-      window.dispatchEvent(new Event("olio:ramp-session"));
-    } catch {}
-  }
-  return record;
-}
-
-export function updateRampSession(
-  mgiId: string,
-  patch: Partial<Omit<RampSession, "version" | "ref" | "mgiId" | "createdAt">>,
-): RampSession | null {
-  if (typeof localStorage === "undefined") return null;
-  const raw = localStorage.getItem(RAMP_SESSION_PREFIX + mgiId);
-  if (!raw) return null;
-  try {
-    const current = JSON.parse(raw) as RampSession;
-    const next = { ...current, ...patch, updatedAt: Date.now() };
-    localStorage.setItem(RAMP_SESSION_PREFIX + mgiId, JSON.stringify(next));
-    window.dispatchEvent(new Event("olio:ramp-session"));
-    return next;
-  } catch {
-    return null;
-  }
-}
-
 export function listRampSessions(): RampSession[] {
   if (typeof localStorage === "undefined") return [];
   const sessions: RampSession[] = [];
@@ -153,7 +59,11 @@ export function listRampSessions(): RampSession[] {
     if (!key?.startsWith(RAMP_SESSION_PREFIX)) continue;
     try {
       const value = JSON.parse(localStorage.getItem(key) ?? "") as RampSession;
-      if (value.version === 1 && value.publicKey && value.mgiId)
+      if (
+        (value.version === 1 || value.version === 2) &&
+        value.publicKey &&
+        value.mgiId
+      )
         sessions.push(value);
     } catch {}
   }
@@ -269,7 +179,6 @@ export async function provisionBridge(bridge: Bridge): Promise<void> {
   await horizon.submitTransaction(tx);
 }
 
-// zk-withdraw the selected note out of the shielded pool to the bridge account.
 export async function releaseNoteToBridge(params: {
   signer: Signer;
   acct: LocalAccount;
@@ -278,7 +187,6 @@ export async function releaseNoteToBridge(params: {
   bridge: Bridge;
 }): Promise<{ provingMs: number }> {
   const { signer, acct, scan, note, bridge } = params;
-  // Bridge already holds a USDC trustline, so this takes the direct proof-bound withdraw path.
   const res = await withdrawNote({
     signer,
     acct,
@@ -289,7 +197,6 @@ export async function releaseNoteToBridge(params: {
   return { provingMs: res.provingMs };
 }
 
-// createClaimableBalance from the bridge so a trustline-less G-account can claim later; retries once since the note is already spent.
 export async function createClaimableBalanceToDestination(
   bridgeKp: Keypair,
   destination: string,
@@ -313,7 +220,7 @@ export async function createClaimableBalanceToDestination(
       .setTimeout(120)
       .build();
     tx.sign(bridgeKp);
-    // Deterministic from source account + sequence, matching the ledger's assignment.
+
     const balanceId = tx.getClaimableBalanceId(0);
     await horizon.submitTransaction(tx);
     return balanceId;
@@ -327,10 +234,6 @@ export async function createClaimableBalanceToDestination(
   }
 }
 
-// --- stranded-fund recovery --------------------------------------------------
-
-/// Live USDC balance of a bridge account in base units; 0 if the account is
-/// gone or holds none (already swept).
 export async function bridgeUsdcBalance(publicKey: string): Promise<bigint> {
   let account: Awaited<ReturnType<typeof horizon.loadAccount>>;
   try {
@@ -349,9 +252,6 @@ export async function bridgeUsdcBalance(publicKey: string): Promise<bigint> {
   return held ? toBaseUnits(held.balance) : 0n;
 }
 
-/// Sweep whatever USDC a stranded bridge still holds to `destination` as a
-/// claimable balance the recipient claims later. Reads the live balance so a
-/// repeated sweep can't over-send.
 export async function reclaimBridge(
   secret: string,
   destination: string,

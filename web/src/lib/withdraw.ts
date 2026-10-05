@@ -1,6 +1,6 @@
 import { StrKey } from "@stellar/stellar-sdk";
 import { env } from "../env";
-import { horizon } from "./anchor";
+import { horizon } from "./stellar-payments";
 import {
   clearPersistedBridge,
   createBridge,

@@ -7,12 +7,12 @@ import { StickyBanner } from "../src/components/ui/sticky-banner";
 
 it("dismisses the announcement without relying on scroll state", async () => {
   render(
-    <StickyBanner hideOnScroll={false} data-moneygram-banner>
-      MoneyGram integration status
+    <StickyBanner hideOnScroll={false} data-announcement-banner>
+      Service announcement
     </StickyBanner>,
   );
 
-  expect(screen.getByText("MoneyGram integration status")).toHaveAttribute(
+  expect(screen.getByText("Service announcement")).toHaveAttribute(
     "data-state",
     "open",
   );
@@ -23,7 +23,7 @@ it("dismisses the announcement without relying on scroll state", async () => {
 
   await waitFor(() => {
     expect(
-      screen.queryByText("MoneyGram integration status"),
+      screen.queryByText("Service announcement"),
     ).not.toBeInTheDocument();
   });
 });

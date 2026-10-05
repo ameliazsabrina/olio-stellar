@@ -15,7 +15,7 @@ import {
 // orchestration (classify-once, loop, aggregate) without touching Horizon, the
 // prover, or the chain. `classifyDestination` sees a USDC trustline → the direct
 // path; each note's `poolWithdraw` is the seam we drive for success/failure.
-vi.mock("../src/lib/anchor", () => ({
+vi.mock("../src/lib/stellar-payments", () => ({
   horizon: {
     loadAccount: vi.fn(async () => ({
       balances: [

@@ -106,12 +106,10 @@ export async function loadPoolMirror(): Promise<PoolMirror> {
   return empty;
 }
 
-async function fetchAndMerge(): Promise<PoolMirror> {
-  const current = await loadPoolMirror();
-  const snapshot = await api.deposits.snapshot.query({
-    afterLeafIndex: current.publishedLeafIndex,
-    spentAfterLedger: current.publishedLedger,
-  });
+function mergeSnapshot(
+  current: PoolMirror,
+  snapshot: Awaited<ReturnType<typeof api.deposits.snapshot.query>>,
+): PoolMirror {
   const responseScope = `${snapshot.index.networkPassphrase}:${snapshot.index.poolId}`;
   const base = responseScope === current.scope ? current : emptyMirror();
   const deposits = new Map(base.deposits.map((row) => [row.leafIndex, row]));
@@ -131,7 +129,7 @@ async function fetchAndMerge(): Promise<PoolMirror> {
     spentAtByNullifier[row.nullifierHex] = row.ts;
   }
 
-  const merged: PoolMirror = {
+  return {
     scope: responseScope,
     deposits: [...deposits.values()].sort((a, b) => a.leafIndex - b.leafIndex),
     spentNullifiers: [...spent],
@@ -142,7 +140,35 @@ async function fetchAndMerge(): Promise<PoolMirror> {
     health: snapshot.index.health,
     hydrated: true,
   };
-  memory.set(responseScope, merged);
+}
+
+function hasCompleteDepositPrefix(mirror: PoolMirror): boolean {
+  if (mirror.publishedLeafIndex < -1) return false;
+  if (mirror.deposits.length !== mirror.publishedLeafIndex + 1) return false;
+  return mirror.deposits.every((row, index) => row.leafIndex === index);
+}
+
+async function fetchAndMerge(): Promise<PoolMirror> {
+  const current = await loadPoolMirror();
+  const snapshot = await api.deposits.snapshot.query({
+    afterLeafIndex: current.publishedLeafIndex,
+    spentAfterLedger: current.publishedLedger,
+  });
+  let merged = mergeSnapshot(current, snapshot);
+
+  // A persisted browser watermark can outlive an incomplete local deposit
+  // list (for example, if an older client cached index 0 before leaf 0). An
+  // incremental request from that watermark can never return the missing
+  // prefix, so detect the impossible shape and rebuild from the server mirror.
+  if (!hasCompleteDepositPrefix(merged)) {
+    const complete = await api.deposits.snapshot.query({
+      afterLeafIndex: -1,
+      spentAfterLedger: 0,
+    });
+    merged = mergeSnapshot(emptyMirror(), complete);
+  }
+
+  memory.set(merged.scope, merged);
   try {
     await writeIndexedDb(merged);
   } catch {

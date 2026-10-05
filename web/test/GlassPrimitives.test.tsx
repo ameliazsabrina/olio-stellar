@@ -53,7 +53,7 @@ describe("glass primitives", () => {
       "surface-linen-panel",
       "theme-linen",
       "text-foreground",
-      "ring-border",
+      "rounded-[1.75rem]",
     );
     expect(screen.getByText("Linen summary")).not.toHaveClass(
       "!bg-brand-linen",

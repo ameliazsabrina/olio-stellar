@@ -16,27 +16,25 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Sep10Signer } from "../lib/anchor";
-import { DASHBOARD_PATH } from "../lib/auth-routes";
+import { DASHBOARD_PATH, isProtectedRoute } from "../lib/auth-routes";
 import { deriveNoteSecrets, randomMaster } from "../lib/keys";
 import {
   accountPubkeys,
   clearLocalAccount,
   deriveAndStoreAccount,
+  getAccount,
   hasLocalAccount,
   syncLocalAccountIdentity,
 } from "../lib/notes";
 import { BadPinError } from "../lib/pin-errors";
 import {
   type PrivyStellarWallet,
-  privySep10Signer,
   privySigner,
-  privyUsdcSigner,
   resolvePrivyStellarWallet,
-  signClassicTransaction,
 } from "../lib/privy-wallet";
 import {
   registerUsernameCache,
+  resolveUsernameOnChain,
   type Signer,
   setUsernamePubkeys,
   usernameOf,
@@ -68,12 +66,6 @@ type WalletState = {
   disconnect: () => Promise<void>;
   getSigner: () => Signer;
   privyPublicKey: string;
-  getPrivySep10Signer: () => Sep10Signer;
-  signPrivyTransaction: (
-    transactionXdr: string,
-    passphrase: string,
-  ) => Promise<string>;
-  getPrivyUsdcSigner: () => Signer;
 };
 
 type WalletMapping = {
@@ -81,6 +73,22 @@ type WalletMapping = {
   privyWalletId: string;
   privyWalletAddress: string;
 };
+
+class RecoveryKeyGenerationMismatchError extends Error {
+  constructor() {
+    super(
+      "Your saved recovery data does not match this account’s registered payment keys. Use the most recent recovery setup for this account; do not re-key or resend the payment.",
+    );
+    this.name = "RecoveryKeyGenerationMismatchError";
+  }
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.length === right.length &&
+    left.every((byte, index) => byte === right[index])
+  );
+}
 
 const WalletContext = createContext<WalletState | null>(null);
 
@@ -106,6 +114,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const privyWalletRef = useRef<PrivyStellarWallet | null>(null);
   const mappingRef = useRef<WalletMapping | null>(null);
   const pendingMasterRef = useRef<Uint8Array | null>(null);
+  const escrowMissingRef = useRef(false);
   const revisionRef = useRef(0);
   const sessionAbortedRef = useRef(false);
   const userRef = useRef(user);
@@ -135,7 +144,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const routeToDashboard = useCallback(() => {
     if (
       typeof window !== "undefined" &&
-      window.location.pathname !== DASHBOARD_PATH
+      window.location.pathname !== DASHBOARD_PATH &&
+      !isProtectedRoute(window.location.pathname)
     ) {
       router.replace(DASHBOARD_PATH);
     }
@@ -147,12 +157,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const escrow = await api.wallets.getEscrow.query();
       if (sessionAbortedRef.current) return;
       mappingRef.current = mapping;
+      escrowMissingRef.current = !escrow;
+      setUsernameResolved(false);
       setAddress(mapping.contractId);
       if (!escrow) {
-        const master = randomMaster();
-        pendingMasterRef.current = master;
-        deriveAndStoreAccount(master);
-        setAccountUnlocked(true);
+        // Do not publish or cache a new key generation until its recovery
+        // envelope is durable. Username lookup below distinguishes a truly new
+        // account from a legacy account that already received payments.
+        pendingMasterRef.current = null;
+        setAccountUnlocked(false);
       } else if (hasLocalAccount()) {
         setAccountUnlocked(true);
       } else {
@@ -289,6 +302,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (
+      !address ||
+      !usernameResolved ||
+      !escrowMissingRef.current ||
+      pinModalOpen
+    ) {
+      return;
+    }
+
+    if (username) {
+      openPinModal("secure");
+      return;
+    }
+
+    pendingMasterRef.current = randomMaster();
+    openPinModal("set");
+  }, [address, username, usernameResolved, pinModalOpen, openPinModal]);
+
+  useEffect(() => {
+    if (
       address &&
       usernameResolved &&
       !username &&
@@ -303,6 +335,38 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (username && pendingMasterRef.current && !usernameModalOpen)
       openPinModal("set");
   }, [username, usernameModalOpen, openPinModal]);
+
+  useEffect(() => {
+    if (!address || !username || !accountUnlocked || pinModalOpen) return;
+    const localAccount = getAccount();
+    if (!localAccount) return;
+    let cancelled = false;
+
+    void Promise.all([
+      accountPubkeys(localAccount),
+      resolveUsernameOnChain(username),
+    ])
+      .then(([local, registered]) => {
+        if (cancelled || !registered || registered.owner !== address) return;
+        if (
+          sameBytes(local.notePubkey, registered.note_pubkey) &&
+          sameBytes(local.viewPubkey, registered.view_pubkey)
+        ) {
+          return;
+        }
+
+        setAccountUnlocked(false);
+        openPinModal("unlock");
+        setPinError(
+          "Your cached payment keys do not match this account. Enter the latest six-digit recovery PIN to restore the registered keys.",
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, username, accountUnlocked, pinModalOpen, openPinModal]);
 
   const signIn = useCallback(() => {
     if (authenticated) setBootstrapRevision((value) => value + 1);
@@ -345,6 +409,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             serializeEscrow(encryptMaster(master, pin)),
           );
           deriveAndStoreAccount(master);
+          escrowMissingRef.current = false;
         } else if (pinMode === "set") {
           const master = pendingMasterRef.current ?? randomMaster();
           const { serializeEscrow, encryptMaster } = await import(
@@ -355,6 +420,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           );
           deriveAndStoreAccount(master);
           pendingMasterRef.current = null;
+          escrowMissingRef.current = false;
         } else {
           const wire = await api.wallets.getEscrow.query();
           if (!wire) {
@@ -364,13 +430,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           const { decryptMaster, deserializeEscrow } = await import(
             "../lib/keys"
           );
-          let master: Uint8Array;
+          let master: Uint8Array | undefined;
           try {
             master = decryptMaster(deserializeEscrow(wire), pin);
           } catch {
             throw new BadPinError();
           }
-          deriveAndStoreAccount(master);
+          try {
+            if (username) {
+              const [recovered, registered] = await Promise.all([
+                accountPubkeys(deriveNoteSecrets(master)),
+                resolveUsernameOnChain(username),
+              ]);
+              if (
+                registered?.owner === mapping.contractId &&
+                (!sameBytes(recovered.notePubkey, registered.note_pubkey) ||
+                  !sameBytes(recovered.viewPubkey, registered.view_pubkey))
+              ) {
+                throw new RecoveryKeyGenerationMismatchError();
+              }
+            }
+            deriveAndStoreAccount(master);
+          } finally {
+            master.fill(0);
+          }
         }
         setAccountUnlocked(true);
         setPinModalOpen(false);
@@ -397,6 +480,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     resolvedWalletRef.current = null;
     mappingRef.current = null;
     pendingMasterRef.current = null;
+    escrowMissingRef.current = false;
     clearLocalAccount();
     syncLocalAccountIdentity(null);
     setAddress("");
@@ -421,37 +505,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return privySigner({
       olioAddress: mapping.contractId,
       wallet,
-      signRawHash,
-    });
-  }, [signRawHash]);
-
-  const getPrivySep10Signer = useCallback((): Sep10Signer => {
-    const wallet = privyWalletRef.current;
-    if (!wallet) throw new Error("Connect a Privy wallet first.");
-    return privySep10Signer({ wallet, signRawHash });
-  }, [signRawHash]);
-
-  const signPrivyTransaction = useCallback(
-    async (transactionXdr: string, passphrase: string): Promise<string> => {
-      const wallet = privyWalletRef.current;
-      if (!wallet) throw new Error("Connect a Privy wallet first.");
-      return signClassicTransaction({
-        wallet,
-        transactionXdr,
-        networkPassphrase: passphrase,
-        signRawHash,
-      });
-    },
-    [signRawHash],
-  );
-
-  const getPrivyUsdcSigner = useCallback((): Signer => {
-    const wallet = privyWalletRef.current;
-    const mapping = mappingRef.current;
-    if (!wallet || !mapping) throw new Error("Connect a Privy wallet first.");
-    return privyUsdcSigner({
-      wallet,
-      olioAddress: mapping.contractId,
       signRawHash,
     });
   }, [signRawHash]);
@@ -491,9 +544,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       getSigner,
       privyPublicKey: privyWalletRef.current?.address ?? "",
-      getPrivySep10Signer,
-      signPrivyTransaction,
-      getPrivyUsdcSigner,
     }),
     [
       address,
@@ -517,9 +567,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       signIn,
       disconnect,
       getSigner,
-      getPrivySep10Signer,
-      signPrivyTransaction,
-      getPrivyUsdcSigner,
     ],
   );
 

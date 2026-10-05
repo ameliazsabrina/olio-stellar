@@ -14,6 +14,7 @@ import {
 import { env } from "../env";
 import { api } from "../trpc/client";
 import { bytesToHex, fromBaseUnits, hexToBytes } from "./crypto";
+import { type FeeQuoteEnvelope, feeQuoteScVal } from "./fee-quote";
 import type { RawProof } from "./prover";
 
 export const networkPassphrase =
@@ -309,6 +310,7 @@ export async function poolDeposit(
   signer: Signer,
   commitment: Uint8Array,
   amount: bigint,
+  feeQuote: FeeQuoteEnvelope,
   proof: RawProof,
   ephemeralPk: Uint8Array,
   ciphertext: Uint8Array,
@@ -317,6 +319,8 @@ export async function poolDeposit(
     scAddr(signer.address),
     scBytes(commitment),
     scI128(amount),
+    feeQuoteScVal(feeQuote.quote),
+    scBytes(feeQuote.signature),
     scProof(proof),
     scBytes(ephemeralPk),
     scBytes(ciphertext),
@@ -401,6 +405,17 @@ export type SpentEvent = {
   nullifierHex: string;
 };
 
+export type FeeEvent = {
+  payer: string;
+  feeRecipient: string;
+  paymentAmount: bigint;
+  feeAmount: bigint;
+  totalAmount: bigint;
+  policyVersion: number;
+  feeBps: number;
+  quoteId: string;
+};
+
 function poolEventKind(e: rpc.Api.EventResponse): string | null {
   const topic = e.topic.at(0);
   return topic ? String(scValToNative(topic)) : null;
@@ -434,6 +449,43 @@ export function parseSpentEvent(e: rpc.Api.EventResponse): SpentEvent | null {
   const bytes = toBytes(val);
   if (bytes.length !== 32) return null;
   return { nullifierHex: bytesToHex(bytes) };
+}
+
+export function parseFeeEvent(e: rpc.Api.EventResponse): FeeEvent | null {
+  if (poolEventKind(e) !== "fee") return null;
+  const val = scValToNative(
+    typeof e.value === "string"
+      ? xdr.ScVal.fromXDR(e.value, "base64")
+      : e.value,
+  ) as Record<string, unknown> | null;
+  if (!val || Array.isArray(val) || typeof val !== "object") return null;
+  try {
+    const parsed = {
+      payer: String(val.payer),
+      feeRecipient: String(val.fee_recipient),
+      paymentAmount: BigInt(val.payment_amount as bigint),
+      feeAmount: BigInt(val.fee_amount as bigint),
+      totalAmount: BigInt(val.total_amount as bigint),
+      policyVersion: Number(val.policy_version),
+      feeBps: Number(val.fee_bps),
+      quoteId: bytesToHex(toBytes(val.quote_id)),
+    };
+    if (
+      !parsed.payer ||
+      !parsed.feeRecipient ||
+      parsed.paymentAmount <= 0n ||
+      parsed.feeAmount < 0n ||
+      parsed.totalAmount !== parsed.paymentAmount + parsed.feeAmount ||
+      !Number.isInteger(parsed.policyVersion) ||
+      ![200, 500].includes(parsed.feeBps) ||
+      !/^[0-9a-f]{64}$/.test(parsed.quoteId)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchPoolEventsSince(sinceLedger: number): Promise<{

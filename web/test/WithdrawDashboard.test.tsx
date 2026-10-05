@@ -56,19 +56,9 @@ vi.mock("../src/lib/withdraw", async (importOriginal) => {
   };
 });
 
-vi.mock("../src/lib/anchor", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/lib/anchor")>();
-  return { ...actual, offRampEnabled: true };
-});
-
-vi.mock("../src/lib/transak", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/lib/transak")>();
-  return { ...actual, transakEnabled: true };
-});
-
 import { WithdrawDashboard } from "../src/components/dashboard/WithdrawDashboard";
 
-it("keeps MoneyGram disabled while whitelisting and Transak hidden", () => {
+it("offers wallet withdrawals for single and bulk payments", () => {
   render(<WithdrawDashboard />);
 
   expect(
@@ -92,18 +82,7 @@ it("keeps MoneyGram disabled while whitelisting and Transak hidden", () => {
     within(singleDialog).getByText("from one private payment"),
   ).toBeInTheDocument();
 
-  expect(
-    screen.getByRole("button", { name: /^MoneyGram cash pickup/ }),
-  ).toBeDisabled();
-  expect(
-    screen.getByText(
-      "Sandbox access pending. We’re completing MoneyGram integration and will enable cash pickup after approval.",
-    ),
-  ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: /Transak/i }),
-  ).not.toBeInTheDocument();
-  expect(screen.queryByText(/Transak bank cash-out/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /cash pickup/i })).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: /^Stellar wallet/ }));
   expect(
@@ -118,12 +97,7 @@ it("keeps MoneyGram disabled while whitelisting and Transak hidden", () => {
     }),
   );
 
-  expect(
-    screen.getByRole("button", { name: /^MoneyGram cash pickup/ }),
-  ).toBeDisabled();
-  expect(
-    screen.getByText("Cash anchors process one private payment at a time."),
-  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /cash pickup/i })).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: /^Stellar wallet/ }));
   const bulkDialog = screen.getByRole("dialog");
@@ -158,10 +132,14 @@ it("allows the proof-generation dialog to be closed", async () => {
   );
 
   expect(
-    await screen.findByText("Generating proof and releasing funds…"),
+    await screen.findByText(
+      "The zero-knowledge proof is built in your browser. This can take a few seconds.",
+    ),
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(
-    screen.queryByText("Generating proof and releasing funds…"),
+    screen.queryByText(
+      "The zero-knowledge proof is built in your browser. This can take a few seconds.",
+    ),
   ).not.toBeInTheDocument();
 });

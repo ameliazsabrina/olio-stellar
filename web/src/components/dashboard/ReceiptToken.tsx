@@ -157,13 +157,14 @@ export function ReceiptTokenStack({
   return (
     <span
       className={cn("inline-flex items-center", className)}
+      role="img"
       aria-label={
         placeholder ? "No private receipts yet" : `${total} private receipts`
       }
     >
       {visibleSeeds.map((seed, index) => (
         <ReceiptToken
-          key={`${seed}-${index}`}
+          key={seed}
           seed={seed}
           placeholder={placeholder}
           size="sm"

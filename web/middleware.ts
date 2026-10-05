@@ -59,5 +59,8 @@ export const config = {
     "/links/:path*",
     "/withdraw/:path*",
     "/history/:path*",
+    "/settings/:path*",
+    "/verification/:path*",
+    "/passport/:path*",
   ],
 };

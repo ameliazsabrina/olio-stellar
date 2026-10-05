@@ -1,6 +1,10 @@
 import { nativeToScVal, type rpc, xdr } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
-import { parseDepositEvent, parseSpentEvent } from "../src/lib/stellar";
+import {
+  parseDepositEvent,
+  parseFeeEvent,
+  parseSpentEvent,
+} from "../src/lib/stellar";
 
 function event(kind: string, value: xdr.ScVal): rpc.Api.EventResponse {
   return {
@@ -35,5 +39,33 @@ describe("pool event parsing", () => {
       Buffer.alloc(40),
     ]);
     expect(parseDepositEvent(event("something_else", value))).toBeNull();
+  });
+
+  it("parses a typed fee event without recipient-link metadata", () => {
+    const parsed = parseFeeEvent(
+      event(
+        "fee",
+        nativeToScVal({
+          payer: "GPAYER",
+          fee_recipient: "GTREASURY",
+          payment_amount: 1_000_000_000n,
+          fee_amount: 20_000_000n,
+          total_amount: 1_020_000_000n,
+          policy_version: 1,
+          fee_bps: 200,
+          quote_id: Buffer.alloc(32, 7),
+        }),
+      ),
+    );
+    expect(parsed).toEqual({
+      payer: "GPAYER",
+      feeRecipient: "GTREASURY",
+      paymentAmount: 1_000_000_000n,
+      feeAmount: 20_000_000n,
+      totalAmount: 1_020_000_000n,
+      policyVersion: 1,
+      feeBps: 200,
+      quoteId: "07".repeat(32),
+    });
   });
 });

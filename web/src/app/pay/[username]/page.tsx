@@ -48,6 +48,7 @@ export default function PayPage() {
       <div
         className="grid place-items-center"
         role="status"
+        aria-live="polite"
         aria-label="Loading payment page"
       >
         <Loader

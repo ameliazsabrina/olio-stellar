@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -62,12 +63,19 @@ const nextConfig = {
   // optional drivers) that webpack can't statically bundle for the Node.js
   // server runtime — require them directly from node_modules at runtime
   // instead of trying to bundle them.
+  //
+  // snarkjs must stay external too: its prover (ffjavascript → web-worker)
+  // spawns worker threads by re-executing its own `__filename`. Bundled, that
+  // resolves to the webpack vendor chunk, which never runs the worker entry, so
+  // the thread-pool INIT never answers and `groth16.fullProve` hangs forever.
+  // The CCTP settlement worker is the one server-side prover call.
   serverExternalPackages: [
     "@stellar/stellar-sdk",
     "@stellar/stellar-base",
     "sodium-native",
     "mongodb",
     "@openzeppelin/relayer-plugin-channels",
+    "snarkjs",
   ],
   webpack: (config, { dev }) => {
     // The proof dependency graph (snarkjs/wasmcurves) makes Next's
@@ -80,4 +88,8 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default (phase) => ({
+  ...nextConfig,
+  // Keep the dev server from overwriting production chunks during a build.
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? ".next-dev" : ".next",
+});

@@ -3,7 +3,10 @@ import { Binary } from "mongodb";
 
 const mocks = vi.hoisted(() => ({ getUsers: vi.fn() }));
 vi.mock("../src/server/db/mongo", () => ({ getUsers: mocks.getUsers }));
-vi.mock("../src/server/lib/privy", () => ({ getPrivyUser: vi.fn() }));
+vi.mock("../src/server/lib/privy", () => ({
+  getPrivyUser: vi.fn(),
+  getPrivyUserByWalletAddress: vi.fn(),
+}));
 vi.mock("../src/server/modules/channels/channels.service", () => ({
   relayXdr: vi.fn(),
 }));
