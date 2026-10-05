@@ -11,6 +11,34 @@ const TTL_THRESHOLD: u32 = DAY_LEDGERS * 30;
 const TTL_EXTEND: u32 = DAY_LEDGERS * 90;
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FeeChannel {
+    Direct,
+    Cctp,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FeeQuote {
+    pub format_version: u32,
+    pub policy_version: u32,
+    pub quote_id: BytesN<32>,
+    pub network_id: BytesN<32>,
+    pub pool: Address,
+    pub depositor: Address,
+    pub commitment: BytesN<32>,
+    pub payment_amount: i128,
+    pub fee_bps: u32,
+    pub fee_amount: i128,
+    pub total_amount: i128,
+    pub channel: FeeChannel,
+    pub source_domain: u32,
+    pub source_payer: BytesN<32>,
+    pub issued_at: u64,
+    pub expires_at: u64,
+}
+
+#[contracttype]
 #[derive(Clone)]
 pub struct Config {
     pub admin: Address,
@@ -29,6 +57,7 @@ enum DataKey {
 pub enum Error {
     NotInitialized = 1,
     InvalidAmount = 2,
+    InvalidQuote = 3,
 }
 
 #[contract]
@@ -40,30 +69,42 @@ impl IntakeContract {
         env.storage()
             .instance()
             .set(&DataKey::Config, &Config { admin, pool, asset });
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
     }
 
     pub fn deposit_to_pool(
         env: Env,
         commitment: BytesN<32>,
-        amount: i128,
+        payment_amount: i128,
+        quote: FeeQuote,
+        signature: BytesN<64>,
         proof: Val,
         ephemeral_pk: BytesN<32>,
         ciphertext: Bytes,
     ) -> Result<u32, Error> {
         let cfg = load(&env)?;
         cfg.admin.require_auth();
-        if amount <= 0 {
+        if payment_amount <= 0 {
             return Err(Error::InvalidAmount);
         }
-
         let from = env.current_contract_address();
+        if quote.depositor != from
+            || quote.pool != cfg.pool
+            || quote.commitment != commitment
+            || quote.payment_amount != payment_amount
+            || quote.total_amount < payment_amount
+            || quote.channel != FeeChannel::Cctp
+        {
+            return Err(Error::InvalidQuote);
+        }
 
         let transfer_args: Vec<Val> = vec![
             &env,
             from.clone().into_val(&env),
             cfg.pool.clone().into_val(&env),
-            amount.into_val(&env),
+            quote.total_amount.into_val(&env),
         ];
         env.authorize_as_current_contract(vec![
             &env,
@@ -81,14 +122,18 @@ impl IntakeContract {
             &env,
             from.into_val(&env),
             commitment.into_val(&env),
-            amount.into_val(&env),
+            payment_amount.into_val(&env),
+            quote.into_val(&env),
+            signature.into_val(&env),
             proof,
             ephemeral_pk.into_val(&env),
             ciphertext.into_val(&env),
         ];
         let leaf_index: u32 = env.invoke_contract(&cfg.pool, &symbol_short!("deposit"), args);
 
-        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
         Ok(leaf_index)
     }
 

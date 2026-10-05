@@ -37,12 +37,7 @@ pub struct Proof {
 ///
 /// Checks `e(-A, B) · e(alpha, beta) · e(vk_x, gamma) · e(C, delta) == 1`,
 /// where `vk_x = ic[0] + Σ pub_signals[i] · ic[i+1]`.
-pub fn verify(
-    env: &Env,
-    vk: &VerificationKey,
-    proof: &Proof,
-    pub_signals: &Vec<Bn254Fr>,
-) -> bool {
+pub fn verify(env: &Env, vk: &VerificationKey, proof: &Proof, pub_signals: &Vec<Bn254Fr>) -> bool {
     // ic must have exactly one entry per public signal, plus the constant.
     if vk.ic.len() != pub_signals.len() + 1 {
         return false;
