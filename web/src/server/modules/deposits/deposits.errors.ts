@@ -6,3 +6,12 @@ export class DepositIndexGapError extends Error {
     this.name = "DepositIndexGapError";
   }
 }
+
+export class PoolConfigurationMismatchError extends Error {
+  constructor(indexedPoolId: string, configuredPoolId: string) {
+    super(
+      `pool configuration mismatch: database is scoped to ${indexedPoolId}, application is configured for ${configuredPoolId}; use an isolated database or complete an explicit scoped migration`,
+    );
+    this.name = "PoolConfigurationMismatchError";
+  }
+}

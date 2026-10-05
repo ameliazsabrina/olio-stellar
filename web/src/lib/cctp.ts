@@ -4,8 +4,8 @@
 // mints USDC on Stellar, which the relayer then deposits into the shielded pool
 // as a note encrypted to the payee. Addresses are Circle's testnet deployments.
 
-import { keccak_256 } from "@noble/hashes/sha3.js";
 import { env } from "../env";
+import { paymentBindingDigest, type SignedFeeQuote } from "./fee-quote";
 
 export const CCTP_STELLAR_DOMAIN = 27;
 
@@ -15,14 +15,11 @@ export const CCTP_STELLAR_DOMAIN = 27;
 // note key and rejects the deposit unless it matches the message's hookData.
 // Second-preimage resistance means an attacker cannot redirect a victim's burn
 // to a different username.
-export function cctpBinding(
-  notePubkey: Uint8Array,
-  nonce: Uint8Array,
-): Uint8Array {
-  const buf = new Uint8Array(notePubkey.length + nonce.length);
-  buf.set(notePubkey, 0);
-  buf.set(nonce, notePubkey.length);
-  return keccak_256(buf);
+export function cctpBinding(quote: SignedFeeQuote): Uint8Array {
+  if (quote.channel !== "cctp") {
+    throw new RangeError("CCTP hook data requires a CCTP fee quote.");
+  }
+  return paymentBindingDigest(quote);
 }
 
 // Circle's Stellar (Soroban) CCTP V2 testnet contracts.
@@ -51,6 +48,8 @@ export type EvmSource = {
   name: string;
   usdc: `0x${string}`;
   tokenMessenger: `0x${string}`;
+  rpcUrl: string;
+  nativeCurrency: { name: string; symbol: string; decimals: number };
   explorerTx: string;
 };
 
@@ -64,6 +63,8 @@ export const EVM_SOURCES: Record<number, EvmSource> = {
     domain: 0,
     chainId: 11155111,
     name: "Ethereum Sepolia",
+    rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     tokenMessenger: TOKEN_MESSENGER_V2,
     explorerTx: "https://sepolia.etherscan.io/tx/",
@@ -72,6 +73,8 @@ export const EVM_SOURCES: Record<number, EvmSource> = {
     domain: 1,
     chainId: 43113,
     name: "Avalanche Fuji",
+    rpcUrl: "https://api.avax-test.network/ext/bc/C/rpc",
+    nativeCurrency: { name: "Avalanche", symbol: "AVAX", decimals: 18 },
     usdc: "0x5425890298aed601595a70AB815c96711a31Bc65",
     tokenMessenger: TOKEN_MESSENGER_V2,
     explorerTx: "https://testnet.snowtrace.io/tx/",
@@ -80,6 +83,8 @@ export const EVM_SOURCES: Record<number, EvmSource> = {
     domain: 3,
     chainId: 421614,
     name: "Arbitrum Sepolia",
+    rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     tokenMessenger: TOKEN_MESSENGER_V2,
     explorerTx: "https://sepolia.arbiscan.io/tx/",
@@ -88,6 +93,8 @@ export const EVM_SOURCES: Record<number, EvmSource> = {
     domain: 6,
     chainId: 84532,
     name: "Base Sepolia",
+    rpcUrl: "https://sepolia.base.org",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     tokenMessenger: TOKEN_MESSENGER_V2,
     explorerTx: "https://sepolia.basescan.org/tx/",
@@ -99,10 +106,20 @@ export const evmSourceByChainId = (chainId: number): EvmSource | undefined =>
 
 // Circle CCTP V2 Solana source (devnet). Solana is source domain 5. The V2
 // program IDs are the same `CCTPV2…` addresses on every cluster; only the USDC
-// mint and RPC endpoint differ, so those are env-overridable for a later mainnet
-// swap. A Solana burn produces the same normalized CCTP message as an EVM burn,
+// mint differs. Mainnet requires a separate certified registry, not a URL swap. A Solana burn produces the same normalized CCTP message as an EVM burn,
 // so the server relay is chain-agnostic and needs no Solana awareness.
 export const SOLANA_SRC_DOMAIN = 5;
+
+export type CctpChain = "evm" | "base" | "solana";
+// Named chains pin the quote and readiness to a domain; generic EVM follows the wallet.
+export const CCTP_CHAIN_DOMAIN: Partial<Record<CctpChain, number>> = {
+  solana: SOLANA_SRC_DOMAIN,
+  base: 6,
+};
+export const evmSourceForChain = (chain: CctpChain): EvmSource | undefined => {
+  const domain = CCTP_CHAIN_DOMAIN[chain];
+  return domain === undefined ? undefined : EVM_SOURCES[domain];
+};
 
 export type SolanaSource = {
   domain: typeof SOLANA_SRC_DOMAIN;
@@ -110,7 +127,6 @@ export type SolanaSource = {
   usdcMint: string;
   tokenMessengerMinter: string;
   messageTransmitter: string;
-  rpcUrl: string;
   explorerTx: string;
 };
 
@@ -123,6 +139,7 @@ export const solanaSource: SolanaSource = {
     "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
   tokenMessengerMinter: "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
   messageTransmitter: "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
-  rpcUrl: env.NEXT_PUBLIC_SOLANA_RPC_URL,
   explorerTx: "https://explorer.solana.com/tx/",
 };
+
+export const cctpRpcPath = (domain: number) => `/api/cctp/rpc/${domain}`;

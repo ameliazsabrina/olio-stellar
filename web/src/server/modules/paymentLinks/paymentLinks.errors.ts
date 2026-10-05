@@ -19,3 +19,12 @@ export class PaymentLinkUnauthorizedError extends Error {
     this.name = "PaymentLinkUnauthorizedError";
   }
 }
+
+export class PaymentLinkBusinessMismatchError extends Error {
+  constructor() {
+    super(
+      "This link belongs to a username that is not bound to your verified business.",
+    );
+    this.name = "PaymentLinkBusinessMismatchError";
+  }
+}

@@ -36,37 +36,11 @@ export const publicEnvSchema = z.object({
     z.coerce.number().int().min(1).max(32).default(20),
   ),
   NEXT_PUBLIC_PRIVY_APP_ID: optionalString,
-  NEXT_PUBLIC_SEP24_ANCHOR_URL: optionalUrl,
-  NEXT_PUBLIC_SEP24_ASSET_CODE: z
-    .string()
-    .trim()
-    .regex(/^[A-Z0-9]{1,12}$/)
-    .default("USDC"),
-  NEXT_PUBLIC_SEP10_CLIENT_DOMAIN: optionalString,
-  NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS: z.preprocess(
-    (value) =>
-      typeof value === "string" && value.trim() !== ""
-        ? value.trim().toLowerCase()
-        : undefined,
-    z
-      .enum(["whitelisting", "sandbox", "live"])
-      .default("whitelisting")
-      .catch("whitelisting"),
-  ),
   NEXT_PUBLIC_STELLAR_HORIZON_URL: z.preprocess(
     emptyToUndefined,
     z.string().trim().url().default("https://horizon-testnet.stellar.org"),
   ),
   NEXT_PUBLIC_FRIENDBOT_URL: optionalUrl,
-  NEXT_PUBLIC_TRANSAK_API_KEY: optionalString,
-  NEXT_PUBLIC_TRANSAK_ENV: z.preprocess(
-    (value) =>
-      typeof value === "string" && value.trim() !== ""
-        ? value.trim().toUpperCase()
-        : undefined,
-    z.enum(["STAGING", "PRODUCTION"]).default("PRODUCTION"),
-  ),
-  NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY: optionalString,
   NEXT_PUBLIC_CCTP_INTAKE_CONTRACT: optionalString,
   NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER: optionalString,
   NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER: optionalString,
@@ -95,19 +69,9 @@ export function getPublicEnv() {
     NEXT_PUBLIC_USDC_ISSUER: process.env.NEXT_PUBLIC_USDC_ISSUER,
     NEXT_PUBLIC_POOL_DEPTH: process.env.NEXT_PUBLIC_POOL_DEPTH,
     NEXT_PUBLIC_PRIVY_APP_ID: process.env.NEXT_PUBLIC_PRIVY_APP_ID,
-    NEXT_PUBLIC_SEP24_ANCHOR_URL: process.env.NEXT_PUBLIC_SEP24_ANCHOR_URL,
-    NEXT_PUBLIC_SEP24_ASSET_CODE: process.env.NEXT_PUBLIC_SEP24_ASSET_CODE,
-    NEXT_PUBLIC_SEP10_CLIENT_DOMAIN:
-      process.env.NEXT_PUBLIC_SEP10_CLIENT_DOMAIN,
-    NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS:
-      process.env.NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS,
     NEXT_PUBLIC_STELLAR_HORIZON_URL:
       process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL,
     NEXT_PUBLIC_FRIENDBOT_URL: process.env.NEXT_PUBLIC_FRIENDBOT_URL,
-    NEXT_PUBLIC_TRANSAK_API_KEY: process.env.NEXT_PUBLIC_TRANSAK_API_KEY,
-    NEXT_PUBLIC_TRANSAK_ENV: process.env.NEXT_PUBLIC_TRANSAK_ENV,
-    NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY:
-      process.env.NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY,
     NEXT_PUBLIC_CCTP_INTAKE_CONTRACT:
       process.env.NEXT_PUBLIC_CCTP_INTAKE_CONTRACT,
     NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER:

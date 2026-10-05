@@ -31,7 +31,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-brand-obsidian/60 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-open:duration-300 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 motion-reduce:duration-0",
+        "fixed inset-0 isolate z-50 bg-brand-obsidian/60 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-open:duration-300 data-closed:animate-out data-closed:fade-out-0 data-closed:duration-200 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none",
         className,
       )}
       {...props}
@@ -61,7 +61,7 @@ function DialogContent({
         data-appearance={appearance}
         data-size={size}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl bg-popover/95 p-5 text-sm text-popover-foreground ring-1 ring-border/80 backdrop-blur-xl outline-none sm:max-w-sm sm:p-6 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-300 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 motion-reduce:duration-0 motion-reduce:data-open:zoom-in-100 motion-reduce:data-closed:zoom-out-100",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl bg-popover/95 p-5 text-sm text-popover-foreground ring-1 ring-border/80 backdrop-blur-xl outline-none sm:max-w-sm sm:p-6 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:duration-300 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:duration-200 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none motion-reduce:data-open:zoom-in-100 motion-reduce:data-closed:zoom-out-100",
           size === "md" && "sm:max-w-lg",
           size === "lg" && "sm:max-w-xl",
           appearance === "glass" &&

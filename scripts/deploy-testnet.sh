@@ -19,6 +19,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/deploy-testnet.sh [options]
   --source-account NAME   Stellar CLI deployer identity (default: alice)
+                          Set ADMIN_ADDRESS=G... to make a different (e.g. multisig) account the pool admin
   --registry-id C...      Reuse and verify an existing registry
   --new-registry          Explicitly deploy a fresh, empty registry
   --env-file PATH         Environment file to stage and atomically activate
@@ -298,7 +299,9 @@ if ! stellar keys address "$SOURCE_ACCOUNT" >/dev/null 2>&1; then
   log "Creating and funding deployer identity '${SOURCE_ACCOUNT}'"
   stellar keys generate "$SOURCE_ACCOUNT" --network "$NETWORK" --fund
 fi
-ADMIN_ADDR=$(stellar keys address "$SOURCE_ACCOUNT")
+# ADMIN_ADDRESS lets a multisig admin own the pool while SOURCE_ACCOUNT only pays
+# for and submits the deployment; the constructor records the admin without auth.
+ADMIN_ADDR="${ADMIN_ADDRESS:-$(stellar keys address "$SOURCE_ACCOUNT")}"
 if ! stellar keys address "$CCTP_OPERATOR" >/dev/null 2>&1; then
   log "Creating and funding dedicated CCTP operator '${CCTP_OPERATOR}'"
   stellar keys generate "$CCTP_OPERATOR" --network "$NETWORK" --fund

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { type ReactNode, useState } from "react";
+import { verificationLink } from "./verificationLink";
 import type { AppRouter } from "../server/root";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -14,6 +15,7 @@ export function TRPCReactProvider({ children }: { children: ReactNode }) {
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
+        verificationLink,
         httpBatchLink({
           url: "/api/trpc",
           headers: async () => {

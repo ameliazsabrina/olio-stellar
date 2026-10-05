@@ -22,6 +22,7 @@ import { linenFieldClass, linenSegmentedClass } from "../ui/glass";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ToastFeedback } from "../ui/toast-feedback";
+import { AiLinkDraft } from "./AiLinkDraft";
 
 type LinkFormInput = z.input<typeof createLinkFormInput>;
 type LinkFormOutput = z.output<typeof createLinkFormInput>;
@@ -108,6 +109,10 @@ export function LinkEditorDialog({
 
   const submit = handleSubmit(async (values) => {
     setSubmitError(null);
+    if (amountMode === "fixed" && !values.amount) {
+      setSubmitError("Enter a USDC amount or choose Open Amount.");
+      return;
+    }
     try {
       const payload = {
         ...values,
@@ -152,6 +157,13 @@ export function LinkEditorDialog({
         </DialogHeader>
         <form className="grid gap-4" onSubmit={submit}>
           <input type="hidden" {...register("username")} />
+          {mode === "create" && open && process.env.NEXT_PUBLIC_OLIO_AI_DRAFTS_ENABLED === "true" ? (
+            <AiLinkDraft onApply={(draft) => {
+              setValue("description", draft.description ?? "", { shouldValidate: true });
+              setValue("amount", draft.amount ?? "", { shouldValidate: true });
+              setAmountMode("fixed");
+            }} />
+          ) : null}
           <div className="grid gap-2">
             <Label
               className="text-foreground"

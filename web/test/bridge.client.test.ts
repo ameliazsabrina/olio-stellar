@@ -11,7 +11,7 @@ vi.mock("../src/trpc/client", () => ({
   api: { bridge: { fund: { mutate: mocks.fund } } },
 }));
 
-vi.mock("../src/lib/anchor", () => ({
+vi.mock("../src/lib/stellar-payments", () => ({
   friendbotUrl: "https://friendbot.example",
   horizon: {
     loadAccount: mocks.loadAccount,

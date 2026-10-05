@@ -9,12 +9,27 @@ const MESSAGE_BODY_INDEX = 148;
 const SOURCE_DOMAIN_INDEX = 4;
 const MINT_RECIPIENT_INDEX = MESSAGE_BODY_INDEX + 36; // 184
 const AMOUNT_INDEX = MESSAGE_BODY_INDEX + 68; // 216
+const MESSAGE_SENDER_INDEX = MESSAGE_BODY_INDEX + 100; // 248
 const HOOK_DATA_INDEX = MESSAGE_BODY_INDEX + 228; // 376
 
 export type CctpMessage = {
   sourceDomain: number;
+  version: number;
+  bodyVersion: number;
+  destinationDomain: number;
+  nonce: Uint8Array;
+  sender: Uint8Array;
+  recipient: Uint8Array;
+  destinationCaller: Uint8Array;
+  burnToken: Uint8Array;
+  minFinality: number;
+  finalityExecuted: number;
+  maxFee: bigint;
+  feeExecuted: bigint;
+  expirationBlock: bigint;
   mintRecipient: Uint8Array; // 32 bytes
   amount: bigint; // canonical 6-decimal USDC base units
+  messageSender: Uint8Array;
   hookData: Uint8Array;
 };
 
@@ -50,8 +65,14 @@ export function parseCctpMessage(hex: string): CctpMessage {
   }
   return {
     sourceDomain: readU32BE(bytes, SOURCE_DOMAIN_INDEX),
+    version: readU32BE(bytes, 0), bodyVersion: readU32BE(bytes, 148),
+    destinationDomain: readU32BE(bytes, 8), nonce: bytes.slice(12, 44),
+    sender: bytes.slice(44, 76), recipient: bytes.slice(76, 108), destinationCaller: bytes.slice(108, 140),
+    burnToken: bytes.slice(152, 184), minFinality: readU32BE(bytes, 140), finalityExecuted: readU32BE(bytes, 144),
+    maxFee: readUintBE(bytes, 280, 32), feeExecuted: readUintBE(bytes, 312, 32), expirationBlock: readUintBE(bytes, 344, 32),
     mintRecipient: bytes.slice(MINT_RECIPIENT_INDEX, MINT_RECIPIENT_INDEX + 32),
     amount: readUintBE(bytes, AMOUNT_INDEX, 32),
+    messageSender: bytes.slice(MESSAGE_SENDER_INDEX, MESSAGE_SENDER_INDEX + 32),
     hookData: bytes.slice(HOOK_DATA_INDEX),
   };
 }

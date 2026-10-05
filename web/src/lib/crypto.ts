@@ -64,21 +64,29 @@ export function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
+const BASE58_ALPHABET =
+  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+export function base58ToBytes(input: string): Uint8Array {
+  let num = 0n;
+  for (const ch of input) {
+    const value = BASE58_ALPHABET.indexOf(ch);
+    if (value < 0) throw new Error(`invalid base58 character: ${ch}`);
+    num = num * 58n + BigInt(value);
+  }
+  const bytes: number[] = [];
+  while (num > 0n) {
+    bytes.unshift(Number(num & 0xffn));
+    num >>= 8n;
+  }
+  for (let i = 0; i < input.length && input[i] === "1"; i += 1) bytes.unshift(0);
+  return new Uint8Array(bytes);
+}
+
 export function randomFieldElement(): bigint {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return fromBE(bytes) % R;
-}
-
-/** Stable, domain-separated salt for retry-safe MoneyGram shielding. */
-export function cashInSalt(
-  ownerSecret: bigint,
-  settlementIdentity: string,
-): bigint {
-  const material = new TextEncoder().encode(
-    `olio:moneygram-cash-in:v1:${ownerSecret.toString()}:${settlementIdentity}`,
-  );
-  return fromBE(sha256(material)) % R;
 }
 
 // --- amount helpers ---------------------------------------------------------

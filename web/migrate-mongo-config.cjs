@@ -1,3 +1,12 @@
+if (
+  process.env.OLIO_REQUIRE_EXPLICIT_MIGRATION_URI === "1" &&
+  !process.env.MONGODB_URI
+) {
+  throw new Error(
+    "An explicit MONGODB_URI is required for this migration run.",
+  );
+}
+
 const config = {
   mongodb: {
     url: process.env.MONGODB_URI || "mongodb://localhost:27017/olio",

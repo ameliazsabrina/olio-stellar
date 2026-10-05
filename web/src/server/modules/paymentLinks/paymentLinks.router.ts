@@ -1,13 +1,22 @@
+import { requireSubmission } from "../verification/verification.submission";
+import { usernameByOwner } from "../usernames/usernames.service";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
+  createTRPCRouter,
+  protectedProcedure,
+  publicProcedure,
+} from "../../trpc";
+import { mapBusinessError } from "../businesses/businesses.router";
+import {
+  PaymentLinkBusinessMismatchError,
   PaymentLinkSlugUnavailableError,
   PaymentLinkStoreError,
   PaymentLinkUnauthorizedError,
 } from "./paymentLinks.errors";
 import {
   archiveLinkInput,
+  claimLinkInput,
   createLinkInput,
   createLinkResult,
   deleteLinkInput,
@@ -18,6 +27,7 @@ import {
   updateLinkInput,
 } from "./paymentLinks.schema";
 import {
+  claimLinkForBusiness,
   createLink,
   deleteLink,
   getLink,
@@ -37,15 +47,35 @@ function mapError(e: unknown): never {
   if (e instanceof PaymentLinkUnauthorizedError) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: e.message });
   }
-  throw e;
+  if (e instanceof PaymentLinkBusinessMismatchError) {
+    throw new TRPCError({ code: "FORBIDDEN", message: e.message });
+  }
+  return mapBusinessError(e);
+}
+
+async function authorizeLink(
+  user: string,
+  input: { username?: string; id?: string },
+) {
+  const wallet = await requireSubmission(user);
+  const username = await usernameByOwner(wallet.contractId);
+  const owner =
+    input.username ?? (input.id ? (await getLink(input.id))?.owner : null);
+  if (!username || owner !== username)
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This payment link belongs to another account.",
+    });
 }
 
 export const paymentLinksRouter = createTRPCRouter({
-  // Ownership of `username` is intentionally unverified here; funds still route on-chain, accepted risk is slug-squatting.
-  create: publicProcedure
+  create: protectedProcedure
     .input(createLinkInput)
     .output(createLinkResult)
-    .mutation(({ input }) => createLink(input).catch(mapError)),
+    .mutation(async ({ ctx, input }) => {
+      await authorizeLink(ctx.privyUserId, input);
+      return createLink(input).catch(mapError);
+    }),
 
   get: publicProcedure
     .input(getLinkInput)
@@ -62,18 +92,35 @@ export const paymentLinksRouter = createTRPCRouter({
     .output(linkOutput.nullable())
     .query(({ input }) => resolveLink(input).catch(mapError)),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(updateLinkInput)
     .output(linkOutput)
-    .mutation(({ input }) => updateLink(input).catch(mapError)),
+    .mutation(async ({ ctx, input }) => {
+      await authorizeLink(ctx.privyUserId, input);
+      return updateLink(input).catch(mapError);
+    }),
 
-  setArchived: publicProcedure
+  setArchived: protectedProcedure
     .input(archiveLinkInput)
     .output(linkOutput)
-    .mutation(({ input }) => setLinkArchived(input).catch(mapError)),
+    .mutation(async ({ ctx, input }) => {
+      await authorizeLink(ctx.privyUserId, input);
+      return setLinkArchived(input).catch(mapError);
+    }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(deleteLinkInput)
     .output(z.boolean())
-    .mutation(({ input }) => deleteLink(input).catch(mapError)),
+    .mutation(async ({ ctx, input }) => {
+      await authorizeLink(ctx.privyUserId, input);
+      return deleteLink(input).catch(mapError);
+    }),
+
+  claimForBusiness: protectedProcedure
+    .input(claimLinkInput)
+    .output(linkOutput)
+    .mutation(async ({ ctx, input }) => {
+      await authorizeLink(ctx.privyUserId, input);
+      return claimLinkForBusiness(ctx.privyUserId, input).catch(mapError);
+    }),
 });

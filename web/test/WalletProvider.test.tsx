@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { encryptMaster, serializeEscrow } from "../src/lib/keys";
 
 const mapping = {
   contractId: "CCONTRACT",
@@ -10,6 +11,7 @@ const mapping = {
 
 const mocks = vi.hoisted(() => ({
   authenticated: true,
+  hasLocalAccount: true,
   unstableHookValues: false,
   user: { id: "did:privy:user", linkedAccounts: [] },
   login: vi.fn(),
@@ -21,8 +23,13 @@ const mocks = vi.hoisted(() => ({
   restore: vi.fn(),
   bootstrap: vi.fn(),
   getEscrow: vi.fn(),
+  saveEscrow: vi.fn(),
   replace: vi.fn(),
   usernameOf: vi.fn(),
+  resolveUsernameOnChain: vi.fn(),
+  getAccount: vi.fn(),
+  accountPubkeys: vi.fn(),
+  deriveAndStoreAccount: vi.fn(),
   clearLocalAccount: vi.fn(),
   syncLocalAccountIdentity: vi.fn(),
 }));
@@ -66,21 +73,23 @@ vi.mock("../src/trpc/client", () => ({
       restore: { mutate: mocks.restore },
       bootstrap: { mutate: mocks.bootstrap },
       getEscrow: { query: mocks.getEscrow },
-      saveEscrow: { mutate: vi.fn() },
+      saveEscrow: { mutate: mocks.saveEscrow },
     },
   },
 }));
 
 vi.mock("../src/lib/notes", () => ({
-  hasLocalAccount: () => true,
-  deriveAndStoreAccount: vi.fn(),
-  accountPubkeys: vi.fn(),
+  hasLocalAccount: () => mocks.hasLocalAccount,
+  deriveAndStoreAccount: mocks.deriveAndStoreAccount,
+  getAccount: mocks.getAccount,
+  accountPubkeys: mocks.accountPubkeys,
   clearLocalAccount: mocks.clearLocalAccount,
   syncLocalAccountIdentity: mocks.syncLocalAccountIdentity,
 }));
 
 vi.mock("../src/lib/stellar", () => ({
   usernameOf: mocks.usernameOf,
+  resolveUsernameOnChain: mocks.resolveUsernameOnChain,
   registerUsernameCache: vi.fn(),
   setUsernamePubkeys: vi.fn(),
 }));
@@ -88,17 +97,35 @@ vi.mock("../src/lib/stellar", () => ({
 import { useWallet, WalletProvider } from "../src/components/WalletProvider";
 
 function Probe() {
-  const { address, error, sessionReady, signIn, disconnect } = useWallet();
+  const {
+    address,
+    error,
+    sessionReady,
+    accountUnlocked,
+    pinModalOpen,
+    pinMode,
+    pinError,
+    submitPin,
+    signIn,
+    disconnect,
+  } = useWallet();
   return (
     <div>
       <div data-testid="address">{address || "none"}</div>
       <div data-testid="error">{error || "none"}</div>
       <div data-testid="ready">{sessionReady ? "yes" : "no"}</div>
+      <div data-testid="unlocked">{accountUnlocked ? "yes" : "no"}</div>
+      <div data-testid="pin-open">{pinModalOpen ? "yes" : "no"}</div>
+      <div data-testid="pin-mode">{pinMode}</div>
+      <div data-testid="pin-error">{pinError || "none"}</div>
       <button type="button" onClick={signIn}>
         Retry
       </button>
       <button type="button" onClick={disconnect}>
         Disconnect
+      </button>
+      <button type="button" onClick={() => void submitPin("123456")}>
+        Submit PIN
       </button>
     </div>
   );
@@ -107,6 +134,7 @@ function Probe() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authenticated = true;
+  mocks.hasLocalAccount = true;
   mocks.unstableHookValues = false;
   mocks.resolveWallet.mockResolvedValue({ id: "wallet-1", address: "GPRIVY" });
   mocks.current.mockResolvedValue(mapping);
@@ -117,7 +145,22 @@ beforeEach(() => {
     masterSaltHex: "bb",
     kdfParams: { m: 1, t: 1, p: 1 },
   });
+  mocks.saveEscrow.mockResolvedValue({ ok: true });
   mocks.usernameOf.mockResolvedValue("alice");
+  mocks.getAccount.mockReturnValue({
+    ownerSecret: 1n,
+    viewSk: new Uint8Array(32),
+  });
+  mocks.accountPubkeys.mockResolvedValue({
+    notePubkey: new Uint8Array(32).fill(1),
+    viewPubkey: new Uint8Array(32).fill(2),
+  });
+  mocks.resolveUsernameOnChain.mockResolvedValue({
+    owner: "CCONTRACT",
+    note_pubkey: new Uint8Array(32).fill(1),
+    view_pubkey: new Uint8Array(32).fill(2),
+    created: 1n,
+  });
 });
 
 describe("WalletProvider Privy session", () => {
@@ -208,5 +251,99 @@ describe("WalletProvider Privy session", () => {
     await waitFor(() =>
       expect(screen.getByTestId("address")).toHaveTextContent("none"),
     );
+  });
+
+  it("rejects stale cached note keys and requests escrow unlock", async () => {
+    mocks.resolveUsernameOnChain.mockResolvedValue({
+      owner: "CCONTRACT",
+      note_pubkey: new Uint8Array(32).fill(3),
+      view_pubkey: new Uint8Array(32).fill(4),
+      created: 1n,
+    });
+
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pin-open")).toHaveTextContent("yes"),
+    );
+    expect(screen.getByTestId("unlocked")).toHaveTextContent("no");
+    expect(screen.getByTestId("pin-error")).toHaveTextContent(
+      "Your cached payment keys do not match this account",
+    );
+    expect(mocks.clearLocalAccount).not.toHaveBeenCalled();
+  });
+
+  it("restores the registered payment keys with the same PIN on a fresh device", async () => {
+    mocks.hasLocalAccount = false;
+    const master = new Uint8Array(32).fill(7);
+    mocks.getEscrow.mockResolvedValue({
+      ...serializeEscrow(encryptMaster(master, "123456", { m: 8, t: 1, p: 1 })),
+      revision: 1,
+    });
+
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pin-open")).toHaveTextContent("yes"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Submit PIN" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("unlocked")).toHaveTextContent("yes"),
+    );
+    expect(screen.getByTestId("pin-open")).toHaveTextContent("no");
+    expect(screen.getByTestId("pin-error")).toHaveTextContent("none");
+    expect(mocks.resolveUsernameOnChain).toHaveBeenCalledWith("alice");
+    expect(mocks.deriveAndStoreAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves recovery before unlocking a genuinely new account", async () => {
+    mocks.getEscrow.mockResolvedValue(null);
+    mocks.usernameOf.mockResolvedValue(null);
+
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pin-mode")).toHaveTextContent("set"),
+    );
+    expect(screen.getByTestId("unlocked")).toHaveTextContent("no");
+    expect(mocks.deriveAndStoreAccount).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit PIN" }));
+    await waitFor(() =>
+      expect(mocks.deriveAndStoreAccount).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.saveEscrow).toHaveBeenCalledTimes(1);
+    expect(mocks.saveEscrow.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.deriveAndStoreAccount.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not mistake an existing username without escrow for a new account", async () => {
+    mocks.getEscrow.mockResolvedValue(null);
+
+    render(
+      <WalletProvider>
+        <Probe />
+      </WalletProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pin-mode")).toHaveTextContent("secure"),
+    );
+    expect(screen.getByTestId("unlocked")).toHaveTextContent("no");
+    expect(mocks.deriveAndStoreAccount).not.toHaveBeenCalled();
   });
 });

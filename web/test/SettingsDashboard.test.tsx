@@ -13,6 +13,14 @@ const mocks = vi.hoisted(() => ({
   validateCurrentPin: vi.fn(),
   refetch: vi.fn(),
   toastSuccess: vi.fn(),
+  business: null as null | {
+    businessId: string;
+    type: "individual" | "company";
+  },
+  verificationStatus: null as null | {
+    eligibility: string;
+    credential: null | { status: string; published: boolean };
+  },
 }));
 
 vi.mock("../src/components/WalletProvider", () => ({
@@ -33,6 +41,14 @@ vi.mock("../src/trpc/react", () => ({
       },
     },
   },
+}));
+vi.mock("../src/features/verification/useVerification", () => ({
+  useVerification: () => ({
+    business: mocks.business,
+    status: mocks.verificationStatus,
+    businessesLoading: false,
+    statusLoading: false,
+  }),
 }));
 vi.mock("../src/features/recovery/hooks/useChangeRecoveryPin", () => ({
   useChangeRecoveryPin: () => ({
@@ -59,6 +75,8 @@ describe("SettingsDashboard recovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.escrow = null;
+    mocks.business = null;
+    mocks.verificationStatus = null;
     mocks.changeRecoveryPin.mockResolvedValue(undefined);
     mocks.validateCurrentPin.mockResolvedValue(true);
   });
@@ -99,5 +117,34 @@ describe("SettingsDashboard recovery", () => {
     );
     expect(mocks.refetch).toHaveBeenCalled();
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Recovery PIN changed");
+  });
+});
+
+describe("SettingsDashboard identity verification", () => {
+  it("offers to start verification when no business profile exists", () => {
+    render(<SettingsDashboard />);
+    expect(
+      screen.getByRole("link", { name: "Start verification" }),
+    ).toHaveAttribute("href", "/verification");
+    expect(
+      screen.queryByRole("link", { name: "Manage badge" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the eligibility badge and passport link once verified", () => {
+    mocks.business = { businessId: "biz_1", type: "individual" };
+    mocks.verificationStatus = {
+      eligibility: "approved",
+      credential: { status: "active", published: false },
+    };
+    render(<SettingsDashboard />);
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage badge" })).toHaveAttribute(
+      "href",
+      "/passport",
+    );
+    expect(
+      screen.getByText(/stays private until you publish it/),
+    ).toBeInTheDocument();
   });
 });

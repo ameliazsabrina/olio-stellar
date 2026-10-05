@@ -87,7 +87,12 @@ export function PinDialog({
 
   const validatePin = () => {
     const valid = PIN_RE.test(pin);
-    setPinState(valid ? "valid" : "invalid");
+    // In unlock mode this only validates the six-digit shape. The PIN is not
+    // authenticated until the encrypted escrow is opened after submission, so
+    // a green "valid" treatment here would incorrectly imply it was accepted.
+    setPinState(
+      valid && mode !== "unlock" ? "valid" : valid ? "idle" : "invalid",
+    );
     if (!valid) setLocalError("PIN must be exactly 6 digits.");
     return valid;
   };

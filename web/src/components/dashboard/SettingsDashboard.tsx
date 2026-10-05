@@ -1,4 +1,5 @@
 "use client";
+import { openVerification } from "../../features/verification/openVerification";
 
 import {
   Check,
@@ -6,11 +7,15 @@ import {
   Loader,
   LockKeyhole,
   LogOut,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useChangeRecoveryPin } from "../../features/recovery/hooks/useChangeRecoveryPin";
+import { useVerification } from "../../features/verification/useVerification";
+import { PASSPORT_PATH, VERIFICATION_PATH } from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
 import { trpc } from "../../trpc/react";
 import { Badge } from "../ui/badge";
@@ -28,6 +33,8 @@ import { useWallet } from "../WalletProvider";
 import { ChangeRecoveryPinDialog } from "./ChangeRecoveryPinDialog";
 import { DashboardPageHeader } from "./DashboardPageHeader";
 import { DashboardTile } from "./DashboardTile";
+import { EligibilityBadge } from "./VerificationDashboard";
+import { ELIGIBILITY_HEADLINES } from "./verificationCopy";
 
 export function SettingsDashboard() {
   const { username, disconnect } = useWallet();
@@ -50,6 +57,7 @@ export function SettingsDashboard() {
           loading={escrowQuery.isLoading}
           onChangePin={() => setChangePinOpen(true)}
         />
+        <IdentityVerificationTile />
         <SessionTile onSignOut={disconnect} />
       </div>
 
@@ -129,17 +137,12 @@ function RecoveryTile({
                 Checking
               </Badge>
             ) : protectedRecovery ? (
-              <Badge className="gap-1.5 bg-brand-linen text-brand-obsidian">
+              <Badge variant="success">
                 <Check className="size-3" aria-hidden="true" />
                 Ready
               </Badge>
             ) : (
-              <Badge
-                variant="destructive"
-                className="bg-red-300/15 text-red-100"
-              >
-                Needs attention
-              </Badge>
+              <Badge variant="danger">Needs attention</Badge>
             )}
           </div>
         }
@@ -165,6 +168,81 @@ function RecoveryTile({
               <Button variant="glass" onClick={onChangePin}>
                 Change PIN
               </Button>
+            ) : null}
+          </div>
+        }
+      />
+    </section>
+  );
+}
+
+function IdentityVerificationTile() {
+  const { business, status, businessesLoading, statusLoading } =
+    useVerification();
+  const loading = businessesLoading || statusLoading;
+  const eligibility = status?.eligibility ?? "not_started";
+  const credential = status?.credential ?? null;
+
+  return (
+    <section className="min-w-0 lg:col-span-7">
+      <DashboardTile
+        appearance="linen"
+        className="min-h-[19rem]"
+        header={
+          <div className="flex items-start justify-between gap-4">
+            <TileHeading
+              icon={<ShieldCheck className="size-5" aria-hidden="true" />}
+              title="Identity verification"
+            />
+            {loading ? (
+              <Badge variant="outline" className="gap-1.5">
+                <Loader className="size-3 animate-spin" aria-hidden="true" />
+                Checking
+              </Badge>
+            ) : business ? (
+              <EligibilityBadge eligibility={eligibility} />
+            ) : (
+              <Badge variant="outline">Not started</Badge>
+            )}
+          </div>
+        }
+        content={
+          <div className="mt-8 max-w-xl">
+            <p className="font-heading text-3xl font-semibold tracking-tight">
+              {loading
+                ? "Checking your verification…"
+                : business
+                  ? ELIGIBILITY_HEADLINES[eligibility]
+                  : "Verify once, reuse everywhere"}
+            </p>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              {credential?.status === "active"
+                ? credential.published
+                  ? "Your Identity Verified badge is published."
+                  : "Your identity is verified. The badge stays private until you publish it."
+                : "Verify yourself or your company to unlock an Identity Verified badge you control."}
+            </p>
+          </div>
+        }
+        footer={
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={VERIFICATION_PATH}
+              onClick={(event) => {
+                event.preventDefault();
+                openVerification();
+              }}
+              className="inline-flex h-10 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {business ? "Open verification" : "Start verification"}
+            </Link>
+            {credential?.status === "active" ? (
+              <Link
+                href={PASSPORT_PATH}
+                className="inline-flex h-10 items-center rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                Manage badge
+              </Link>
             ) : null}
           </div>
         }

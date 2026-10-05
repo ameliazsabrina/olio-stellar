@@ -52,12 +52,13 @@ describe("PinDialog — unlock mode", () => {
     expect(onSubmit).toHaveBeenCalledWith("123456");
   });
 
-  it("colors a valid PIN input after field validation", async () => {
+  it("keeps a well-formed PIN neutral until escrow authentication", async () => {
     setup({ mode: "unlock" });
     const input = screen.getByLabelText("PIN");
     await userEvent.type(input, "123456");
     await userEvent.tab();
-    expect(input).toHaveClass("border-emerald-600");
+    expect(input).not.toHaveClass("border-emerald-600");
+    expect(input).not.toHaveClass("border-destructive");
     expect(input).not.toHaveAttribute("aria-invalid");
   });
 

@@ -66,7 +66,7 @@ describe("EditionsTopNav", () => {
     mocks.useWallet.mockReturnValue(wallet({ connecting: true }));
     render(<EditionsTopNav />);
 
-    const button = screen.getByRole("button", { name: "Signing in…" });
+    const button = screen.getByRole("button", { name: "Signing in" });
     expect(button.firstElementChild).toHaveClass(
       "lucide-loader",
       "motion-safe:animate-spin",
@@ -83,8 +83,7 @@ describe("EditionsTopNav", () => {
     );
     render(<EditionsTopNav />);
     expect(screen.getByRole("button", { name: "@alice" })).toHaveClass(
-      "surface-glass-control",
-      "theme-glass",
+      "rounded-lg",
       "min-h-11",
       "font-semibold",
     );

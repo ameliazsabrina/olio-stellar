@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationInbox } from "./NotificationInbox";
 import { ChevronLeft, LogOut, Moon, Palette } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +10,9 @@ import {
   DASHBOARD_PATH,
   HISTORY_PATH,
   LINKS_PATH,
+  PASSPORT_PATH,
   SETTINGS_PATH,
+  VERIFICATION_PATH,
   WITHDRAW_PATH,
 } from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
@@ -28,6 +31,8 @@ const PAGE_LABELS: Record<string, string> = {
   [WITHDRAW_PATH]: "Cash out",
   [HISTORY_PATH]: "History",
   [SETTINGS_PATH]: "Settings",
+  [VERIFICATION_PATH]: "Verification",
+  [PASSPORT_PATH]: "Passport",
 };
 
 export function DashboardShell({
@@ -135,6 +140,7 @@ function DashboardNavigation() {
           Settings
         </Link>
 
+        <NotificationInbox />
         <DropdownMenu>
           <DropdownMenuTrigger
             id="dashboard-account-menu-trigger"

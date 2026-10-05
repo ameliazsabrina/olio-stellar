@@ -6,12 +6,12 @@ import {
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { type ReactNode, useMemo } from "react";
-import { solanaSource } from "../../lib/cctp";
+import { cctpRpcPath } from "../../lib/cctp";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 // Solana wallet context scoped to the CCTP pay flow; empty adapter list relies on Wallet-Standard auto-discovery.
 export function SolanaWalletProvider({ children }: { children: ReactNode }) {
-  const endpoint = useMemo(() => solanaSource.rpcUrl, []);
+  const endpoint = useMemo(() => typeof window === "undefined" ? "http://localhost/api/cctp/rpc/5" : new URL(cctpRpcPath(5), window.location.origin).href, []);
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={[]} autoConnect>

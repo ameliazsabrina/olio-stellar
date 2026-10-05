@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessIdSchema } from "../businesses/businesses.schema";
 import { usernameSchema } from "../usernames/usernames.schema";
 
 const USDC_DECIMALS = 7;
@@ -138,6 +139,14 @@ export const deleteLinkInput = z
   })
   .strict();
 
+export const claimLinkInput = z
+  .object({
+    id: z.string().min(1).max(64),
+    manageToken: manageTokenInput,
+    businessId: businessIdSchema,
+  })
+  .strict();
+
 export const linkOutput = z.object({
   id: z.string(),
   owner: z.string(),
@@ -150,6 +159,8 @@ export const linkOutput = z.object({
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
+  businessClaimed: z.boolean(),
+  verifiedBusinessPublicId: z.string().nullable(),
 });
 
 // Raw manage token is returned exactly once, at creation; never on reads.
@@ -164,5 +175,6 @@ export type ResolveLinkInput = z.infer<typeof resolveLinkInput>;
 export type UpdateLinkInput = z.infer<typeof updateLinkInput>;
 export type ArchiveLinkInput = z.infer<typeof archiveLinkInput>;
 export type DeleteLinkInput = z.infer<typeof deleteLinkInput>;
+export type ClaimLinkInput = z.infer<typeof claimLinkInput>;
 export type LinkOutput = z.infer<typeof linkOutput>;
 export type CreateLinkResult = z.infer<typeof createLinkResult>;

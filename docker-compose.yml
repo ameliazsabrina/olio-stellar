@@ -56,17 +56,70 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
-    command:
-      [
-        "node",
-        "-e",
-        "const run=async()=>{try{const r=await fetch('http://web:3000/api/cron/pool-indexer',{headers:{authorization:'Bearer '+(process.env.CRON_SECRET||'')}});const body=await r.text();if(!r.ok)throw new Error('HTTP '+r.status+': '+body);console.log('[pool-indexer]',body)}catch(e){console.error('[pool-indexer]',e)}};run();setInterval(run,60000)",
-      ]
+    environment:
+      OLIO_BASE_URL: http://web:3000
+    command: ["node", "web/scripts/pool-indexer.mjs"]
     depends_on:
       web:
         condition: service_healthy
     networks:
       - edge
+    healthcheck:
+      test: ["CMD", "node", "web/scripts/pool-indexer.mjs", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cctp-settlement:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      OLIO_BASE_URL: http://web:3000
+    command: ["node", "web/scripts/cctp-worker.mjs"]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "node", "web/scripts/cctp-worker.mjs", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  verification-reconciliation:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      OLIO_BASE_URL: http://web:3000
+    command: ["node", "web/scripts/verification-worker.mjs"]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "node", "web/scripts/verification-worker.mjs", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     logging:
       driver: json-file
       options:

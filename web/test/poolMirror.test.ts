@@ -98,4 +98,22 @@ describe("poolMirror", () => {
     expect(await first).toEqual(await second);
     expect(mocks.snapshot).toHaveBeenCalledTimes(1);
   });
+
+  it("repairs a watermark that is missing an earlier deposit", async () => {
+    const incomplete = response(0, 10, "aa".repeat(32));
+    incomplete.deposits = [];
+    mocks.snapshot
+      .mockResolvedValueOnce(incomplete)
+      .mockResolvedValueOnce(response(0, 10, "aa".repeat(32)));
+
+    const { refreshPoolMirror } = await import("../src/lib/poolMirror");
+    const mirror = await refreshPoolMirror();
+
+    expect(mocks.snapshot).toHaveBeenNthCalledWith(2, {
+      afterLeafIndex: -1,
+      spentAfterLedger: 0,
+    });
+    expect(mirror.publishedLeafIndex).toBe(0);
+    expect(mirror.deposits.map((row) => row.leafIndex)).toEqual([0]);
+  });
 });

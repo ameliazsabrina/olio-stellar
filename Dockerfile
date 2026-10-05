@@ -25,15 +25,8 @@ ARG NEXT_PUBLIC_USDC_ISSUER
 ARG NEXT_PUBLIC_POOL_DEPTH
 ARG NEXT_PUBLIC_PRIVY_APP_ID
 ARG NEXT_PUBLIC_CHANNELS_ENABLED
-ARG NEXT_PUBLIC_SEP24_ANCHOR_URL
-ARG NEXT_PUBLIC_SEP24_ASSET_CODE
-ARG NEXT_PUBLIC_SEP10_CLIENT_DOMAIN
-ARG NEXT_PUBLIC_MONEYGRAM_RAMP_STATUS
 ARG NEXT_PUBLIC_STELLAR_HORIZON_URL
 ARG NEXT_PUBLIC_FRIENDBOT_URL
-ARG NEXT_PUBLIC_TRANSAK_API_KEY
-ARG NEXT_PUBLIC_TRANSAK_ENV
-ARG NEXT_PUBLIC_TRANSAK_FIAT_CURRENCY
 ARG NEXT_PUBLIC_CCTP_INTAKE_CONTRACT
 ARG NEXT_PUBLIC_CCTP_TOKEN_MESSENGER_MINTER
 ARG NEXT_PUBLIC_CCTP_MESSAGE_TRANSMITTER
@@ -63,6 +56,7 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/web/public ./web/public
+COPY --from=builder --chown=nextjs:nodejs /app/web/scripts/cron-loop.mjs /app/web/scripts/cctp-worker.mjs /app/web/scripts/pool-indexer.mjs /app/web/scripts/cctp-sessions.mjs /app/web/scripts/verification-worker.mjs /app/web/scripts/verification-cases.mjs ./web/scripts/
 COPY --from=migrate --chown=nextjs:nodejs /migrate /migrate
 
 USER nextjs

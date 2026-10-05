@@ -14,11 +14,13 @@ import { Err, Ok } from "@stellar/stellar-sdk/contract";
 
 const mocks = vi.hoisted(() => ({
   getPrivyUser: vi.fn(),
+  getPrivyUserByWalletAddress: vi.fn(),
   getUsers: vi.fn(),
 }));
 
 vi.mock("../src/server/lib/privy", () => ({
   getPrivyUser: mocks.getPrivyUser,
+  getPrivyUserByWalletAddress: mocks.getPrivyUserByWalletAddress,
 }));
 vi.mock("../src/server/db/mongo", () => ({ getUsers: mocks.getUsers }));
 vi.mock("../src/server/modules/channels/channels.service", () => ({
@@ -80,6 +82,48 @@ describe("Olio account wallet ownership", () => {
         privyWalletAddress: address,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("re-reads Privy when the just-created wallet has not propagated", async () => {
+    mocks.getPrivyUser
+      .mockResolvedValueOnce({ id: did, linked_accounts: [] })
+      .mockResolvedValue({ id: did, linked_accounts: [linkedWallet()] });
+    await expect(
+      assertPrivyWalletOwned(did, {
+        privyWalletId: walletId,
+        privyWalletAddress: address,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mocks.getPrivyUserByWalletAddress).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the Privy address index when the user read stays stale", async () => {
+    mocks.getPrivyUser.mockResolvedValue({ id: did, linked_accounts: [] });
+    mocks.getPrivyUserByWalletAddress.mockResolvedValue({
+      id: did,
+      linked_accounts: [linkedWallet()],
+    });
+    await expect(
+      assertPrivyWalletOwned(did, {
+        privyWalletId: walletId,
+        privyWalletAddress: address,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mocks.getPrivyUserByWalletAddress).toHaveBeenCalledWith(address);
+  });
+
+  it("rejects an address index hit that belongs to another identity", async () => {
+    mocks.getPrivyUser.mockResolvedValue({ id: did, linked_accounts: [] });
+    mocks.getPrivyUserByWalletAddress.mockResolvedValue({
+      id: "did:privy:someone-else",
+      linked_accounts: [linkedWallet()],
+    });
+    await expect(
+      assertPrivyWalletOwned(did, {
+        privyWalletId: walletId,
+        privyWalletAddress: address,
+      }),
+    ).rejects.toThrow(/not a user-owned Privy wallet/i);
   });
 
   it("restores an existing account when Privy changes the wallet ID", async () => {

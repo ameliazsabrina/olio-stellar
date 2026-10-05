@@ -41,3 +41,12 @@ export async function getPrivyUser(userId: string) {
   }
   return user;
 }
+
+export async function getPrivyUserByWalletAddress(address: string) {
+  try {
+    return await getPrivyClient().users().getByWalletAddress({ address });
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return null;
+    throw error;
+  }
+}

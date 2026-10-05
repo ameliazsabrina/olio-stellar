@@ -27,18 +27,14 @@ describe("BalanceCard currency selector", () => {
     ).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("keeps receive available without exposing an Add cash control", async () => {
-    const onReceive = vi.fn();
-    render(
-      <BalanceCard claimable={10n} loading={false} onReceive={onReceive} />,
-    );
+  it("does not expose Add cash or receive controls", () => {
+    render(<BalanceCard claimable={10n} loading={false} onReceive={vi.fn()} />);
 
     expect(
       screen.queryByRole("button", { name: "Add cash" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Receive payment" }),
-    );
-    expect(onReceive).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: "Receive payment" }),
+    ).not.toBeInTheDocument();
   });
 });

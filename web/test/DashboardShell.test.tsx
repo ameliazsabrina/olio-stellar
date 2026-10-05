@@ -2,6 +2,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("../src/components/dashboard/NotificationInbox", () => ({
+  NotificationInbox: () => <button aria-label="Notifications" />,
+}));
+
 const mocks = vi.hoisted(() => ({
   disconnect: vi.fn(),
   usePathname: vi.fn(() => "/dashboard"),
@@ -49,7 +53,10 @@ describe("DashboardShell navigation", () => {
         name: "Use dark dashboard theme",
       }),
     ).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("button", { name: "Settings" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
     expect(
       screen.queryByRole("navigation", { name: "Dashboard navigation" }),
     ).not.toBeInTheDocument();
