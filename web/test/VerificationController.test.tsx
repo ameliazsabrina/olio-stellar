@@ -17,7 +17,9 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   invalidate: vi.fn(),
   sdk: {} as any,
+  toastError: vi.fn(),
 }));
+vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 vi.mock("../src/components/WalletProvider", () => ({
   useWallet: () => mocks.wallet,
 }));
@@ -214,9 +216,24 @@ describe("shared verification controller", () => {
     render(app());
     await screen.findByRole("dialog");
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
-    expect(
-      screen.queryByText(/could not confirm your status/),
-    ).not.toBeInTheDocument();
+    await waitFor(() => expect(mocks.invalidate).toHaveBeenCalled());
+    expect(mocks.toastError).not.toHaveBeenCalledWith(
+      expect.stringMatching(/could not confirm your status/),
+      expect.anything(),
+    );
+  });
+  it("reports a failed status refresh in a toast", async () => {
+    mocks.data.business = { businessId: "biz", type: "individual" };
+    mocks.refresh.mockRejectedValue(new Error("boom"));
+    render(app());
+    await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "We could not confirm your status. Please retry.",
+        expect.objectContaining({ id: "verification-error" }),
+      ),
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
   it("keeps unavailable service required and resets on account switch", async () => {
     mocks.data.serviceAvailable = false;

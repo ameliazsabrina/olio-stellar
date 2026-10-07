@@ -148,10 +148,18 @@ export function SumsubVerification({
 };
 
 // Stand-ins for Next-only modules the controller imports.
-export const useDashboardTheme = () => ({
-  theme: "painting" as const,
-  toggleTheme: () => {},
-});
+// A saved preference is simulated through window.__themePreference.
+export const useDashboardTheme = () => {
+  const preference =
+    (window as { __themePreference?: "painting" | "dark" })
+      .__themePreference ?? null;
+  return {
+    theme: preference ?? ("painting" as const),
+    preference,
+    setTheme: () => {},
+    toggleTheme: () => {},
+  };
+};
 export default function Image({
   src,
   alt,

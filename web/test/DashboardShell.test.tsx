@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../src/components/dashboard/NotificationInbox", () => ({
@@ -35,7 +35,7 @@ describe("DashboardShell navigation", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
-  it("uses an unframed wordmark and grouped account controls without duplicate route navigation", async () => {
+  it("shows the side rail, greeting, theme button and account menu", async () => {
     const user = userEvent.setup();
     render(
       <DashboardShell navigation>
@@ -43,23 +43,34 @@ describe("DashboardShell navigation", () => {
       </DashboardShell>,
     );
 
-    expect(screen.getByRole("link", { name: "Olio home" })).toHaveAttribute(
+    expect(
+      screen.getByRole("heading", { name: "Hello, toreno" }),
+    ).toBeInTheDocument();
+    const rail = screen.getByRole("navigation", {
+      name: "Dashboard navigation",
+    });
+    expect(within(rail).getByRole("link", { name: "Olio home" })).toHaveAttribute(
       "href",
       "/",
     );
-    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("switch", {
-        name: "Use dark dashboard theme",
-      }),
-    ).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "/settings",
+    expect(within(rail).getByRole("link", { name: "Overview" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
+    for (const [name, href] of [
+      ["Payment links", "/links"],
+      ["Payments", "/history"],
+      ["Withdraw", "/withdraw"],
+      ["Settings", "/settings"],
+    ]) {
+      expect(within(rail).getByRole("link", { name })).toHaveAttribute(
+        "href",
+        href,
+      );
+    }
     expect(
-      screen.queryByRole("navigation", { name: "Dashboard navigation" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Switch to dark theme" }),
+    ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "@toreno account menu" }),
@@ -82,13 +93,6 @@ describe("DashboardShell navigation", () => {
     const accountMenu = document.querySelector(
       "#dashboard-account-menu-trigger",
     );
-    expect(
-      screen.queryByRole("link", { name: "Back to dashboard" }),
-    ).toBeNull();
-    expect(screen.getByRole("link", { name: "Olio home" })).toHaveAttribute(
-      "href",
-      "/",
-    );
 
     mocks.usePathname.mockReturnValue("/history");
     rerender(
@@ -100,11 +104,14 @@ describe("DashboardShell navigation", () => {
     expect(document.querySelector("#dashboard-account-menu-trigger")).toBe(
       accountMenu,
     );
-    expect(
-      screen.getByRole("link", { name: "Back to dashboard" }),
-    ).toHaveAttribute("href", "/dashboard");
-    expect(screen.queryByRole("link", { name: "Olio home" })).toBeNull();
-    expect(screen.getByText("History")).toHaveAttribute("aria-current", "page");
+    const rail = screen.getByRole("navigation", {
+      name: "Dashboard navigation",
+    });
+    expect(within(rail).getByRole("link", { name: "Payments" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.queryByRole("heading", { name: /hello/i })).toBeNull();
     expect(screen.getByText("History content")).toBeInTheDocument();
   });
 });

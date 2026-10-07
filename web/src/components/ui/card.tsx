@@ -12,7 +12,7 @@ function Card({
 }: React.ComponentProps<"div"> & {
   size?: "default" | "sm";
   density?: "compact" | "default" | "comfortable" | "spacious";
-  appearance?: "default" | "glass" | "linen";
+  appearance?: "default" | "glass" | "linen" | "hero";
 }) {
   return (
     <div
@@ -24,6 +24,8 @@ function Card({
         appearance === "glass" && glassPanelClass,
         appearance === "linen" &&
           "surface-linen-panel theme-linen rounded-[1.75rem] text-foreground ring-0",
+        appearance === "hero" &&
+          "surface-hero-panel rounded-[1.75rem] text-(--hero-foreground) ring-0",
         className,
       )}
       {...props}

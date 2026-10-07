@@ -186,10 +186,11 @@ describe("Dashboard route", () => {
     renderWithTRPC(<DashboardPage />);
 
     expect(
-      await screen.findByRole("heading", {
-        name: /dashboard: hi, there/i,
-      }),
+      await screen.findByRole("heading", { name: "My balance" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create a payment link" }),
+    ).toBeDisabled();
   });
 
   it("shows the private dashboard once connected with a claimed username", async () => {
@@ -208,14 +209,11 @@ describe("Dashboard route", () => {
     renderWithTRPC(<DashboardPage />);
 
     expect(
-      await screen.findByRole("heading", {
-        name: /dashboard: hi, alice/i,
-      }),
+      await screen.findByRole("heading", { name: "My balance" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("My Balance")).toBeInTheDocument();
     const withdrawCard = screen.getByRole("link", { name: "Open Withdraw" });
     const proofsCard = screen.getByRole("link", {
-      name: "Open Payment proofs",
+      name: "Open Disclosures",
     });
     expect(withdrawCard).toHaveAttribute("href", "/withdraw");
     expect(proofsCard).toHaveAttribute("href", "/history");
@@ -223,8 +221,11 @@ describe("Dashboard route", () => {
       expect(card.querySelector("a, button")).toBeNull();
     }
     expect(
-      screen.getAllByRole("button", { name: "Create a payment link" }),
-    ).toHaveLength(2);
+      screen.getByRole("button", { name: "Create a payment link" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("link", { name: "Manage payment links" }),
+    ).toHaveAttribute("href", "/links");
     expect(
       screen.queryByRole("button", { name: "Open deposit funds" }),
     ).not.toBeInTheDocument();
@@ -240,10 +241,13 @@ describe("Dashboard route", () => {
         name: "Account settings, coming soon",
       }),
     ).not.toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Open link" })).toHaveClass(
-      "bg-primary",
-      "!text-primary-foreground",
+    expect(await screen.findByRole("link", { name: "Preview" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/pay/alice"),
     );
+    expect(
+      screen.getByRole("link", { name: "Add cash through your payment page" }),
+    ).toHaveAttribute("href", expect.stringContaining("/pay/alice"));
     expect(screen.queryByText("DEPOSIT_FORM")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /claim your username/i }),

@@ -22,15 +22,18 @@ export default function DashboardPage() {
 }
 
 function DashboardLoadingState() {
+  // Same footprint as the Overview bento: [span, appearance] per card.
   const tiles = [
-    "order-1 lg:col-span-3 lg:col-start-1 lg:row-start-1",
-    "order-2 lg:col-span-3 lg:col-start-4 lg:row-start-1",
-    "order-3 md:col-span-2 lg:col-span-6 lg:col-start-7 lg:row-start-1",
-    "order-4 lg:col-span-3 lg:col-start-1 lg:row-start-2",
-    "order-5 lg:col-span-3 lg:col-start-4 lg:row-start-2",
-    "order-6 lg:col-span-3 lg:col-start-7 lg:row-start-2",
-    "order-7 lg:col-span-3 lg:col-start-10 lg:row-start-2",
-  ];
+    ["", "hero"],
+    ["", "glass"],
+    ["md:col-span-2", "linen"],
+    ["", "glass"],
+    ["", "linen"],
+    ["", "linen"],
+    ["", "glass"],
+    ["md:col-span-2", "linen"],
+    ["md:col-span-2", "linen"],
+  ] as const;
 
   return (
     <div
@@ -39,18 +42,17 @@ function DashboardLoadingState() {
       aria-busy="true"
       aria-label="Loading your private dashboard"
     >
-      <div className="dashboard-bento mx-auto grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12 lg:grid-rows-2 lg:gap-5">
-        {tiles.map((className, index) => (
+      <div className="dashboard-bento grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+        {tiles.map(([span, appearance], index) => (
           <Card
-            key={className}
-            appearance={
-              index === 1 || index === 3 || index === 6 ? "glass" : "linen"
-            }
-            className={`${className} min-h-72 gap-4 rounded-[2.25rem] p-7`}
+            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+            key={index}
+            appearance={appearance}
+            className={`${span} min-h-68 gap-4 rounded-[1.75rem] p-6`}
           >
-            <div className="h-7 w-32 rounded-full bg-current/10" />
-            <div className="h-16 rounded-2xl bg-current/8" />
-            <div className="mt-auto h-11 w-36 rounded-full bg-current/10" />
+            <div className="h-6 w-32 rounded-full bg-current/10" />
+            <div className="h-12 rounded-2xl bg-current/8" />
+            <div className="mt-auto h-10 w-36 rounded-full bg-current/10" />
           </Card>
         ))}
       </div>

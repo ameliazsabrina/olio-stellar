@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDashboardTheme } from "../../components/dashboard/DashboardBackground";
 import { Button } from "../../components/ui/button";
+import { ToastFeedback } from "../../components/ui/toast-feedback";
 
 const SumsubWebSdk = dynamic(() => import("@sumsub/websdk-react"), {
   ssr: false,
@@ -71,6 +72,8 @@ export type SumsubVerificationProps = {
   onStatusChanged: (reviewed: boolean) => void;
   onError?: (message: string) => void;
   language?: string;
+  // Overrides the dashboard theme, for surfaces with their own default.
+  theme?: "painting" | "dark";
 };
 
 export function SumsubVerification({
@@ -80,8 +83,12 @@ export function SumsubVerification({
   onError,
   language = "en",
   appearance = "glass",
+  theme: themeOverride,
 }: SumsubVerificationProps) {
-  const { theme } = useDashboardTheme();
+  const { theme: dashboardTheme } = useDashboardTheme();
+  const dark = themeOverride
+    ? themeOverride === "dark"
+    : appearance !== "linen" && dashboardTheme !== "painting";
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelled = useRef(false);
@@ -136,13 +143,18 @@ export function SumsubVerification({
   if (error) {
     return (
       <div
-        role="alert"
         className={`flex min-h-72 flex-col items-start justify-center gap-4 rounded-[1.5rem] p-6 text-sm ring-1 ${appearance === "linen" ? "bg-black/5 text-brand-obsidian ring-black/10" : "bg-brand-linen/8 text-brand-linen/85 ring-brand-linen/15"}`}
       >
+        <ToastFeedback
+          title="The verification session could not be opened."
+          message={error}
+          variant="error"
+          toastId="sumsub-session-error"
+          action={{ label: "Try again", onClick: loadToken }}
+        />
         <p className="font-medium">
           The verification session could not be opened.
         </p>
-        <p className="max-w-md opacity-70">{error}</p>
         <Button
           variant={appearance === "linen" ? "outline" : "glass"}
           onClick={loadToken}
@@ -161,15 +173,14 @@ export function SumsubVerification({
   return (
     <div
       data-testid="sumsub-sdk-frame"
-      className="min-w-0 max-w-full overflow-hidden rounded-[1.5rem] bg-white ring-1 ring-brand-linen/15"
+      className={`min-w-0 max-w-full overflow-hidden rounded-[1.5rem] ring-1 ring-brand-linen/15 ${dark ? "bg-brand-obsidian" : "bg-white"}`}
     >
       <SumsubWebSdk
         accessToken={token}
         expirationHandler={expirationHandler}
         config={{
           lang: language,
-          theme:
-            appearance === "linen" || theme === "painting" ? "light" : "dark",
+          theme: dark ? "dark" : "light",
         }}
         options={{ adaptIframeHeight: true, addViewportTag: false }}
         onMessage={handleMessage}

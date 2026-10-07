@@ -46,14 +46,22 @@ const browser = await chromium.launch({
 });
 console.log("Chromium ready");
 try {
-  for (const [name, width, height] of [
+  // Onboarding defaults to dark; the -light passes simulate a saved
+  // painting preference.
+  for (const [name, width, height, preference] of [
     ["desktop", 1280, 900],
     ["mobile", 390, 844],
+    ["desktop-light", 1280, 900, "painting"],
+    ["mobile-light", 390, 844, "painting"],
   ]) {
     const page = await browser.newPage({
       viewport: { width, height },
       reducedMotion: "reduce",
     });
+    if (preference)
+      await page.addInitScript((value) => {
+        window.__themePreference = value;
+      }, preference);
     page.setDefaultTimeout(15000);
     page.on("pageerror", (error) => console.error(error.message));
     console.log(`${name}: opening fixture`);

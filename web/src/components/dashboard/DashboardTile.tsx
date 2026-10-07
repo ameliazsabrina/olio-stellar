@@ -9,7 +9,7 @@ export function DashboardTile({
   footer,
   className,
 }: {
-  appearance: "linen" | "glass";
+  appearance: "linen" | "glass" | "hero";
   header?: ReactNode;
   content?: ReactNode;
   footer?: ReactNode;
@@ -19,7 +19,7 @@ export function DashboardTile({
     <Card
       appearance={appearance}
       className={cn(
-        "dashboard-tile h-full min-h-72 gap-0 rounded-[2.25rem] p-6 sm:p-7",
+        "dashboard-tile h-full min-h-68 gap-0 rounded-[1.75rem] p-6",
         className,
       )}
     >

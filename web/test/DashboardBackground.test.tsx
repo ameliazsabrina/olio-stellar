@@ -143,6 +143,9 @@ describe("DashboardBackground", () => {
     expect(darkSurfaceStart).toBeGreaterThan(-1);
     expect(darkThemeStart).toBeGreaterThan(componentsLayerStart);
     expect(darkSurfaceStart).toBeGreaterThan(componentsLayerStart);
-    expect(css).toContain("background: var(--color-brand-obsidian-secondary);");
+    // Figma dark surface/card (#20261a at 90%) into card-deep (#1a1f12 at 92%).
+    expect(css).toContain(
+      "linear-gradient(180deg, rgb(32 38 26 / 0.9) 0%, rgb(26 31 18 / 0.92) 100%)",
+    );
   });
 });

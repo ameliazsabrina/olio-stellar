@@ -6,6 +6,8 @@ import { getAccount, type MyNote, scanMyNotes } from "../../lib/notes";
 type NotesState = {
   notes: MyNote[];
   claimable: bigint;
+  // Every deposit in the shared pool, not just this account's.
+  poolSize: number;
   loading: boolean;
   refreshing: boolean;
   stale: boolean;
@@ -17,6 +19,7 @@ type NotesState = {
 export function useMyNotes(address: string | null | undefined): NotesState {
   const [notes, setNotes] = useState<MyNote[]>([]);
   const [claimable, setClaimable] = useState<bigint>(0n);
+  const [poolSize, setPoolSize] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [stale, setStale] = useState(false);
@@ -36,6 +39,7 @@ export function useMyNotes(address: string | null | undefined): NotesState {
     if (!account) {
       setNotes([]);
       setClaimable(0n);
+      setPoolSize(0);
       setLoading(false);
       setRefreshing(false);
       setStale(false);
@@ -53,6 +57,7 @@ export function useMyNotes(address: string | null | undefined): NotesState {
     const applyResult = (result: Awaited<ReturnType<typeof scanMyNotes>>) => {
       setNotes(result.notes);
       setClaimable(result.claimable);
+      setPoolSize(result.leaves.length);
       setIndexedAt(result.indexedAt);
       setStale(result.health !== "healthy");
       hasResult.current = true;
@@ -106,6 +111,7 @@ export function useMyNotes(address: string | null | undefined): NotesState {
   return {
     notes,
     claimable,
+    poolSize,
     loading,
     refreshing,
     stale,

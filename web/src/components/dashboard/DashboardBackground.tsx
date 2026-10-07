@@ -11,38 +11,57 @@ import {
 } from "react";
 import dashboardBackground from "../../../public/assets/dashboard.jpg";
 
-type DashboardTheme = "painting" | "dark";
+export type DashboardTheme = "painting" | "dark";
 const STORAGE_KEY = "olio.dashboard.theme";
 
 const DashboardThemeContext = createContext<{
   theme: DashboardTheme;
+  // The theme the person picked, or null while they rely on the default.
+  preference: DashboardTheme | null;
+  setTheme: (theme: DashboardTheme) => void;
   toggleTheme: () => void;
-}>({ theme: "painting", toggleTheme: () => {} });
+}>({
+  theme: "painting",
+  preference: null,
+  setTheme: () => {},
+  toggleTheme: () => {},
+});
 
 export function useDashboardTheme() {
   return useContext(DashboardThemeContext);
 }
 
 export function DashboardBackground({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<DashboardTheme>("painting");
+  const [preference, setPreference] = useState<DashboardTheme | null>(null);
+  const theme = preference ?? "painting";
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "dark" || stored === "painting") setTheme(stored);
+    if (stored === "dark" || stored === "painting") setPreference(stored);
   }, []);
 
-  const value = useMemo(
-    () => ({
+  // Dialogs portal into <body>, outside the wrapper below, so mirror the
+  // theme onto <html> for the [data-dashboard-theme] rules to reach them.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.dashboardTheme = theme;
+    return () => {
+      delete root.dataset.dashboardTheme;
+    };
+  }, [theme]);
+
+  const value = useMemo(() => {
+    const setTheme = (next: DashboardTheme) => {
+      window.localStorage.setItem(STORAGE_KEY, next);
+      setPreference(next);
+    };
+    return {
       theme,
-      toggleTheme: () =>
-        setTheme((current) => {
-          const next = current === "painting" ? "dark" : "painting";
-          window.localStorage.setItem(STORAGE_KEY, next);
-          return next;
-        }),
-    }),
-    [theme],
-  );
+      preference,
+      setTheme,
+      toggleTheme: () => setTheme(theme === "painting" ? "dark" : "painting"),
+    };
+  }, [theme, preference]);
 
   return (
     <DashboardThemeContext.Provider value={value}>
