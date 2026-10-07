@@ -677,9 +677,6 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
       0 16px 40px rgb(32 38 26 / 0.14);
   }
 
-  .dashboard-bento {
-    grid-auto-rows: minmax(17rem, auto);
-  }
 
   .dashboard-tile-title {
     font-family: var(--font-heading);

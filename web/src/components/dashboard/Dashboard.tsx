@@ -45,6 +45,12 @@ import { useMyNotes } from "./useMyNotes";
 const tileFocus =
   "group block min-h-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen focus-visible:ring-offset-4 focus-visible:ring-offset-brand-obsidian";
 const bodySmall = "text-[0.8125rem] leading-[1.1875rem]";
+// Mobile action cards (Figma "Overview - Mobile", 167×150): icon top, title
+// bottom. Applied inside a DashboardTile with compactOnMobile.
+const compactHeader = "max-md:flex max-md:flex-1 max-md:flex-col";
+const compactRow =
+  "max-md:flex-1 max-md:flex-col-reverse max-md:items-start max-md:justify-between";
+const compactTitle = "max-md:text-base max-md:leading-[1.375rem]";
 const caption = "text-xs leading-[1.0625rem]";
 
 export function formatUsd(units: bigint): string {
@@ -108,8 +114,11 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="dashboard-bento grid grid-cols-1 gap-4 pb-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-        <section aria-label="Account summary" className="min-w-0">
+      <div className="dashboard-bento grid grid-cols-2 gap-4 pb-6 md:gap-5 lg:grid-cols-4">
+        <section
+          aria-label="Account summary"
+          className="order-1 col-span-2 min-w-0 md:order-none md:col-span-1"
+        >
           <BalanceCard
             claimable={claimable}
             loading={loading}
@@ -124,19 +133,23 @@ export function Dashboard() {
           />
         </section>
 
-        <AddCashTile payLink={payLink} />
+        <AddCashTile
+          payLink={payLink}
+          className="order-3 min-w-0 md:order-none"
+        />
 
-        <section className="min-w-0 md:col-span-2">
+        <section className="order-2 col-span-2 min-w-0 md:order-none">
           <PayMeTile payLink={payLink} />
         </section>
 
         <Link
           href={HISTORY_PATH}
-          className={tileFocus}
+          className={cn(tileFocus, "order-5 min-w-0 md:order-none")}
           aria-label="Open Disclosures"
         >
           <DashboardTile
             appearance="glass"
+            compactOnMobile
             className="dashboard-nav-card justify-between text-brand-linen"
             header={
               <TileHeading
@@ -161,7 +174,7 @@ export function Dashboard() {
           />
         </Link>
 
-        <section className="min-w-0">
+        <section className="order-7 col-span-2 min-w-0 md:order-none md:col-span-1">
           <DashboardTile
             appearance="linen"
             header={
@@ -191,11 +204,12 @@ export function Dashboard() {
 
         <Link
           href={WITHDRAW_PATH}
-          className={tileFocus}
+          className={cn(tileFocus, "order-4 min-w-0 md:order-none")}
           aria-label="Open Withdraw"
         >
           <DashboardTile
             appearance="linen"
+            compactOnMobile
             className="dashboard-nav-card"
             header={
               <TileHeading
@@ -217,15 +231,22 @@ export function Dashboard() {
           type="button"
           onClick={() => setCreateOpen(true)}
           disabled={!username}
-          className={`${tileFocus} w-full text-left disabled:cursor-not-allowed disabled:opacity-55`}
+          className={`${tileFocus} order-6 w-full min-w-0 text-left disabled:cursor-not-allowed disabled:opacity-55 md:order-none`}
           aria-label="Create a payment link"
         >
           <DashboardTile
             appearance="glass"
-            className="dashboard-nav-card items-center justify-between text-center text-brand-linen"
-            header={<Plus className="size-8" aria-hidden="true" />}
+            compactOnMobile
+            className="dashboard-nav-card items-center justify-between text-center text-brand-linen max-md:items-start max-md:text-left"
+            header={
+              <span className="flex items-center justify-center max-md:size-10 max-md:rounded-full max-md:bg-brand-linen max-md:text-brand-obsidian">
+                <Plus className="size-8 max-md:size-[1.125rem]" aria-hidden="true" />
+              </span>
+            }
             content={
-              <h2 className="dashboard-tile-title">New payment link</h2>
+              <h2 className="dashboard-tile-title max-md:text-base max-md:leading-[1.375rem]">
+                New payment link
+              </h2>
             }
             footer={
               <span className={cn(bodySmall, "text-brand-linen/88")}>
@@ -235,7 +256,7 @@ export function Dashboard() {
           />
         </button>
 
-        <section className="min-w-0 md:col-span-2">
+        <section className="order-8 col-span-2 min-w-0 md:order-none">
           <StatusTile
             summary={statusSummary}
             loading={links.isLoading && Boolean(username)}
@@ -243,7 +264,7 @@ export function Dashboard() {
           />
         </section>
 
-        <section className="min-w-0 md:col-span-2">
+        <section className="order-9 col-span-2 min-w-0 md:order-none">
           <RecentPaymentsTile
             notes={notes}
             ready={privateReady}
@@ -253,14 +274,14 @@ export function Dashboard() {
           />
         </section>
 
-        <section className="min-w-0 md:col-span-2">
+        <section className="order-10 col-span-2 min-w-0 md:order-none">
           <TopLinksTile links={topLinks} money={money} />
         </section>
 
-        <section className="min-w-0">
+        <section className="order-11 col-span-2 min-w-0 md:order-none md:col-span-1">
           <DashboardTile
             appearance="glass"
-            className="min-h-75 text-brand-linen"
+            className="text-brand-linen lg:min-h-75"
             header={
               <div className="grid gap-3">
                 <div className="flex items-center gap-2.5">
@@ -291,7 +312,7 @@ export function Dashboard() {
           />
         </section>
 
-        <section className="min-w-0">
+        <section className="order-12 col-span-2 min-w-0 md:order-none md:col-span-1">
           <LatestWithdrawalTile
             notes={notes}
             ready={privateReady}
@@ -324,14 +345,15 @@ function TileHeading({
   arrow?: "light" | "dark";
 }) {
   return (
-    <div className="grid gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="dashboard-tile-title">{title}</h2>
+    <div className={cn("grid gap-3", compactHeader)}>
+      <div className={cn("flex items-center justify-between gap-4", compactRow)}>
+        <h2 className={cn("dashboard-tile-title", compactTitle)}>{title}</h2>
         {arrow ? <QuietArrow tone={arrow} /> : null}
       </div>
       {description ? (
         <p
           className={cn(
+            "max-md:hidden",
             bodySmall,
             arrow === "light" ? "text-brand-linen/88" : "text-muted-foreground",
           )}
@@ -388,16 +410,27 @@ function Chip({
   );
 }
 
-function AddCashTile({ payLink }: { payLink: string }) {
+function AddCashTile({
+  payLink,
+  className,
+}: {
+  payLink: string;
+  className?: string;
+}) {
   return (
-    <section className="min-w-0">
+    <section className={className}>
       <DashboardTile
         appearance="glass"
+        compactOnMobile
         className="text-brand-linen"
         header={
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="dashboard-tile-title">Add cash</h2>
+          <div className={cn("grid gap-3", compactHeader)}>
+            <div
+              className={cn("flex items-center justify-between gap-4", compactRow)}
+            >
+              <h2 className={cn("dashboard-tile-title", compactTitle)}>
+                Add cash
+              </h2>
               <a
                 href={payLink || undefined}
                 target="_blank"
@@ -410,7 +443,7 @@ function AddCashTile({ payLink }: { payLink: string }) {
                 <Wallet className="size-[1.125rem]" aria-hidden="true" />
               </a>
             </div>
-            <p className={cn(bodySmall, "text-brand-linen/88")}>
+            <p className={cn(bodySmall, "text-brand-linen/88 max-md:hidden")}>
               Put money into your private balance by paying your own link.
               Use it for payments, or withdraw it whenever you need it.
             </p>
@@ -636,7 +669,7 @@ function StatusTile({
   return (
     <DashboardTile
       appearance="linen"
-      className="min-h-75 justify-between"
+      className="justify-between lg:min-h-75"
       header={
         <div>
           <h2 className="dashboard-tile-title">Payment links by status</h2>
@@ -750,7 +783,7 @@ function RecentPaymentsTile({
   return (
     <DashboardTile
       appearance="linen"
-      className="min-h-75"
+      className="lg:min-h-75"
       header={
         <div className="flex items-start justify-between gap-4">
           <h2 className="dashboard-tile-title">Recent payments</h2>
@@ -812,13 +845,15 @@ function RecentPaymentsTile({
                         : ""}
                     </span>
                   </span>
-                  {note.spent ? (
-                    <StatusBadge tone="neutral">Withdrawn</StatusBadge>
-                  ) : (
-                    <StatusBadge tone="success">In balance</StatusBadge>
-                  )}
-                  <span className="w-22 text-right text-[0.8125rem] leading-[1.125rem] font-semibold tabular-nums">
-                    {money(note.amount)}
+                  <span className="flex shrink-0 items-center gap-3 max-md:flex-col-reverse max-md:items-end max-md:gap-1">
+                    {note.spent ? (
+                      <StatusBadge tone="neutral">Withdrawn</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="success">In balance</StatusBadge>
+                    )}
+                    <span className="text-right text-[0.8125rem] leading-[1.125rem] font-semibold tabular-nums md:w-22">
+                      {money(note.amount)}
+                    </span>
                   </span>
                 </Link>
               </li>
@@ -842,7 +877,7 @@ function TopLinksTile({
   return (
     <DashboardTile
       appearance="linen"
-      className="min-h-75"
+      className="lg:min-h-75"
       header={
         <div>
           <h2 className="dashboard-tile-title">Top payment links</h2>
@@ -857,13 +892,16 @@ function TopLinksTile({
             When a client pays one of your links, it shows here.
           </p>
         ) : (
-          <ul className="grid gap-5">
+          <ul className="grid gap-3 md:gap-5">
             {links.map((link) => (
-              <li key={link.id} className="flex items-center gap-3.5">
-                <span className="w-32 truncate text-[0.8125rem] leading-[1.125rem] font-medium sm:w-52">
+              <li
+                key={link.id}
+                className="grid grid-cols-[1fr_auto] items-center gap-x-3.5 gap-y-2 md:flex"
+              >
+                <span className="min-w-0 truncate text-[0.8125rem] leading-[1.125rem] font-medium md:w-52 md:shrink-0">
                   {link.label}
                 </span>
-                <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/7">
+                <span className="col-span-2 row-start-2 h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/7">
                   <span
                     className="block h-full rounded-full bg-(--action)"
                     style={{
@@ -871,7 +909,7 @@ function TopLinksTile({
                     }}
                   />
                 </span>
-                <span className="w-21 text-right text-[0.8125rem] leading-[1.125rem] font-semibold tabular-nums">
+                <span className="text-right text-[0.8125rem] leading-[1.125rem] font-semibold tabular-nums md:w-21">
                   {money(link.amount)}
                 </span>
               </li>
@@ -903,7 +941,7 @@ function LatestWithdrawalTile({
   return (
     <DashboardTile
       appearance="linen"
-      className="min-h-75 justify-between"
+      className="justify-between lg:min-h-75"
       header={<h2 className="dashboard-tile-title">Latest withdrawal</h2>}
       footer={
         !ready ? (

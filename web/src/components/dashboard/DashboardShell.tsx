@@ -66,10 +66,10 @@ export function DashboardShell({
       <main
         id="main-content"
         className={cn(
-          "relative isolate mx-auto w-full px-(--dashboard-gutter) py-5 sm:py-6 lg:py-8",
+          "relative isolate mx-auto w-full",
           navigation
-            ? "max-w-[87.5rem] pb-28 lg:pr-10 lg:pb-10 lg:pl-40"
-            : "max-w-7xl",
+            ? "max-w-[87.5rem] px-5 pt-5 pb-28 md:pr-5 md:pb-10 md:pl-[8.25rem] lg:pt-8 lg:pr-10 lg:pl-40"
+            : "max-w-7xl px-(--dashboard-gutter) py-5 sm:py-6 lg:py-8",
           contentClassName,
         )}
       >
@@ -93,7 +93,7 @@ function DashboardRail() {
   return (
     <nav
       aria-label="Dashboard navigation"
-      className="fixed top-8 bottom-8 left-8 z-40 hidden w-[6.25rem] flex-col items-center justify-between overflow-y-auto rounded-[1.75rem] border border-white/40 bg-linear-to-b from-brand-obsidian/45 to-brand-obsidian/60 p-3 shadow-[inset_0_1px_1px_rgb(255_255_255/0.22)] backdrop-blur-md lg:flex"
+      className="fixed top-5 bottom-5 left-5 z-40 hidden w-[5.75rem] flex-col items-center justify-between overflow-y-auto rounded-[1.75rem] border border-white/40 bg-linear-to-b from-brand-obsidian/45 to-brand-obsidian/60 px-2 py-3 shadow-[inset_0_1px_1px_rgb(255_255_255/0.22)] backdrop-blur-md md:flex lg:top-8 lg:bottom-8 lg:left-8 lg:w-[6.25rem] lg:p-3"
     >
       <div className="grid gap-3">
         <Link
@@ -104,9 +104,9 @@ function DashboardRail() {
           <Image
             src="/assets/olio-white.svg"
             alt=""
-            width={56}
-            height={56}
-            className="size-14"
+            width={76}
+            height={76}
+            className="size-[4.75rem]"
           />
         </Link>
         <ul className="grid gap-1.5">
@@ -146,15 +146,14 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
 
 function DashboardBottomBar() {
   const pathname = usePathname();
-  const items = [...PAGES, SETTINGS_ITEM];
 
   return (
     <nav
       aria-label="Dashboard pages"
-      className="fixed inset-x-3 bottom-3 z-40 rounded-[1.375rem] border border-white/40 bg-brand-obsidian/60 p-1.5 shadow-[inset_0_1px_1px_rgb(255_255_255/0.22)] backdrop-blur-md lg:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 rounded-[1.375rem] border border-white/40 bg-brand-obsidian/60 p-1.5 shadow-[inset_0_1px_1px_rgb(255_255_255/0.22)] backdrop-blur-md md:hidden"
     >
-      <ul className="grid grid-cols-5 gap-1">
-        {items.map((item) => {
+      <ul className="grid grid-cols-4 gap-1">
+        {PAGES.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
           return (
@@ -163,7 +162,7 @@ function DashboardBottomBar() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[0.625rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen",
+                  "flex h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[0.6875rem] leading-[0.9375rem] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen",
                   active
                     ? "bg-brand-linen !text-brand-obsidian"
                     : "text-brand-linen/85",
@@ -191,33 +190,33 @@ function DashboardHeader() {
   const dark = theme === "dark";
 
   return (
-    <header className="mb-6 flex items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <Link
-          href="/"
-          aria-label="Olio home"
-          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen lg:hidden"
-        >
-          <Image
-            src="/assets/olio-white.svg"
-            alt=""
-            width={48}
-            height={48}
-            className="size-12"
-          />
-        </Link>
-        {isOverview ? (
-          <div className="min-w-0">
-            <h1 className="truncate font-heading text-xl leading-7 sm:text-[1.875rem] sm:leading-9 font-semibold tracking-[-0.02em] text-brand-linen">
-              Hello, {username || "there"}
-            </h1>
-            <p className="mt-1 hidden text-[0.8125rem] leading-[1.1875rem] text-brand-linen/88 sm:block">
-              Every payment you receive lands privately, in a shared pool
-              instead of on a public balance.
-            </p>
-          </div>
-        ) : null}
-      </div>
+    <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-5 md:mb-6 md:flex-nowrap">
+      <Link
+        href="/"
+        aria-label="Olio home"
+        className="-my-7 -ml-3 shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen md:hidden"
+      >
+        <Image
+          src="/assets/olio-white.svg"
+          alt=""
+          width={104}
+          height={104}
+          className="size-[6.5rem]"
+        />
+      </Link>
+      {isOverview ? (
+        <div className="order-last w-full min-w-0 md:order-none md:w-auto md:flex-1">
+          <h1 className="font-heading text-[1.875rem] leading-9 font-semibold tracking-[-0.02em] text-brand-linen md:truncate">
+            Hello, {username || "there"}
+          </h1>
+          <p className="mt-1 text-[0.8125rem] leading-[1.1875rem] text-brand-linen/88">
+            Every payment you receive lands privately, in a shared pool
+            instead of on a public balance.
+          </p>
+        </div>
+      ) : (
+        <span className="hidden md:block" />
+      )}
 
       <div className="flex shrink-0 items-center gap-2.5">
         <button
@@ -234,6 +233,14 @@ function DashboardHeader() {
           )}
         </button>
 
+        <Link
+          href={SETTINGS_PATH}
+          className={`${roundControl} md:hidden`}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <Settings className="size-[1.125rem]" aria-hidden="true" />
+        </Link>
         <NotificationInbox />
         <DropdownMenu>
           <DropdownMenuTrigger
