@@ -44,7 +44,7 @@ describe("EditionsTopNav", () => {
       screen.getByRole("button", { name: /sign in/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /claim username/i }),
+      screen.queryByRole("button", { name: /set up your business/i }),
     ).not.toBeInTheDocument();
 
     const nav = document.querySelector("[data-ed-topnav]");
@@ -88,11 +88,11 @@ describe("EditionsTopNav", () => {
       "font-semibold",
     );
     expect(
-      screen.queryByRole("button", { name: /claim username/i }),
+      screen.queryByRole("button", { name: /set up your business/i }),
     ).not.toBeInTheDocument();
   });
 
-  it("offers a claim-username CTA for a connected user without a username", async () => {
+  it("offers a set-up-your-business CTA for a connected user without a username", async () => {
     mocks.useWallet.mockReturnValue(
       wallet({
         address: "GCABCD1234EFGH5678",
@@ -102,7 +102,7 @@ describe("EditionsTopNav", () => {
     );
     render(<EditionsTopNav />);
 
-    const cta = screen.getByRole("button", { name: /claim username/i });
+    const cta = screen.getByRole("button", { name: /set up your business/i });
     await userEvent.click(cta);
     expect(mocks.openUsernameModal).toHaveBeenCalledTimes(1);
 

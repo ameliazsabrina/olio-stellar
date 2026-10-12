@@ -31,11 +31,11 @@ describe("ProblemStatement scroll reveal", () => {
     const { container } = render(<ProblemStatement />);
 
     expect(
-      screen.getByText(/public wallets were never designed/i),
+      screen.getByText(/can see what everyone else pays you/i),
     ).toBeInTheDocument();
-    expect(screen.getByText("much")).toHaveClass("word");
-    expect(screen.getByText("earn,")).toHaveClass("word");
-    expect(screen.getByText("much").parentElement).toHaveClass(
+    expect(screen.getByText("revenue,")).toHaveClass("word");
+    expect(screen.getByText("consolidated.")).toHaveClass("word");
+    expect(screen.getByText("revenue,").parentElement).toHaveClass(
       "font-bold",
       "text-olive-deep",
     );
