@@ -50,7 +50,7 @@ export function SettingsDashboard() {
         description="The essentials for your Olio account, explained without the crypto jargon."
       />
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
+      <div className="grid grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
         <IdentityTile username={username} />
         <RecoveryTile
           protectedRecovery={Boolean(escrowQuery.data)}

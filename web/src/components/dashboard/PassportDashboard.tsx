@@ -82,7 +82,7 @@ export function PassportDashboard() {
         description="Your verified identity claim. Private by default; publish it only when you want customers to see it."
       />
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
+      <div className="grid grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
         <section
           className="min-w-0 lg:col-span-7"
           aria-labelledby="passport-claim-heading"

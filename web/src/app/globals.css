@@ -395,9 +395,13 @@ body:has(.theme-product) {
   color: var(--color-brand-linen);
 }
 
-:where(body:has(.theme-product)) a,
-:where(body:has(.theme-product)) a:hover {
-  color: inherit;
+/* Layered so link utilities (e.g. text-primary-foreground) still win;
+   unlayered, this reset beat every Tailwind color class on <a>. */
+@layer base {
+  :where(body:has(.theme-product)) a,
+  :where(body:has(.theme-product)) a:hover {
+    color: inherit;
+  }
 }
 
 body:has(.theme-product) [data-sonner-toast] {

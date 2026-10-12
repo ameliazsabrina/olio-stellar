@@ -120,7 +120,7 @@ export function VerificationDashboard() {
         description="Verify your identity or company once. Olio keeps the result private until you choose to publish an Identity Verified badge."
       />
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
+      <div className="grid grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
         <section
           className="min-w-0 lg:col-span-5"
           aria-labelledby="business-profile-heading"
