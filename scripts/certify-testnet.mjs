@@ -95,7 +95,7 @@ function assertAccounting(evidence) {
   const f = BigInt(fee);
   const g = BigInt(gross);
   const bps = BigInt(feeBps);
-  if (![200n, 500n].includes(bps)) fail("Evidence feeBps must be 200 or 500.");
+  if (bps !== 200n) fail("Evidence feeBps must be 200.");
   if ((p * bps) / 10_000n !== f || p + f !== g) {
     fail(
       "Evidence violates fee=floor(principal*bps/10000) or gross=principal+fee.",

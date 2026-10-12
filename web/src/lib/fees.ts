@@ -1,13 +1,12 @@
 export const OLIO_BPS_DENOMINATOR = 10_000n;
 export const OLIO_DEFAULT_FEE_BPS = 200 as const;
-export const OLIO_SPECIAL_FEE_BPS = 500 as const;
 export const OLIO_FEE_POLICY_VERSION = 2 as const;
 export const OLIO_FEE_QUOTE_FORMAT_VERSION = 1 as const;
 export const DIRECT_QUOTE_LIFETIME_SECONDS = 15 * 60;
 export const ASYNC_QUOTE_LIFETIME_SECONDS = 24 * 60 * 60;
 export const MAX_NOTE_AMOUNT = (1n << 64n) - 1n;
 
-export type FeeBps = 200 | 500;
+export type FeeBps = typeof OLIO_DEFAULT_FEE_BPS;
 
 export type FeeBreakdown = {
   paymentAmount: bigint;
@@ -18,7 +17,7 @@ export type FeeBreakdown = {
 };
 
 export function isAllowedFeeBps(value: number): value is FeeBps {
-  return value === OLIO_DEFAULT_FEE_BPS || value === OLIO_SPECIAL_FEE_BPS;
+  return value === OLIO_DEFAULT_FEE_BPS;
 }
 
 export function quoteOlioFee(

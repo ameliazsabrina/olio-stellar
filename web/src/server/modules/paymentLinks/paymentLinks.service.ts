@@ -1,9 +1,13 @@
 import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { MongoServerError } from "mongodb";
-import type { PaymentLinkDoc } from "../../db/mongo";
+import type { InvoiceState, PaymentLinkDoc } from "../../db/mongo";
 import { getPaymentLinks } from "../../db/mongo";
 import { businessOwnsUsername } from "../businesses/businesses.service";
+import {
+  assertLinkableInvoice,
+  invoiceStates,
+} from "../invoices/invoices.service";
 import { publishedPublicIdsFor } from "../passport/passport.service";
 import {
   PaymentLinkBusinessMismatchError,
@@ -55,6 +59,7 @@ function assertManageAuthorized(
 function toOutput(
   doc: PaymentLinkDoc,
   verifiedBusinessPublicId: string | null = null,
+  invoiceState: InvoiceState | null = null,
 ): LinkOutput {
   const description = doc.description ?? doc.label ?? null;
   return {
@@ -64,25 +69,46 @@ function toOutput(
     amount: doc.amount,
     description,
     label: description,
-    status: doc.status,
+    status: invoiceState === "paid" ? "paid" : "pending",
     state: doc.state ?? "active",
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt?.toISOString() ?? null,
     archivedAt: doc.archivedAt?.toISOString() ?? null,
     businessClaimed: typeof doc.businessId === "string",
     verifiedBusinessPublicId,
+    invoiceId: doc.invoiceId ?? null,
   };
 }
 
+async function invoiceStateFor(
+  doc: PaymentLinkDoc,
+): Promise<InvoiceState | null> {
+  if (!doc.invoiceId) return null;
+  return (await invoiceStates([doc.invoiceId])).get(doc.invoiceId) ?? null;
+}
+
 async function withIdentity(doc: PaymentLinkDoc): Promise<LinkOutput> {
-  if (!doc.businessId) return toOutput(doc);
+  const invoiceState = await invoiceStateFor(doc);
+  if (!doc.businessId) return toOutput(doc, null, invoiceState);
   const published = await publishedPublicIdsFor([doc.businessId]);
-  return toOutput(doc, published.get(doc.businessId) ?? null);
+  return toOutput(doc, published.get(doc.businessId) ?? null, invoiceState);
+}
+
+async function assertInvoiceBinding(
+  invoiceId: string | null | undefined,
+  username: string,
+  privyUserId: string | undefined,
+): Promise<void> {
+  if (!invoiceId) return;
+  if (!privyUserId) throw new PaymentLinkUnauthorizedError();
+  await assertLinkableInvoice(privyUserId, invoiceId, username);
 }
 
 export async function createLink(
   input: CreateLinkInput,
+  privyUserId?: string,
 ): Promise<CreateLinkResult> {
+  await assertInvoiceBinding(input.invoiceId, input.username, privyUserId);
   const links = await getPaymentLinks();
   const now = new Date();
   const manageToken = newManageToken();
@@ -96,6 +122,7 @@ export async function createLink(
     state: "active",
     status: "pending",
     manageTokenHash: hashToken(manageToken),
+    invoiceId: input.invoiceId ?? null,
     createdAt: now,
     updatedAt: now,
     archivedAt: null,
@@ -109,7 +136,7 @@ export async function createLink(
     }
     throw e;
   }
-  return { ...toOutput(doc), manageToken };
+  return { ...toOutput(doc, null, await invoiceStateFor(doc)), manageToken };
 }
 
 export async function getLink(id: string): Promise<LinkOutput | null> {
@@ -141,13 +168,27 @@ export async function listLinksByOwner(
     .find({ owner: input.owner })
     .sort({ createdAt: -1 })
     .toArray();
-  return docs.map((doc) => toOutput(doc));
+  const states = await invoiceStates(
+    docs.flatMap((doc) => (doc.invoiceId ? [doc.invoiceId] : [])),
+  );
+  return docs.map((doc) =>
+    toOutput(
+      doc,
+      null,
+      doc.invoiceId ? (states.get(doc.invoiceId) ?? null) : null,
+    ),
+  );
 }
 
-export async function updateLink(input: UpdateLinkInput): Promise<LinkOutput> {
+export async function updateLink(
+  input: UpdateLinkInput,
+  privyUserId?: string,
+): Promise<LinkOutput> {
   const links = await getPaymentLinks();
   const doc = await links.findOne({ _id: input.id });
   assertManageAuthorized(doc, input.manageToken);
+  if (input.invoiceId !== undefined && input.invoiceId !== doc.invoiceId)
+    await assertInvoiceBinding(input.invoiceId, doc.owner, privyUserId);
   const res = await links.findOneAndUpdate(
     { _id: input.id },
     {
@@ -155,13 +196,16 @@ export async function updateLink(input: UpdateLinkInput): Promise<LinkOutput> {
         amount: input.amount ?? null,
         description: input.description ?? null,
         label: input.description ?? null,
+        ...(input.invoiceId !== undefined
+          ? { invoiceId: input.invoiceId }
+          : {}),
         updatedAt: new Date(),
       },
     },
     { returnDocument: "after" },
   );
   if (!res) throw new PaymentLinkStoreError(input.id);
-  return toOutput(res);
+  return toOutput(res, null, await invoiceStateFor(res));
 }
 
 export async function setLinkArchived(
@@ -183,7 +227,7 @@ export async function setLinkArchived(
     { returnDocument: "after" },
   );
   if (!res) throw new PaymentLinkStoreError(input.id);
-  return toOutput(res);
+  return toOutput(res, null, await invoiceStateFor(res));
 }
 
 export async function claimLinkForBusiness(

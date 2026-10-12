@@ -20,7 +20,7 @@ import { Card } from "../ui/card";
 import { glassSegmentedClass } from "../ui/glass";
 import { DiscloseDialog } from "./DiscloseDialog";
 
-type ActivityEvent = {
+export type ActivityEvent = {
   id: string;
   kind: "incoming" | "outgoing";
   amount: bigint;
@@ -54,15 +54,50 @@ function toEvents(notes: MyNote[]): ActivityEvent[] {
   });
 }
 
-function exportCsv(events: ActivityEvent[]) {
-  const header = "type,amount_usdc,note_index\n";
+export type ActivitySettlement = {
+  settlementId: string;
+  txHash: string;
+  ledgerClosedAt: string;
+  invoiceNumber: string | null;
+};
+
+const csvCell = (value: string) =>
+  /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+
+export function activityCsv(
+  events: ActivityEvent[],
+  settlements: ReadonlyMap<number, ActivitySettlement> = new Map(),
+): string {
+  const header =
+    "type,amount_usdc,note_index,ledger_closed_at,tx_hash,settlement_id,invoice_number\n";
   const rows = events
     .map((e) => {
       const type = e.kind === "incoming" ? "received" : "cashed_out";
-      return `${type},${fromBaseUnits(e.amount)},${e.leafIndex}`;
+      const settlement =
+        e.kind === "incoming" ? settlements.get(e.leafIndex) : undefined;
+      return [
+        type,
+        fromBaseUnits(e.amount),
+        String(e.leafIndex),
+        settlement?.ledgerClosedAt ?? "",
+        settlement?.txHash ?? "",
+        settlement?.settlementId ?? "",
+        settlement?.invoiceNumber ?? "",
+      ]
+        .map(csvCell)
+        .join(",");
     })
     .join("\n");
-  const blob = new Blob([header + rows], { type: "text/csv" });
+  return header + rows;
+}
+
+function exportCsv(
+  events: ActivityEvent[],
+  settlements?: ReadonlyMap<number, ActivitySettlement>,
+) {
+  const blob = new Blob([activityCsv(events, settlements)], {
+    type: "text/csv",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -80,7 +115,9 @@ export function ActivityFeed({
   title = "History",
   appearance = "glass",
   className,
+  settlements,
 }: {
+  settlements?: ReadonlyMap<number, ActivitySettlement>;
   notes: MyNote[];
   loading: boolean;
   limit?: number;
@@ -155,7 +192,7 @@ export function ActivityFeed({
               variant={appearance === "linen" ? "default" : "glass"}
               size="sm"
               className="min-h-10"
-              onClick={() => exportCsv(filtered)}
+              onClick={() => exportCsv(filtered, settlements)}
               disabled={loading || filtered.length === 0}
             >
               <Download className="size-3.5" aria-hidden="true" />

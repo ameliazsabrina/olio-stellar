@@ -2,6 +2,12 @@ import { TRPCError } from "@trpc/server";
 import { __resetRateLimit, rateLimit } from "../../lib/rateLimit";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
+  InvoiceConfigError,
+  InvoiceConflictError,
+  InvoiceNotFoundError,
+  InvoiceStateError,
+} from "../invoices/invoices.errors";
+import {
   FeePolicyUnavailableError,
   FeeQuoteBadRequestError,
   FeeQuoteRateLimitError,
@@ -73,6 +79,21 @@ function mapError(error: unknown): never {
   }
   if (error instanceof FeeQuoteRateLimitError) {
     throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: error.message });
+  }
+  if (error instanceof InvoiceNotFoundError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+  }
+  if (
+    error instanceof InvoiceStateError ||
+    error instanceof InvoiceConfigError
+  ) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: error.message,
+    });
+  }
+  if (error instanceof InvoiceConflictError) {
+    throw new TRPCError({ code: "CONFLICT", message: error.message });
   }
   throw error;
 }

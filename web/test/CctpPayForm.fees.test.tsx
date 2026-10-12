@@ -58,9 +58,9 @@ describe("CctpPayForm authoritative fee review", () => {
   it("renders the server-provided fee and total", async () => {
     mocks.preview.mockResolvedValue({
       paymentAmount: "1000000000",
-      feeBps: 500,
-      feeAmount: "50000000",
-      totalAmount: "1050000000",
+      feeBps: 200,
+      feeAmount: "20000000",
+      totalAmount: "1020000000",
       policyVersion: 2,
     });
     render(
@@ -75,9 +75,9 @@ describe("CctpPayForm authoritative fee review", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText("Olio service fee (5%)")).toBeInTheDocument(),
+      expect(screen.getByText("Olio service fee (2%)")).toBeInTheDocument(),
     );
-    expect(screen.getByText("105 USDC")).toBeInTheDocument();
+    expect(screen.getByText("102 USDC")).toBeInTheDocument();
     expect(screen.getByLabelText("Payment breakdown")).toHaveAttribute(
       "aria-live",
       "polite",

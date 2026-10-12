@@ -23,7 +23,7 @@ describe("payment link QR dialog", () => {
     });
     expect(dialog).toHaveClass(
       "theme-linen",
-      "bg-brand-linen",
+      "bg-popover",
       "rounded-3xl",
       "sm:max-w-sm",
     );

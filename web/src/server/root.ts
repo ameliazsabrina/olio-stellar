@@ -6,9 +6,12 @@ import { businessesRouter } from "./modules/businesses/businesses.router";
 import { cctpRouter } from "./modules/cctp/cctp.router";
 import { channelsRouter } from "./modules/channels/channels.router";
 import { depositsRouter } from "./modules/deposits/deposits.router";
+import { evidenceRouter } from "./modules/evidence/evidence.router";
 import { feeQuotesRouter } from "./modules/feeQuotes/feeQuotes.router";
+import { invoicesRouter } from "./modules/invoices/invoices.router";
 import { passportRouter } from "./modules/passport/passport.router";
 import { paymentLinksRouter } from "./modules/paymentLinks/paymentLinks.router";
+import { settlementsRouter } from "./modules/settlements/settlements.router";
 import { usernamesRouter } from "./modules/usernames/usernames.router";
 import { verificationRouter } from "./modules/verification/verification.router";
 import { walletsRouter } from "./modules/wallets/wallets.router";
@@ -28,6 +31,9 @@ export const appRouter = createTRPCRouter({
   businesses: businessesRouter,
   verification: verificationRouter,
   passport: passportRouter,
+  invoices: invoicesRouter,
+  settlements: settlementsRouter,
+  evidence: evidenceRouter,
 });
 
 export type AppRouter = typeof appRouter;

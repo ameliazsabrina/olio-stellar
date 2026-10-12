@@ -18,6 +18,7 @@ import {
   BusinessNotFoundError,
   BusinessStoreError,
 } from "./businesses.errors";
+import { syncBusinessKeys } from "./businesses.keys";
 import type {
   BindAccountOutput,
   BusinessOutput,
@@ -285,6 +286,7 @@ export async function bindAccount(
     business.boundAccount === binding.boundAccount &&
     business.username === binding.username;
   if (unchanged) {
+    await recordKeyGeneration(businessId);
     return { business: toBusinessOutput(business, role), changed: false };
   }
   const ownershipChanged =
@@ -323,7 +325,19 @@ export async function bindAccount(
       businessId,
       reasonCode: "bound",
     });
+  await recordKeyGeneration(businessId);
   return { business: toBusinessOutput(updated, role), changed: true };
+}
+
+async function recordKeyGeneration(businessId: string): Promise<void> {
+  try {
+    await syncBusinessKeys(businessId, "bind");
+  } catch (error) {
+    console.warn(
+      "[business-keys] key generation was not recorded at bind",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 export async function businessOwnsUsername(

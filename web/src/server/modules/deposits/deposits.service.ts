@@ -11,6 +11,7 @@ import {
   parseDepositEvent,
   parseFeeEvent,
   parseSpentEvent,
+  parseWithdrawEvent,
   poolId,
   simulateRead,
 } from "../../../lib/stellar";
@@ -20,11 +21,20 @@ import {
   getFees,
   getIndexerState,
   getSpentNullifiers,
+  getWithdrawals,
+  type IndexerStateDoc,
 } from "../../db/mongo";
+import { I64_MAX } from "../invoices/invoices.state";
 import {
   DepositIndexGapError,
   PoolConfigurationMismatchError,
 } from "./deposits.errors";
+import {
+  advancePoolRoots,
+  checkRootAtTip,
+  type RootCheck,
+  serializeFrontier,
+} from "./deposits.roots";
 import type { DepositOutput, PoolSnapshotOutput } from "./deposits.schema";
 
 const LEASE_MS = 50_000;
@@ -37,9 +47,43 @@ export type PoolSyncResult = {
   depositsUpserted: number;
   nullifiersUpserted: number;
   feesUpserted: number;
+  withdrawalsUpserted: number;
+  rootCheck: RootCheck | "failed" | "skipped";
   durationMs: number;
   error?: string;
 };
+
+type RootProgress = {
+  check: RootCheck | "failed";
+  fields: Partial<IndexerStateDoc>;
+};
+
+async function advanceRoots(
+  state: IndexerStateDoc | null,
+  leafCount: number,
+): Promise<RootProgress> {
+  try {
+    const roots = await advancePoolRoots(state, leafCount);
+    const check = await checkRootAtTip(roots, poolLeafCount);
+    return {
+      check,
+      fields: {
+        rootLeafCount: roots.leafCount,
+        rootFrontier: serializeFrontier(roots.frontier),
+        ...(check === "unverified"
+          ? {}
+          : { rootsMismatch: check === "mismatch" }),
+        ...(check === "match" ? { rootsVerifiedAt: new Date() } : {}),
+      },
+    };
+  } catch (error) {
+    console.warn(
+      "[pool-indexer] pool root mirror failed",
+      error instanceof Error ? error.message : String(error),
+    );
+    return { check: "failed", fields: { rootsMismatch: true } };
+  }
+}
 
 async function poolLeafCount(): Promise<number> {
   return Number(await simulateRead(poolId, "leaf_count", []));
@@ -92,6 +136,8 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       depositsUpserted: 0,
       nullifiersUpserted: 0,
       feesUpserted: 0,
+      withdrawalsUpserted: 0,
+      rootCheck: "skipped",
       durationMs: Date.now() - startedAt,
     };
   }
@@ -119,6 +165,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     const depositOps = [];
     const nullifierOps = [];
     const feeOps = [];
+    const withdrawalOps = [];
     for (const event of events) {
       const deposit = parseDepositEvent(event);
       if (deposit) {
@@ -132,6 +179,26 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
                 ciphertext: new Binary(Buffer.from(deposit.ciphertext)),
                 ledger: event.ledger,
                 txHash: event.txHash,
+                eventId: event.id,
+                ts: new Date(event.ledgerClosedAt),
+              },
+            },
+            upsert: true,
+          },
+        });
+      }
+      const withdrawal = parseWithdrawEvent(event);
+      if (withdrawal && withdrawal.amount <= I64_MAX) {
+        withdrawalOps.push({
+          updateOne: {
+            filter: { _id: withdrawal.nullifierHex },
+            update: {
+              $set: {
+                dest: withdrawal.dest,
+                amount: withdrawal.amount,
+                txHash: event.txHash,
+                eventId: event.id,
+                ledger: event.ledger,
                 ts: new Date(event.ledgerClosedAt),
               },
             },
@@ -182,10 +249,11 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       }
     }
 
-    const [deposits, nullifiers, fees] = await Promise.all([
+    const [deposits, nullifiers, fees, withdrawals] = await Promise.all([
       getDeposits(),
       getSpentNullifiers(),
       getFees(),
+      getWithdrawals(),
     ]);
     await Promise.all([
       depositOps.length
@@ -197,6 +265,9 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       feeOps.length
         ? fees.bulkWrite(feeOps, { ordered: false })
         : Promise.resolve(),
+      withdrawalOps.length
+        ? withdrawals.bulkWrite(withdrawalOps, { ordered: false })
+        : Promise.resolve(),
     ]);
 
     const [onChainCount, mirroredCount] = await Promise.all([
@@ -207,9 +278,15 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       throw new DepositIndexGapError(onChainCount, mirroredCount);
     }
 
+    const roots = await advanceRoots(state, onChainCount);
+    const rootsMismatch =
+      roots.fields.rootsMismatch ?? state?.rootsMismatch ?? false;
     const indexedAt = new Date();
     const gapMessage =
       "Retention gap skipped a ledger window; some spent notes may be missing from the mirror until a full resync.";
+    const rootMessage =
+      "Mirrored pool root does not match the contract; evidence issuance is halted until the mirror is rebuilt.";
+    const healthy = nullifiersComplete && !rootsMismatch;
     await states.updateOne(
       { _id: "pool", leaseOwner: owner },
       {
@@ -222,10 +299,13 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
           indexedAt,
           updatedAt: indexedAt,
           nullifiersComplete,
-          health: nullifiersComplete ? "healthy" : "degraded",
-          ...(nullifiersComplete ? {} : { lastError: gapMessage }),
+          ...roots.fields,
+          health: healthy ? "healthy" : "degraded",
+          ...(healthy
+            ? {}
+            : { lastError: nullifiersComplete ? rootMessage : gapMessage }),
         },
-        ...(nullifiersComplete ? { $unset: { lastError: "" } } : {}),
+        ...(healthy ? { $unset: { lastError: "" } } : {}),
       },
     );
 
@@ -236,6 +316,8 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       depositsUpserted: depositOps.length,
       nullifiersUpserted: nullifierOps.length,
       feesUpserted: feeOps.length,
+      withdrawalsUpserted: withdrawalOps.length,
+      rootCheck: roots.check,
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {
@@ -258,6 +340,8 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       depositsUpserted: 0,
       nullifiersUpserted: 0,
       feesUpserted: 0,
+      withdrawalsUpserted: 0,
+      rootCheck: "skipped",
       durationMs: Date.now() - startedAt,
       error: message,
     };

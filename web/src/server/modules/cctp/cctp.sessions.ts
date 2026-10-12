@@ -28,6 +28,7 @@ import {
   getCctpSessions,
   type CctpSessionDoc,
 } from "../../db/mongo";
+import { recordPayerSent } from "../settlements/settlements.intents";
 import { assertPaymentIngressReady } from "../feeQuotes/feeQuotes.readiness";
 import { CctpOperationalError } from "./cctp.errors";
 import { assertRouteReady } from "./cctp.readiness";
@@ -216,6 +217,7 @@ export async function createSession(
   } catch (error) {
     if ((error as { code?: number }).code !== 11000) throw error;
   }
+  if (input.legacySourceTxHash) await recordPayerSent(session.quoteId);
   return publicSession(
     await authorizedSession({ sessionId: id, capability: input.capability }),
   );
@@ -252,6 +254,7 @@ export async function recordSubmission(
       { writeConcern: { w: "majority", j: true } },
     );
     if (updated.matchedCount !== 1) throw new CctpOperationalError("binding");
+    await recordPayerSent(session.quoteId);
   }
   await sessions.updateOne(
     {

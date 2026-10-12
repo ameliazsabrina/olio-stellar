@@ -96,8 +96,8 @@ link or a managed link with a fixed amount and label.
 ### 3. Direct Stellar payment
 
 A Stellar payer pays USDC into `olio-pool.deposit`. The requested amount is the
-private-note principal. Fee policy v2 adds the receiving client's server-resolved
-2% or 5% Olio service fee, rounded down in base units, on top. A dedicated
+private-note principal. Fee policy v2 adds a flat
+2% Olio service fee, rounded down in base units, on top. A dedicated
 pricing authority signs the exact recipient-bound quote and the pool verifies it
 before settlement. The pool atomically pulls the signed gross total, forwards the fee
 to its governed treasury, and retains only the principal backing the note. The
@@ -117,7 +117,7 @@ metadata in the deposit event.
 A payer can burn testnet USDC on a supported source chain. Circle attests the
 burn, then the server relay mints USDC on Stellar to `olio-intake`.
 
-The payer burns principal plus the signed 2% or 5% fee. A domain-separated v3
+The payer burns principal plus the signed 2% fee. A domain-separated v3
 hook binds the canonical immutable payment-quote digest. The relay verifies
 the binding and exact gross amount, then
 calls `olio-intake.deposit_to_pool`. The intake contract forwards the minted USDC

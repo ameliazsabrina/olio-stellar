@@ -677,7 +677,6 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
       0 16px 40px rgb(32 38 26 / 0.14);
   }
 
-
   .dashboard-tile-title {
     font-family: var(--font-heading);
     font-size: 1.25rem;
@@ -822,8 +821,15 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   --border: #3c4132;
   --input: #3c4132;
   --ring: #93bd63;
+  --surface-elevated: #2b3024;
+  --surface-inset: #262b1c;
   --text-primary: #f5f3ea;
+  --text-secondary: #b9bcae;
   --text-muted: #a2a698;
+  --border-subtle: #3c4132;
+  --border-default: #80856f;
+  --border-strong: #b9bcae;
+  --focus-ring: #93bd63;
   --action: #93bd63;
   --action-foreground: #1a1f12;
   --inverse: #f5f3ea;
@@ -849,6 +855,14 @@ body:has(.theme-product) [data-slot="dialog-content"][data-appearance="glass"] {
   --status-muted-bg: #2f3429;
   --status-muted-border: #2d3324;
   --status-muted-fg: #a2a698;
+}
+
+/* Dark linen dialogs: Figma card surface with the same lit rim as the panels. */
+[data-dashboard-theme="dark"]
+  [data-slot="dialog-content"][data-appearance="linen"] {
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 0.16),
+    0 24px 64px rgb(8 10 8 / 0.4);
 }
 
 [data-dashboard-theme="dark"] .surface-hero-panel {

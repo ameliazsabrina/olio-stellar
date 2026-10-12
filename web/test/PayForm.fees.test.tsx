@@ -37,12 +37,12 @@ describe("PayForm authoritative fee review", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the server-provided special tier and gross total", async () => {
+  it("renders the server-provided fee and gross total", async () => {
     mocks.preview.mockResolvedValue({
       paymentAmount: "1000000000",
-      feeBps: 500,
-      feeAmount: "50000000",
-      totalAmount: "1050000000",
+      feeBps: 200,
+      feeAmount: "20000000",
+      totalAmount: "1020000000",
       policyVersion: 2,
     });
     render(
@@ -61,9 +61,9 @@ describe("PayForm authoritative fee review", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText("Olio service fee (5%)")).toBeInTheDocument(),
+      expect(screen.getByText("Olio service fee (2%)")).toBeInTheDocument(),
     );
-    expect(screen.getByText("105 USDC")).toBeInTheDocument();
+    expect(screen.getByText("102 USDC")).toBeInTheDocument();
     expect(screen.getAllByText("100 USDC", { selector: "dd" })).toHaveLength(2);
     expect(screen.getByLabelText("Payment breakdown")).toHaveAttribute(
       "aria-live",

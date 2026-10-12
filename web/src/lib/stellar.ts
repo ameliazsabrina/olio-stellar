@@ -20,6 +20,9 @@ import type { RawProof } from "./prover";
 export const networkPassphrase =
   env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
 export const isMainnet = networkPassphrase === Networks.PUBLIC;
+export const stellarNetwork: "mainnet" | "testnet" = isMainnet
+  ? "mainnet"
+  : "testnet";
 const configuredRpcUrl = env.NEXT_PUBLIC_STELLAR_RPC_URL;
 if (isMainnet && !configuredRpcUrl) {
   throw new Error(
@@ -405,6 +408,12 @@ export type SpentEvent = {
   nullifierHex: string;
 };
 
+export type WithdrawEvent = {
+  nullifierHex: string;
+  dest: string;
+  amount: bigint;
+};
+
 export type FeeEvent = {
   payer: string;
   feeRecipient: string;
@@ -451,6 +460,30 @@ export function parseSpentEvent(e: rpc.Api.EventResponse): SpentEvent | null {
   return { nullifierHex: bytesToHex(bytes) };
 }
 
+export function parseWithdrawEvent(
+  e: rpc.Api.EventResponse,
+): WithdrawEvent | null {
+  if (poolEventKind(e) !== "withdraw") return null;
+  const val = scValToNative(
+    typeof e.value === "string"
+      ? xdr.ScVal.fromXDR(e.value, "base64")
+      : e.value,
+  );
+  if (!Array.isArray(val) || val.length < 3) return null;
+  try {
+    const nullifier = toBytes(val[0]);
+    const amount = BigInt(val[2] as bigint);
+    if (nullifier.length !== 32 || amount <= 0n) return null;
+    return {
+      nullifierHex: bytesToHex(nullifier),
+      dest: String(val[1]),
+      amount,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function parseFeeEvent(e: rpc.Api.EventResponse): FeeEvent | null {
   if (poolEventKind(e) !== "fee") return null;
   const val = scValToNative(
@@ -477,6 +510,7 @@ export function parseFeeEvent(e: rpc.Api.EventResponse): FeeEvent | null {
       parsed.feeAmount < 0n ||
       parsed.totalAmount !== parsed.paymentAmount + parsed.feeAmount ||
       !Number.isInteger(parsed.policyVersion) ||
+      // 500 is a retired tier; still parsed so historical events index.
       ![200, 500].includes(parsed.feeBps) ||
       !/^[0-9a-f]{64}$/.test(parsed.quoteId)
     ) {

@@ -20,10 +20,22 @@ export const previewInput = z
 export const previewOutput = z
   .object({
     paymentAmount: amount,
-    feeBps: z.union([z.literal(200), z.literal(500)]),
+    feeBps: z.literal(200),
     feeAmount: amount,
     totalAmount: amount,
     policyVersion: z.literal(2),
+  })
+  .strict();
+
+const invoiceBinding = z
+  .object({
+    invoiceId: z
+      .string()
+      .trim()
+      .min(8)
+      .max(64)
+      .regex(/^[A-Za-z0-9_-]+$/),
+    version: z.number().int().min(1),
   })
   .strict();
 
@@ -33,6 +45,7 @@ const issueCommon = {
   depositor: address,
   commitment: bytes32,
   salt: bytes32,
+  invoice: invoiceBinding.optional(),
 };
 
 export const issueInput = z.discriminatedUnion("channel", [
@@ -57,7 +70,7 @@ export const serializedQuote = z
     depositor: address,
     commitment: bytes32,
     paymentAmount: amount,
-    feeBps: z.union([z.literal(200), z.literal(500)]),
+    feeBps: z.literal(200),
     feeAmount: amount,
     totalAmount: amount,
     channel: z.enum(["direct", "cctp"]),

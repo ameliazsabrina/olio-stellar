@@ -96,7 +96,9 @@ beforeEach(() => {
 });
 describe("relay contract and operation authorization", () => {
   it("allows registration and recovery without submission, only on the owned account", async () => {
-    await authorizeRelay(func(registry, "register", [addr(account)]), "user");
+    await expect(
+      authorizeRelay(func(registry, "register", [addr(account)]), "user"),
+    ).resolves.toEqual({ keyChangeAccount: account });
     await authorizeRelay(
       func(account, "set_owner", [bytes(Buffer.alloc(32))]),
       "user",
@@ -125,7 +127,9 @@ describe("relay contract and operation authorization", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it("allows guest deposits only with a valid, unexpired quote for this network", async () => {
-    await expect(authorizeRelay(deposit(), null)).resolves.toBeUndefined();
+    await expect(authorizeRelay(deposit(), null)).resolves.toEqual({
+      keyChangeAccount: null,
+    });
     await expect(
       authorizeRelay(deposit({}, Buffer.alloc(64)), null),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

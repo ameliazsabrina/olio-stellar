@@ -1,3 +1,4 @@
+import { Keypair } from "@stellar/stellar-sdk";
 import { z } from "zod";
 
 const emptyToUndefined = (value: unknown) =>
@@ -92,7 +93,61 @@ export const serverEnvSchema = z.object({
         .filter((id) => id.length > 0),
     ),
   ),
+  SETTLEMENTS_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+  EVIDENCE_MODE: z.enum(["off", "testnet", "mainnet"]).default("off"),
+  EVIDENCE_SIGNER_SECRET: optionalString,
+  EVIDENCE_SIGNER_KEY_ID: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9._-]{1,64}$/)
+      .optional(),
+  ),
+  EVIDENCE_ANCHOR_SECRET: optionalString,
+  EVIDENCE_EPOCH_INTERVAL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(300)
+    .max(7 * 86_400)
+    .default(86_400),
+  EVIDENCE_POLICY_VERSION: z.coerce.number().int().min(1).default(1),
+  EVIDENCE_MANIFEST_TTL_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(366)
+    .default(30),
 });
+
+function stellarPublicKey(secret: string | undefined): string | null {
+  if (!secret) return null;
+  try {
+    return Keypair.fromSecret(secret).publicKey();
+  } catch {
+    return null;
+  }
+}
+
+export function assertEvidenceSignerSeparation(
+  env: Pick<
+    z.infer<typeof serverEnvSchema>,
+    "EVIDENCE_SIGNER_SECRET" | "FEE_QUOTE_SIGNING_SECRET"
+  >,
+): void {
+  const evidenceSigner = stellarPublicKey(env.EVIDENCE_SIGNER_SECRET);
+  if (env.EVIDENCE_SIGNER_SECRET && !evidenceSigner) {
+    throw new Error("EVIDENCE_SIGNER_SECRET is not a valid Stellar secret.");
+  }
+  if (
+    evidenceSigner &&
+    evidenceSigner === stellarPublicKey(env.FEE_QUOTE_SIGNING_SECRET)
+  ) {
+    throw new Error(
+      "EVIDENCE_SIGNER_SECRET must differ from FEE_QUOTE_SIGNING_SECRET.",
+    );
+  }
+}
 
 export function getServerEnv() {
   const parsed = serverEnvSchema.parse({
@@ -131,7 +186,43 @@ export function getServerEnv() {
     VERIFICATION_WORKER_ENABLED: process.env.VERIFICATION_WORKER_ENABLED,
     VERIFICATION_OPERATOR_PRIVY_IDS:
       process.env.VERIFICATION_OPERATOR_PRIVY_IDS,
+    SETTLEMENTS_WORKER_ENABLED: process.env.SETTLEMENTS_WORKER_ENABLED,
+    EVIDENCE_MODE: process.env.EVIDENCE_MODE,
+    EVIDENCE_SIGNER_SECRET: process.env.EVIDENCE_SIGNER_SECRET,
+    EVIDENCE_SIGNER_KEY_ID: process.env.EVIDENCE_SIGNER_KEY_ID,
+    EVIDENCE_ANCHOR_SECRET: process.env.EVIDENCE_ANCHOR_SECRET,
+    EVIDENCE_EPOCH_INTERVAL_SECONDS:
+      process.env.EVIDENCE_EPOCH_INTERVAL_SECONDS,
+    EVIDENCE_POLICY_VERSION: process.env.EVIDENCE_POLICY_VERSION,
+    EVIDENCE_MANIFEST_TTL_DAYS: process.env.EVIDENCE_MANIFEST_TTL_DAYS,
   });
+  assertEvidenceSignerSeparation(parsed);
+  const productionRuntime =
+    parsed.NODE_ENV === "production" &&
+    process.env.NEXT_PHASE !== "phase-production-build";
+  if (
+    productionRuntime &&
+    parsed.EVIDENCE_MODE !== "off" &&
+    (!parsed.EVIDENCE_SIGNER_SECRET ||
+      !parsed.EVIDENCE_SIGNER_KEY_ID ||
+      !parsed.EVIDENCE_ANCHOR_SECRET)
+  ) {
+    throw new Error(
+      "EVIDENCE_SIGNER_SECRET, EVIDENCE_SIGNER_KEY_ID and EVIDENCE_ANCHOR_SECRET must be configured when EVIDENCE_MODE is enabled.",
+    );
+  }
+  if (
+    productionRuntime &&
+    parsed.EVIDENCE_MODE !== "off" &&
+    parsed.EVIDENCE_MODE !==
+      (process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
+        ? "mainnet"
+        : "testnet")
+  ) {
+    throw new Error(
+      "EVIDENCE_MODE must match NEXT_PUBLIC_STELLAR_NETWORK in production.",
+    );
+  }
   if (
     parsed.NODE_ENV === "production" &&
     process.env.NEXT_PHASE !== "phase-production-build" &&

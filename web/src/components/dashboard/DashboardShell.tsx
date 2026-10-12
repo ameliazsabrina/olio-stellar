@@ -3,6 +3,7 @@
 import { NotificationInbox } from "./NotificationInbox";
 import {
   ArrowDownToLine,
+  FileText,
   LayoutGrid,
   Link2,
   LogOut,
@@ -19,6 +20,7 @@ import type { ReactNode } from "react";
 import {
   DASHBOARD_PATH,
   HISTORY_PATH,
+  INVOICES_PATH,
   LINKS_PATH,
   SETTINGS_PATH,
   WITHDRAW_PATH,
@@ -38,6 +40,7 @@ type NavItem = { label: string; href: string; icon: LucideIcon };
 const PAGES: NavItem[] = [
   { label: "Overview", href: DASHBOARD_PATH, icon: LayoutGrid },
   { label: "Payment links", href: LINKS_PATH, icon: Link2 },
+  { label: "Invoices", href: INVOICES_PATH, icon: FileText },
   { label: "Payments", href: HISTORY_PATH, icon: Receipt },
   { label: "Withdraw", href: WITHDRAW_PATH, icon: ArrowDownToLine },
 ];
@@ -152,7 +155,7 @@ function DashboardBottomBar() {
       aria-label="Dashboard pages"
       className="fixed inset-x-3 bottom-3 z-40 rounded-[1.375rem] border border-white/40 bg-brand-obsidian/60 p-1.5 shadow-[inset_0_1px_1px_rgb(255_255_255/0.22)] backdrop-blur-md md:hidden"
     >
-      <ul className="grid grid-cols-4 gap-1">
+      <ul className="grid grid-cols-5 gap-1">
         {PAGES.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);

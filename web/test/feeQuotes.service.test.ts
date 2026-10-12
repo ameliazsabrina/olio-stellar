@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   resolveUsernameOnChain: vi.fn(),
-  findPolicy: vi.fn(),
 }));
 
 vi.mock("../src/lib/stellar", () => ({
@@ -16,7 +15,6 @@ vi.mock("../src/lib/stellar", () => ({
   simulateRead: vi.fn(),
 }));
 vi.mock("../src/server/db/mongo", () => ({
-  getClientFeePolicies: async () => ({ findOne: mocks.findPolicy }),
   getUsers: vi.fn(),
 }));
 
@@ -33,9 +31,8 @@ beforeEach(() => {
   });
 });
 
-describe("fee quote policy lookup", () => {
-  it("returns the default 2% when no active owner override exists", async () => {
-    mocks.findPolicy.mockResolvedValue(null);
+describe("fee quote preview", () => {
+  it("always quotes the flat 2% Olio fee", async () => {
     await expect(
       previewFeeQuote({
         username: "alice",
@@ -51,48 +48,8 @@ describe("fee quote policy lookup", () => {
     });
   });
 
-  it("returns 5% for the active policy keyed by stable registry owner", async () => {
-    mocks.findPolicy.mockResolvedValue({
-      _id: "COWNER",
-      feeBps: 500,
-      state: "active",
-    });
-    const result = await previewFeeQuote({
-      username: "alice",
-      paymentAmount: "1000000000",
-      channel: "direct",
-    });
-    expect(result).toMatchObject({
-      feeBps: 500,
-      feeAmount: "50000000",
-      totalAmount: "1050000000",
-    });
-    expect(mocks.findPolicy.mock.calls[0][0]).toMatchObject({
-      _id: "COWNER",
-      state: "active",
-    });
-    expect(mocks.findPolicy.mock.calls[0][1]).toEqual({
-      readPreference: "primary",
-    });
-  });
-
-  it("fails closed when policy storage is unavailable", async () => {
-    mocks.findPolicy.mockRejectedValue(new Error("mongo down"));
-    await expect(
-      previewFeeQuote({
-        username: "alice",
-        paymentAmount: "1000000000",
-        channel: "direct",
-      }),
-    ).rejects.toBeInstanceOf(FeePolicyUnavailableError);
-  });
-
-  it("fails closed when a policy record contains an unsupported rate", async () => {
-    mocks.findPolicy.mockResolvedValue({
-      _id: "COWNER",
-      feeBps: 0,
-      state: "active",
-    });
+  it("fails closed when the recipient registry is unavailable", async () => {
+    mocks.resolveUsernameOnChain.mockRejectedValue(new Error("rpc down"));
     await expect(
       previewFeeQuote({
         username: "alice",

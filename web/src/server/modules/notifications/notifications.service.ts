@@ -9,11 +9,15 @@ import {
 } from "../../db/mongo";
 import { verificationConfig } from "../verification/verification.config";
 import { USER_MESSAGES } from "../verification/verification.policy";
+export type PaymentNoticeKind =
+  | "payment_received"
+  | "invoice_paid"
+  | "invoice_partially_paid";
 type Notice = {
   _id: string;
   businessId: string;
   environment: VerificationEnvironment;
-  kind: VerificationDelivery["kind"];
+  kind: VerificationDelivery["kind"] | PaymentNoticeKind;
   at: Date;
   readBy: string[];
 };
@@ -22,7 +26,31 @@ const messages = {
   ...USER_MESSAGES,
   not_started: "Continue your verification.",
   submitted: "Your verification was received. You can now use your dashboard.",
+  payment_received: "A payment was received.",
+  invoice_paid: "An invoice was paid in full.",
+  invoice_partially_paid: "An invoice received a partial payment.",
 };
+export async function notifyBusiness(notice: {
+  id: string;
+  businessId: string;
+  kind: PaymentNoticeKind;
+  at?: Date;
+}): Promise<void> {
+  await (await notices()).updateOne(
+    { _id: notice.id },
+    {
+      $setOnInsert: {
+        _id: notice.id,
+        businessId: notice.businessId,
+        environment: verificationConfig().environment ?? "live",
+        kind: notice.kind,
+        at: notice.at ?? new Date(),
+        readBy: [],
+      },
+    },
+    { upsert: true },
+  );
+}
 export async function deliverNotifications(limit = 100) {
   const cases = await getVerificationCases();
   const pending = await cases

@@ -29,8 +29,6 @@ import {
   ASYNC_QUOTE_LIFETIME_SECONDS,
   assertCctpQuoteRepresentable,
   DIRECT_QUOTE_LIFETIME_SECONDS,
-  type FeeBps,
-  isAllowedFeeBps,
   OLIO_DEFAULT_FEE_BPS,
   OLIO_FEE_POLICY_VERSION,
   OLIO_FEE_QUOTE_FORMAT_VERSION,
@@ -42,8 +40,13 @@ import {
   resolveUsernameOnChain,
   simulateRead,
 } from "../../../lib/stellar";
-import { getAsyncFeeQuoteContexts, getClientFeePolicies } from "../../db/mongo";
+import { getAsyncFeeQuoteContexts } from "../../db/mongo";
 import { routeReadiness } from "../cctp/cctp.readiness";
+import { I64_MAX as MAX_RECORDED_AMOUNT } from "../invoices/invoices.state";
+import {
+  bindInvoiceIntent,
+  recordQuoteAttribution,
+} from "./feeQuotes.attribution";
 import {
   FeePolicyUnavailableError,
   FeeQuoteBadRequestError,
@@ -81,31 +84,6 @@ async function resolveRecipient(username: string) {
   return recipient;
 }
 
-async function feeBpsForOwner(
-  owner: string,
-  now = new Date(),
-): Promise<FeeBps> {
-  try {
-    const policy = await (await getClientFeePolicies()).findOne(
-      {
-        _id: owner,
-        state: "active",
-        effectiveAt: { $lte: now },
-        $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-      },
-      { readPreference: "primary" },
-    );
-    if (policy && !isAllowedFeeBps(policy.feeBps)) {
-      throw new Error("stored fee rate is invalid");
-    }
-    return policy?.feeBps ?? OLIO_DEFAULT_FEE_BPS;
-  } catch {
-    throw new FeePolicyUnavailableError(
-      "Fee policy storage is unavailable. Try again.",
-    );
-  }
-}
-
 function parsePaymentAmount(value: string): bigint {
   const amount = BigInt(value);
   if (amount <= 0n)
@@ -119,7 +97,7 @@ export async function previewFeeQuote(
   const paymentAmount = parsePaymentAmount(input.paymentAmount);
   const recipient = await resolveRecipient(input.username);
   await requireAccountSubmission(recipient.owner);
-  const feeBps = await feeBpsForOwner(recipient.owner);
+  const feeBps = OLIO_DEFAULT_FEE_BPS;
   const breakdown = quoteOlioFee(paymentAmount, feeBps);
   if (input.channel === "cctp") assertCctpQuoteRepresentable(breakdown);
   return {
@@ -190,10 +168,15 @@ export async function issueFeeQuote(
     }
   }
   const paymentAmount = parsePaymentAmount(input.paymentAmount);
+  if (paymentAmount > MAX_RECORDED_AMOUNT)
+    throw new FeeQuoteBadRequestError("Payment amount is too large.");
   validateAddress(input.depositor, "Depositor");
   const recipient = await resolveRecipient(input.username);
   await requireAccountSubmission(recipient.owner);
-  const feeBps = await feeBpsForOwner(recipient.owner);
+  const binding = input.invoice
+    ? await bindInvoiceIntent(input.invoice, recipient.owner)
+    : null;
+  const feeBps = OLIO_DEFAULT_FEE_BPS;
   const breakdown = quoteOlioFee(paymentAmount, feeBps);
   if (input.channel === "cctp") assertCctpQuoteRepresentable(breakdown);
 
@@ -242,7 +225,7 @@ export async function issueFeeQuote(
   const quote: SignedFeeQuote = {
     formatVersion: OLIO_FEE_QUOTE_FORMAT_VERSION,
     policyVersion: OLIO_FEE_POLICY_VERSION,
-    quoteId: new Uint8Array(randomBytes(32)),
+    quoteId: binding ? binding.quoteId : new Uint8Array(randomBytes(32)),
     networkId: stellarNetworkId(networkPassphrase),
     pool: poolId,
     depositor: input.depositor,
@@ -284,28 +267,15 @@ export async function issueFeeQuote(
       );
     }
   }
-  return serializeFeeQuoteEnvelope(envelope);
-}
-
-// Kept narrow for the operator command and tests; no browser route mutates policy.
-export async function setClientFeePolicyForOwner(input: {
-  owner: string;
-  feeBps: FeeBps;
-  state: "active" | "disabled";
-  effectiveAt: Date;
-  expiresAt: Date | null;
-  reason: string;
-  updatedBy: string;
-}): Promise<void> {
-  validateAddress(input.owner, "Owner");
-  await (await getClientFeePolicies()).updateOne(
-    { _id: input.owner },
-    {
-      $set: {
-        ...input,
-        updatedAt: new Date(),
-      },
+  await recordQuoteAttribution({
+    quote,
+    recipient: {
+      owner: recipient.owner,
+      notePubkey: recipient.note_pubkey,
+      viewPubkey: recipient.view_pubkey,
     },
-    { upsert: true, writeConcern: { w: "majority", j: true } },
-  );
+    binding,
+    sourceDomain,
+  });
+  return serializeFeeQuoteEnvelope(envelope);
 }

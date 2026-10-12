@@ -62,10 +62,16 @@ export function syncLocalAccountIdentity(privyUserId: string | null): void {
 /// keypair (see deriveNoteSecrets), so a re-derive on any device reproduces the
 /// exact pubkeys registered on-chain — that is what makes balances recoverable.
 export function deriveAndStoreAccount(master: Uint8Array): LocalAccount {
-  const { ownerSecret, viewSk } = deriveNoteSecrets(master);
-  window.localStorage.setItem(OWNER_KEY, bytesToHex(toBE32(ownerSecret)));
-  window.localStorage.setItem(VIEW_KEY, bytesToHex(viewSk));
-  return { ownerSecret, viewSk };
+  return storeAccount(deriveNoteSecrets(master));
+}
+
+export function storeAccount(account: LocalAccount): LocalAccount {
+  window.localStorage.setItem(
+    OWNER_KEY,
+    bytesToHex(toBE32(account.ownerSecret)),
+  );
+  window.localStorage.setItem(VIEW_KEY, bytesToHex(account.viewSk));
+  return { ownerSecret: account.ownerSecret, viewSk: account.viewSk };
 }
 
 export async function accountPubkeys(

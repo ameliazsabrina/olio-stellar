@@ -9,11 +9,16 @@ const mocks = vi.hoisted(() => ({
   submission: vi.fn(),
   routeReady: vi.fn(),
   resolve: vi.fn(),
-  policy: vi.fn(),
   config: vi.fn(),
   secret: vi.fn(),
   user: vi.fn(),
   persist: vi.fn(),
+  bindInvoice: vi.fn(),
+  attribution: vi.fn(),
+}));
+vi.mock("../src/server/modules/feeQuotes/feeQuotes.attribution", () => ({
+  bindInvoiceIntent: mocks.bindInvoice,
+  recordQuoteAttribution: mocks.attribution,
 }));
 vi.mock("../src/server/modules/cctp/cctp.readiness", () => ({
   routeReadiness: mocks.routeReady,
@@ -38,7 +43,6 @@ vi.mock("../src/lib/cctp", async () => {
 });
 vi.mock("../src/env.server", () => ({ getServerEnv: mocks.secret }));
 vi.mock("../src/server/db/mongo", () => ({
-  getClientFeePolicies: async () => ({ findOne: mocks.policy }),
   getUsers: async () => ({ findOne: mocks.user }),
   getAsyncFeeQuoteContexts: async () => ({ insertOne: mocks.persist }),
 }));
@@ -71,11 +75,11 @@ beforeEach(async () => {
     reason: "ready",
     retryAfterMs: 15_000,
   });
-  mocks.policy.mockResolvedValue(null);
   mocks.config.mockResolvedValue({ signer: signer.rawPublicKey() });
   mocks.secret.mockReturnValue({ FEE_QUOTE_SIGNING_SECRET: signer.secret() });
   mocks.user.mockResolvedValue({ _id: owner });
   mocks.persist.mockResolvedValue({ acknowledged: true });
+  mocks.attribution.mockResolvedValue(undefined);
   input = {
     username: "alice",
     paymentAmount: "1000000000",
@@ -102,16 +106,13 @@ async function issue(request: IssueInput = input, user: string | null = null) {
 }
 
 describe("authoritative fee quote issuance", () => {
-  it.each([
-    200, 500,
-  ] as const)("signs exact principal and gross at %i bps without persisting direct recipient context", async (feeBps) => {
-    mocks.policy.mockResolvedValue({ feeBps });
+  it("signs exact principal and gross at 2% without persisting direct recipient context", async () => {
     const quote = await issue();
     expect(quote).toMatchObject({
       paymentAmount: 1_000_000_000n,
-      feeBps,
-      feeAmount: feeBps === 200 ? 20_000_000n : 50_000_000n,
-      totalAmount: feeBps === 200 ? 1_020_000_000n : 1_050_000_000n,
+      feeBps: 200,
+      feeAmount: 20_000_000n,
+      totalAmount: 1_020_000_000n,
       issuedAt: 1_800_000_000n,
       expiresAt: 1_800_000_900n,
       sourceDomain: 0,
@@ -121,14 +122,7 @@ describe("authoritative fee quote issuance", () => {
     expect((await issue()).quoteId).not.toEqual(quote.quoteId);
   });
 
-  it("re-reads policy between preview and issuance", async () => {
-    expect((await previewFeeQuote(input)).feeBps).toBe(200);
-    mocks.policy.mockResolvedValue({ feeBps: 500 });
-    expect((await issue()).totalAmount).toBe(1_050_000_000n);
-  });
-
-  it("retains the owner tier after note-key rotation and rejects the old commitment", async () => {
-    mocks.policy.mockResolvedValue({ feeBps: 500 });
+  it("rejects the old commitment after note-key rotation", async () => {
     mocks.resolve.mockResolvedValue({
       owner,
       note_pubkey: toBE32(14n),
@@ -140,11 +134,7 @@ describe("authoritative fee quote issuance", () => {
     input.commitment = bytesToHex(
       toBE32(await commitment(1_000_000_000n, 14n, 13n)),
     );
-    expect((await issue()).feeBps).toBe(500);
-    expect(mocks.policy).toHaveBeenLastCalledWith(
-      expect.objectContaining({ _id: owner }),
-      { readPreference: "primary" },
-    );
+    expect((await issue()).feeBps).toBe(200);
   });
 
   it.each([
@@ -168,15 +158,6 @@ describe("authoritative fee quote issuance", () => {
     else mocks.resolve.mockResolvedValue(null);
     await expect(issueFeeQuote(input, null)).rejects.toThrow(
       state ? "unavailable" : "not found",
-    );
-    expect(mocks.secret).not.toHaveBeenCalled();
-  });
-
-  it("fails closed if policy storage fails after a successful preview", async () => {
-    await previewFeeQuote(input);
-    mocks.policy.mockRejectedValue(new Error("database credentials"));
-    await expect(issueFeeQuote(input, null)).rejects.toThrow(
-      "Fee policy storage is unavailable",
     );
     expect(mocks.secret).not.toHaveBeenCalled();
   });
@@ -303,4 +284,56 @@ it("blocks new guest quotes for unsubmitted recipients", async () => {
   );
   expect(mocks.submission).toHaveBeenCalledWith(owner);
   expect(mocks.persist).not.toHaveBeenCalled();
+});
+
+describe("invoice-bound issuance", () => {
+  it("derives the quote id from the invoice intent and records attribution", async () => {
+    const quoteId = new Uint8Array(32).fill(3);
+    const binding = {
+      invoice: { _id: "inv_12345678", businessId: "biz_12345678" },
+      version: { version: 2, invoiceCommitment: "11".repeat(32) },
+      intentNonce: new Uint8Array(32).fill(4),
+      quoteId,
+    };
+    mocks.bindInvoice.mockResolvedValue(binding);
+    const quote = await issue({
+      ...input,
+      invoice: { invoiceId: "inv_12345678", version: 2 },
+    });
+    expect(mocks.bindInvoice).toHaveBeenCalledWith(
+      { invoiceId: "inv_12345678", version: 2 },
+      owner,
+    );
+    expect(quote.quoteId).toEqual(quoteId);
+    expect(mocks.attribution).toHaveBeenCalledWith(
+      expect.objectContaining({ binding, sourceDomain: 0 }),
+    );
+  });
+
+  it("records attribution for direct quotes without an invoice", async () => {
+    await issue();
+    expect(mocks.bindInvoice).not.toHaveBeenCalled();
+    expect(mocks.attribution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        binding: null,
+        recipient: expect.objectContaining({ owner }),
+      }),
+    );
+  });
+
+  it("does not sign a quote when the invoice cannot be paid", async () => {
+    mocks.bindInvoice.mockRejectedValue(new Error("not payable"));
+    await expect(
+      issueFeeQuote(
+        { ...input, invoice: { invoiceId: "inv_12345678", version: 1 } },
+        null,
+      ),
+    ).rejects.toThrow("not payable");
+    expect(mocks.attribution).not.toHaveBeenCalled();
+  });
+
+  it("refuses to sign when attribution cannot be stored", async () => {
+    mocks.attribution.mockRejectedValue(new Error("storage down"));
+    await expect(issueFeeQuote(input, null)).rejects.toThrow("storage down");
+  });
 });

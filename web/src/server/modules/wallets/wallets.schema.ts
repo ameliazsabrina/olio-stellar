@@ -45,8 +45,32 @@ export const walletOutput = z.object({
 });
 export const optionalWalletOutput = walletOutput.nullable();
 
+const priorEscrow = z
+  .object({
+    generation: z.number().int().min(1).max(1_000),
+    encryptedSecretsHex: exactHexBytes(92, "encrypted secrets"),
+    saltHex: exactHexBytes(16, "secrets salt"),
+    kdfParams,
+    notePubkeyHex: exactHexBytes(32, "note public key"),
+  })
+  .strict();
+
+const priorEscrows = priorEscrow
+  .array()
+  .max(32)
+  .refine(
+    (items) =>
+      new Set(items.map((item) => item.generation)).size === items.length,
+    "prior generations must be unique",
+  );
+
 export const saveEscrowInput = z
-  .object({ encryptedMasterHex, masterSaltHex, kdfParams })
+  .object({
+    encryptedMasterHex,
+    masterSaltHex,
+    kdfParams,
+    priorEscrows: priorEscrows.optional(),
+  })
   .strict();
 
 export const escrowOutput = saveEscrowInput.extend({ revision }).nullable();
@@ -55,6 +79,7 @@ export const rotateEscrowInput = z
   .strict();
 export const rotateEscrowOutput = z.object({ revision }).strict();
 
+export type PriorEscrowInput = z.infer<typeof priorEscrow>;
 export type PrivyWalletInput = z.infer<typeof privyWalletInput>;
 export type SaveEscrowInput = z.infer<typeof saveEscrowInput>;
 export type RotateEscrowInput = z.infer<typeof rotateEscrowInput>;

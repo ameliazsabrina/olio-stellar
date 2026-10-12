@@ -33,7 +33,6 @@ pub const BPS_DENOMINATOR: i128 = 10_000;
 pub const FEE_POLICY_VERSION: u32 = 2;
 pub const FEE_QUOTE_FORMAT_VERSION: u32 = 1;
 pub const DEFAULT_FEE_BPS: u32 = 200;
-pub const SPECIAL_FEE_BPS: u32 = 500;
 pub const DIRECT_MAX_LIFETIME_SECONDS: u64 = 15 * 60;
 pub const ASYNC_MAX_LIFETIME_SECONDS: u64 = 24 * 60 * 60;
 pub const ISSUED_AT_CLOCK_SKEW_SECONDS: u64 = 60;
@@ -500,7 +499,7 @@ impl PoolContract {
 
     pub fn fee_config(env: Env) -> Result<FeeConfig, Error> {
         Ok(FeeConfig {
-            allowed_fee_bps: vec![&env, DEFAULT_FEE_BPS, SPECIAL_FEE_BPS],
+            allowed_fee_bps: vec![&env, DEFAULT_FEE_BPS],
             policy_version: FEE_POLICY_VERSION,
             recipient: load_fee_recipient(&env)?,
             signer: load_fee_quote_signer(&env)?,
@@ -834,7 +833,7 @@ fn calculate_fee(payment_amount: i128, fee_bps: u32) -> Result<(i128, i128), Err
     if payment_amount <= 0 || payment_amount > u64::MAX as i128 {
         return Err(Error::InvalidAmount);
     }
-    if fee_bps != DEFAULT_FEE_BPS && fee_bps != SPECIAL_FEE_BPS {
+    if fee_bps != DEFAULT_FEE_BPS {
         return Err(Error::InvalidQuote);
     }
     let fee_amount = payment_amount

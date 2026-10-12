@@ -33,7 +33,6 @@ const serverConfig = {
 
 const indexNames: Record<string, string[]> = {
   pool_fees: ["fee_quote_id"],
-  client_fee_policies: ["active_effective_policy", "policy_audit_order"],
   cctp_relays: ["relay_state_lease", "relay_quote_id"],
   async_fee_quote_contexts: ["async_quote_expiry"],
 };
@@ -80,7 +79,7 @@ function simulate(contractId: string, method: string): Promise<unknown> {
   }
   if (contractId === pool && method === "fee_config") {
     return Promise.resolve({
-      allowed_fee_bps: [200, 500],
+      allowed_fee_bps: [200],
       policy_version: 2,
       recipient: issuer,
       signer: signer.rawPublicKey(),
