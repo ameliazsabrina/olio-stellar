@@ -56,7 +56,7 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/web/.next/static ./web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/web/public ./web/public
-COPY --from=builder --chown=nextjs:nodejs /app/web/scripts/cron-loop.mjs /app/web/scripts/cctp-worker.mjs /app/web/scripts/pool-indexer.mjs /app/web/scripts/cctp-sessions.mjs /app/web/scripts/verification-worker.mjs /app/web/scripts/verification-cases.mjs ./web/scripts/
+COPY --from=builder --chown=nextjs:nodejs /app/web/scripts/cron-loop.mjs /app/web/scripts/cctp-worker.mjs /app/web/scripts/pool-indexer.mjs /app/web/scripts/cctp-sessions.mjs /app/web/scripts/verification-worker.mjs /app/web/scripts/verification-cases.mjs /app/web/scripts/settlements-worker.mjs /app/web/scripts/settlements-cases.mjs /app/web/scripts/evidence-worker.mjs ./web/scripts/
 COPY --from=migrate --chown=nextjs:nodejs /migrate /migrate
 
 USER nextjs
