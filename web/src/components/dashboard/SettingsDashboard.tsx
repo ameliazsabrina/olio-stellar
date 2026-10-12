@@ -15,7 +15,10 @@ import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { useChangeRecoveryPin } from "../../features/recovery/hooks/useChangeRecoveryPin";
 import { useVerification } from "../../features/verification/useVerification";
-import { PASSPORT_PATH, VERIFICATION_PATH } from "../../lib/auth-routes";
+import {
+  PASSPORT_SETTINGS_PATH,
+  VERIFICATION_PATH,
+} from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
 import { trpc } from "../../trpc/react";
 import { Badge } from "../ui/badge";
@@ -33,6 +36,7 @@ import { useWallet } from "../WalletProvider";
 import { ChangeRecoveryPinDialog } from "./ChangeRecoveryPinDialog";
 import { DashboardPageHeader } from "./DashboardPageHeader";
 import { DashboardTile } from "./DashboardTile";
+import { PassportTiles } from "./PassportTiles";
 import { EligibilityBadge } from "./VerificationDashboard";
 import { ELIGIBILITY_HEADLINES } from "./verificationCopy";
 
@@ -59,6 +63,7 @@ export function SettingsDashboard() {
         />
         <IdentityVerificationTile />
         <SessionTile onSignOut={disconnect} />
+        <PassportTiles />
       </div>
 
       <ChangeRecoveryPinDialog
@@ -238,7 +243,7 @@ function IdentityVerificationTile() {
             </Link>
             {credential?.status === "active" ? (
               <Link
-                href={PASSPORT_PATH}
+                href={PASSPORT_SETTINGS_PATH}
                 className="inline-flex h-10 items-center rounded-lg border border-border px-3 text-sm font-semibold hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 Manage badge

@@ -54,7 +54,7 @@ test.describe("bento layout", () => {
     await stubProviderSdk(page);
     await page.goto("/e2e-harness?screen=passport");
     await expect(
-      page.getByRole("heading", { name: "Passport", exact: true }),
+      page.getByRole("heading", { name: "Business Passport", exact: true }),
     ).toBeVisible();
     expect(await noHorizontalOverflow(page)).toBe(true);
     await testInfo.attach(`passport-${testInfo.project.name}.png`, {
@@ -129,7 +129,7 @@ test.describe("keyboard and assistive technology", () => {
     }
     await page.goto("/e2e-harness?screen=passport");
     for (const name of [
-      "Identity claim",
+      "Business Passport",
       "Who can see it",
       "What this badge means",
     ]) {

@@ -62,6 +62,5 @@ export const config = {
     "/history/:path*",
     "/settings/:path*",
     "/verification/:path*",
-    "/passport/:path*",
   ],
 };

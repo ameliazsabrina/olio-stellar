@@ -4,7 +4,6 @@ import { openVerification } from "../../features/verification/openVerification";
 import {
   ArrowDownToLine,
   AtSign,
-  BadgeCheck,
   ChevronDown,
   FileText,
   History,
@@ -23,7 +22,6 @@ import {
   HISTORY_PATH,
   INVOICES_PATH,
   LINKS_PATH,
-  PASSPORT_PATH,
   SETTINGS_PATH,
   VERIFICATION_PATH,
   WITHDRAW_PATH,
@@ -60,7 +58,6 @@ const NAV_ITEMS = [
   },
   { label: "History", href: HISTORY_PATH, icon: History },
   { label: "Verification", href: VERIFICATION_PATH, icon: ShieldCheck },
-  { label: "Passport", href: PASSPORT_PATH, icon: BadgeCheck },
   { label: "Settings", href: SETTINGS_PATH, icon: Settings },
 ] as const;
 
@@ -167,9 +164,7 @@ export function DashboardSidebar() {
                       (href === SETTINGS_PATH &&
                         activeHref.startsWith(SETTINGS_PATH)) ||
                       (href === VERIFICATION_PATH &&
-                        activeHref.startsWith(VERIFICATION_PATH)) ||
-                      (href === PASSPORT_PATH &&
-                        activeHref.startsWith(PASSPORT_PATH))
+                        activeHref.startsWith(VERIFICATION_PATH))
                     }
                     className="data-[active=true]:bg-brand-obsidian-secondary data-[active=true]:text-brand-linen data-[active=true]:hover:bg-brand-obsidian-secondary data-[active=true]:hover:text-brand-linen group-data-[collapsible=icon]:hover:bg-transparent group-data-[collapsible=icon]:data-[active=true]:hover:bg-brand-obsidian-secondary"
                   >

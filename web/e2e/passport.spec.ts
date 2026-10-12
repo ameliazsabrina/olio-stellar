@@ -88,9 +88,6 @@ test.describe("private passport", () => {
     await expect(
       page.getByText(/Publishing unlocks once verification is approved/),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Go to verification" }),
-    ).toBeVisible();
   });
 
   test("shows a suspended badge as suspended and blocks publishing", async ({
@@ -247,7 +244,7 @@ test.describe("authenticated route protection", () => {
   }) => {
     for (const [path, label] of [
       ["/verification", "Loading verification"],
-      ["/passport", "Loading passport"],
+      ["/settings", "Loading settings"],
     ]) {
       await page.goto(path);
       await expect(page.getByRole("status", { name: label })).toBeVisible();

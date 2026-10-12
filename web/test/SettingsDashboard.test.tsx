@@ -31,6 +31,13 @@ vi.mock("../src/components/WalletProvider", () => ({
 }));
 vi.mock("../src/trpc/react", () => ({
   trpc: {
+    useUtils: () => ({ passport: { identity: { setData: vi.fn() } } }),
+    passport: {
+      identity: { useQuery: () => ({ data: null, isLoading: false }) },
+      setVisibility: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
+    },
     wallets: {
       getEscrow: {
         useQuery: () => ({
@@ -60,7 +67,9 @@ vi.mock("../src/features/recovery/hooks/useChangeRecoveryPin", () => ({
   RecoveryRevisionConflictError: class extends Error {},
   RecoveryPinChangeError: class extends Error {},
 }));
-vi.mock("sonner", () => ({ toast: { success: mocks.toastSuccess } }));
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toastSuccess, error: vi.fn() },
+}));
 
 import { SettingsDashboard } from "../src/components/dashboard/SettingsDashboard";
 
@@ -131,7 +140,7 @@ describe("SettingsDashboard identity verification", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the eligibility badge and passport link once verified", () => {
+  it("shows the eligibility badge and passport anchor once verified", () => {
     mocks.business = { businessId: "biz_1", type: "individual" };
     mocks.verificationStatus = {
       eligibility: "approved",
@@ -141,10 +150,26 @@ describe("SettingsDashboard identity verification", () => {
     expect(screen.getByText("Verified")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage badge" })).toHaveAttribute(
       "href",
-      "/passport",
+      "/settings#passport",
     );
     expect(
       screen.getByText(/stays private until you publish it/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("SettingsDashboard passport", () => {
+  it("hosts the Business Passport controls", () => {
+    render(<SettingsDashboard />);
+    for (const name of [
+      "Business Passport",
+      "Who can see it",
+      "What this badge means",
+    ]) {
+      expect(screen.getByRole("region", { name })).toBeInTheDocument();
+    }
+    expect(
+      screen.getByRole("button", { name: /Publish badge/ }),
+    ).toBeDisabled();
   });
 });

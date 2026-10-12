@@ -224,16 +224,16 @@ describe("state rendering", () => {
     );
   });
 
-  it("shows the passport link once approved and offers no restart", () => {
+  it("links to the passport in settings once approved and offers no restart", () => {
     mocks.status = status({
       eligibility: "approved",
       nextAction: "done",
       canStart: false,
     });
     render(<VerificationDashboard />);
-    expect(screen.getByRole("link", { name: "Open passport" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Manage badge" })).toHaveAttribute(
       "href",
-      "/passport",
+      "/settings#passport",
     );
     expect(
       screen.queryByRole("button", { name: "Start verification" }),

@@ -11,7 +11,7 @@ import {
   useVerification,
   type VerificationStatus,
 } from "../../features/verification/useVerification";
-import { PASSPORT_PATH } from "../../lib/auth-routes";
+import { PASSPORT_SETTINGS_PATH } from "../../lib/auth-routes";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -538,7 +538,7 @@ function StatusTile({
           ) : null}
           {business && status && nextAction === "done" ? (
             <Link
-              href={PASSPORT_PATH}
+              href={PASSPORT_SETTINGS_PATH}
               className="inline-flex h-10 items-center rounded-full bg-brand-linen px-4 text-sm font-semibold text-brand-obsidian focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen focus-visible:ring-offset-2 focus-visible:ring-offset-brand-obsidian"
             >
               {ACTION_LABELS.done}
@@ -593,7 +593,7 @@ function PrivacyTile() {
           </li>
           <li>Your balance, notes and payment history are never shared.</li>
           <li>
-            Nothing is published until you turn on your badge in Passport.
+            Nothing is published until you turn on your badge in Settings.
           </li>
         </ul>
       }

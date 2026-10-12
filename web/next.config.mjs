@@ -50,6 +50,11 @@ const nextConfig = {
         destination: "/history",
         permanent: true,
       },
+      {
+        source: "/passport",
+        destination: "/settings#passport",
+        permanent: true,
+      },
     ];
   },
   // Emit a self-contained server bundle for the Docker runtime image. Combined

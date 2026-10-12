@@ -39,7 +39,7 @@ export const ACTION_LABELS: Record<VerificationStatus["nextAction"], string> = {
   wait: "Check status",
   resubmit: "Resubmit details",
   contact_support: "Contact support",
-  done: "Open passport",
+  done: "Manage badge",
 };
 
 export function formatDateTime(value: string | null): string {

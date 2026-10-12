@@ -194,7 +194,7 @@ test.describe("status states", () => {
     });
   }
 
-  test("offers the passport once approved", async ({ page }) => {
+  test("links to the passport in settings once approved", async ({ page }) => {
     await open(
       page,
       scenario({
@@ -207,9 +207,9 @@ test.describe("status states", () => {
         identity: identity({ credential: credential(), publishable: true }),
       }),
     );
-    const link = page.getByRole("link", { name: "Open passport" });
+    const link = page.getByRole("link", { name: "Manage badge" });
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute("href", "/passport");
+    await expect(link).toHaveAttribute("href", "/settings#passport");
   });
 });
 

@@ -48,8 +48,8 @@ vi.mock("sonner", () => ({
 
 import {
   badgeStateFor,
-  PassportDashboard,
-} from "../src/components/dashboard/PassportDashboard";
+  PassportTiles,
+} from "../src/components/dashboard/PassportTiles";
 
 function credential(overrides: Record<string, unknown> = {}) {
   return {
@@ -98,7 +98,7 @@ describe("badge state mapping", () => {
 
 describe("private preview", () => {
   it("shows the verified badge with issuer, scope and dates", () => {
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     const badge = screen.getByTestId("identity-badge");
     expect(badge).toHaveAttribute("data-state", "verified");
     expect(badge).toHaveTextContent("Identity Verified");
@@ -107,7 +107,7 @@ describe("private preview", () => {
   });
 
   it("states the badge is private until published", () => {
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(screen.getByText(/Your badge is private/)).toBeInTheDocument();
     expect(screen.queryByTestId("public-identity-url")).not.toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ describe("private preview", () => {
       credential: credential({ status: "suspended" }),
       publishable: false,
     });
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(screen.getByTestId("identity-badge")).toHaveAttribute(
       "data-state",
       "suspended",
@@ -132,7 +132,7 @@ describe("private preview", () => {
       credential: credential({ status: "expired" }),
       publishable: false,
     });
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(screen.getByTestId("identity-badge")).toHaveAttribute(
       "data-state",
       "expired",
@@ -142,22 +142,29 @@ describe("private preview", () => {
     ).toBeInTheDocument();
   });
 
-  it("points an unverified user back to verification", () => {
+  it("explains when an unverified user's passport will appear", () => {
     mocks.preview = preview({ credential: null, publishable: false });
     mocks.status = { eligibility: "pending" };
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(screen.getByTestId("identity-badge")).toHaveAttribute(
       "data-state",
       "none",
     );
     expect(
-      screen.getByRole("link", { name: "Go to verification" }),
-    ).toHaveAttribute("href", "/verification");
+      screen.getByText(/appears here once identity verification is approved/),
+    ).toBeInTheDocument();
+  });
+
+  it("anchors the passport so other screens can deep-link to it", () => {
+    render(<PassportTiles />);
+    expect(
+      screen.getByRole("region", { name: "Business Passport" }),
+    ).toHaveAttribute("id", "passport");
   });
 
   it("announces the loading state", () => {
     mocks.identityLoading = true;
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(
       screen.getByRole("status", { name: "Loading passport" }),
     ).toBeInTheDocument();
@@ -166,7 +173,7 @@ describe("private preview", () => {
 
 describe("publication consent", () => {
   it("publishes only on an explicit action", async () => {
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(mocks.setVisibility).not.toHaveBeenCalled();
     await userEvent.click(
       screen.getByRole("button", { name: /Publish badge/ }),
@@ -185,7 +192,7 @@ describe("publication consent", () => {
       credential: credential({ published: true }),
       publicPath: "/business/pub_abcdef",
     });
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(screen.getByTestId("public-identity-url")).toHaveTextContent(
       "/business/pub_abcdef",
     );
@@ -202,7 +209,7 @@ describe("publication consent", () => {
 
   it("refuses to publish an unpublishable credential from the client", () => {
     mocks.preview = preview({ publishable: false });
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(
       screen.getByRole("button", { name: /Publish badge/ }),
     ).toBeDisabled();
@@ -214,7 +221,7 @@ describe("publication consent", () => {
         "Your identity badge can be published once verification is approved.",
       ),
     );
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     await userEvent.click(
       screen.getByRole("button", { name: /Publish badge/ }),
     );
@@ -230,7 +237,7 @@ describe("publication consent", () => {
       credential: credential({ published: true }),
       publicPath: "/business/pub_abcdef",
     });
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     expect(
       screen.getByRole("button", { name: "Copy public link" }),
     ).toBeInTheDocument();
@@ -239,7 +246,7 @@ describe("publication consent", () => {
 
 describe("scope disclosure", () => {
   it("states what the badge does and does not cover", () => {
-    render(<PassportDashboard />);
+    render(<PassportTiles />);
     const scope = screen.getByRole("region", { name: "What this badge means" });
     expect(scope).toHaveTextContent(/identity documents and checks passed/i);
     expect(scope).toHaveTextContent(/revenue/i);

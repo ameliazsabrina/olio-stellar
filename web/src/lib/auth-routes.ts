@@ -6,8 +6,9 @@ export const INVOICES_PATH = "/invoices";
 export const WITHDRAW_PATH = "/withdraw";
 export const HISTORY_PATH = "/history";
 export const SETTINGS_PATH = "/settings";
+export const PASSPORT_ANCHOR = "passport";
+export const PASSPORT_SETTINGS_PATH = `${SETTINGS_PATH}#${PASSPORT_ANCHOR}`;
 export const VERIFICATION_PATH = "/verification";
-export const PASSPORT_PATH = "/passport";
 export const PUBLIC_BUSINESS_PATH = "/business";
 export const SIGN_IN_PATH = "/";
 export const REFRESH_PATH = "/refresh";
@@ -20,7 +21,6 @@ export const DASHBOARD_PATHS = [
   HISTORY_PATH,
   SETTINGS_PATH,
   VERIFICATION_PATH,
-  PASSPORT_PATH,
 ] as const;
 const authOnlyPublicRoutes = [SIGN_IN_PATH] as const;
 
