@@ -1,46 +1,58 @@
 # Why Privacy Matters
 
-Here's something most people don't realize about regular crypto payments:
-**everything is public.**
+Most businesses don't realise this about ordinary crypto payments: **everything
+is public.**
 
-## The public spreadsheet problem
+## Your books, on a public website
 
-A blockchain is like a giant spreadsheet that anyone in the world can read. Every
-payment you receive is a row in that spreadsheet — the amount, the time, and the
-wallet it came from.
+A blockchain is a ledger that anyone in the world can read. Every payment your
+business receives is a row in it: the amount, the time, and the wallet it came
+from.
 
-So if you use one wallet to get paid, anyone who knows your wallet address can
+If your business gets paid to one wallet, anyone who learns that address can
 see:
 
-* **How much you earn.** Every invoice, every month.
-* **Who your clients are.** Their wallets are right there next to yours.
-* **When money moves.** Your entire cash-flow rhythm, on display.
+* **Your revenue.** Every payment, every month, as a running total.
+* **Your customers.** Their wallets sit right next to yours, and so does how
+  much each one pays.
+* **Your pricing.** What you charge one customer can be compared with what you
+  charge the rest.
+* **Your cash flow.** When money comes in, when it goes out, and where it goes.
 
-Imagine if your bank statement was posted on a public website, forever, and your
-name was on it. That's the default in crypto. Most people just don't look —
-until someone does.
+Picture your bank statement posted online permanently, with your company name
+on it. That's the default for crypto payments. Most people never look, until a
+competitor or a customer does.
 
-## Who this actually hurts
+## Who it hurts
 
-* **Freelancers** — a client can see exactly what your *other* clients pay you.
-  Awkward negotiations, right there in the open.
-* **Small businesses** — competitors can watch your revenue in real time.
-* **Anyone getting paid publicly** — a stranger who learns your address can
-  follow your money around forever.
+* **Your pricing power.** A customer who finds your address can see what
+  everyone else pays you, and negotiate accordingly.
+* **Your competitive position.** Competitors can watch your revenue and your
+  customer base change in real time.
+* **Your customers.** Paying you exposes their wallet, and so their own
+  finances, to anyone looking at yours.
+* **Your security.** A visible balance tells everyone where the money is.
 
 ## What Olio changes
 
-Olio breaks the link between the payment coming *in* and the money you take
-*out*. Someone watching the blockchain sees that payments happened — but they
-**can't tell which payment was yours, who sent it, or that it's connected to you
-at all.**
+Olio breaks the link between a payment coming *in* and the money you take
+*out*. Someone watching the blockchain sees that payments happened, but **can't
+tell who paid you, how much, or that a payment belongs to your business at
+all.**
 
-Your income stops being a public feed. You still get every dollar; the world just
-doesn't get a front-row seat.
+## Private doesn't mean unaccountable
+
+A business still has to answer to its accountant, its bank and the tax office.
+Olio is built for that too:
+
+* Each payment is matched to the invoice it paid, so your records reconcile.
+* You can create a receipt that proves one payment to a third party, without
+  revealing any other.
+* You can publish a badge showing that Olio verified your business.
 
 {% hint style="success" %}
-**Privacy isn't about hiding shady stuff.** It's the same reason you use an
-envelope instead of a postcard. Next up:
-[Olio's Practical Privacy](practical-privacy.md) — exactly what we protect, and
-what we don't.
+**Confidential business payments aren't about hiding wrongdoing.** Banks don't
+publish your statements either. Next:
+[Olio's Practical Privacy](practical-privacy.md), exactly what Olio protects and
+what it doesn't.
 {% endhint %}

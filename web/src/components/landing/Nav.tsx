@@ -52,10 +52,10 @@ export function EditionsTopNav() {
             type="button"
             className="inline-flex text-xs font-medium text-ed-gold transition-colors hover:text-ed-cream sm:text-sm"
             onClick={openUsernameModal}
-            aria-label="Claim username"
+            aria-label="Set up your business"
           >
-            <span className="sm:hidden">Claim</span>
-            <span className="hidden sm:inline">Claim username</span>
+            <span className="sm:hidden">Set up</span>
+            <span className="hidden sm:inline">Set up your business</span>
           </button>
         )}
         {address ? (

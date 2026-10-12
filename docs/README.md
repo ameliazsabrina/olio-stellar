@@ -1,42 +1,57 @@
 # Welcome to Olio
 
-**Get paid in USDC. Keep your business your business.**
+**Private by default. Provable when needed.**
 
-Olio is a private payment rail on Stellar. You share a simple link, your client
-pays it, and the money lands in your private balance — without broadcasting your
-whole payment history to the entire internet.
+Olio is a private payment rail for businesses, built on Stellar. Your customers
+pay your invoices in USDC. The payments stay confidential on chain, so
+competitors, other customers and strangers can't read your revenue. When a bank,
+accountant or tax office asks, you can still prove any single payment.
 
-No wallet doxxing. No one scrolling through your income. Just clean, private
-payments that still let you cash out to your bank whenever you want.
+## How it works, in one minute
 
-## The one-minute version
+* **Verify** your business, or yourself if you work as a sole proprietor.
+* **Issue an invoice**, or share a payment link or QR code.
+* **Your customer pays** in USDC, from Stellar or from another chain such as
+  Ethereum, Base or Solana. They don't need an Olio account.
+* **The payment settles privately.** It becomes a private note that only you can
+  read and spend, and it is matched to the invoice it paid.
+* **Prove it when asked.** Export a disclosure for any single payment without
+  revealing the others. Publish your verified badge so customers can check that
+  Olio verified your business.
+* **Cash out** to a Stellar wallet.
 
-* You claim a username, like `@dinar`.
-* You share `olio/pay/dinar` (or a QR code) with clients.
-* They pay in USDC — from Stellar or another chain.
-* The payment becomes a **private note** only you can see and spend.
-* You cash out to a Stellar wallet or straight to your bank.
+The privacy happens in the background. Neither you nor your customers need to
+understand the cryptography.
 
-That's it. The privacy happens automatically in the background.
+## What stays private, and what doesn't
 
-## Pick your path
+Observers on chain can't see who paid you, how much, or connect a payment to
+the money you later withdraw. Olio sees invoice amounts and due dates so it can
+match payments to invoices, but invoice content such as customer names and line
+items is encrypted in your browser. When you withdraw, the amount and
+destination are public. [Olio's Practical Privacy](practical-privacy.md) covers
+the details.
+
+## Where to start
 
 {% hint style="info" %}
-**New to crypto?** No stress. Head to
-[The Basics, No Jargon](new-to-crypto.md) and we'll walk you through it.
+**New to crypto?** Start with [The Basics, No Jargon](new-to-crypto.md).
 {% endhint %}
 
-* 🤔 **Wondering if this is for you?** →
-  [Why Privacy Matters](why-privacy-matters.md)
-* ⚡ **Ready to go?** → [Quickstart](quickstart.md)
-* 🔍 **Want to know how the magic works?** → [How Olio Works](how-it-works.md)
-* 🛟 **Got a question?** → [FAQs](faqs.md)
+* **Deciding whether Olio fits your business** → [Who Olio Is For](who-its-for.md)
+  and [Why Privacy Matters](why-privacy-matters.md)
+* **Ready to set up** → [Quickstart](quickstart.md)
+* **Proving payments to a bank or auditor** →
+  [Traceability, on your terms](practical-privacy.md#traceability-on-your-terms)
+* **How the privacy works** → [How Olio Works](how-it-works.md)
+* **Questions** → [FAQs](faqs.md)
 
-## A quick, honest note
+## Current status
 
-Olio is currently running on **testnet** — a practice version of the network with
-play money, so we can test everything before real funds are involved. Some things
-will change before launch, and we'll always tell you what's real and what isn't.
+Olio runs on **testnet**, a practice network that uses test money. It has not
+been independently audited yet. Don't use it for real funds until launch. Some
+features will change before then, and these docs say clearly what is live and
+what isn't.
 
-We'll also never ask for your PIN, seed phrase, or passwords. Anyone who does is
-not us. Pinky promise.
+Olio will never ask for your PIN, passkey or recovery details. Anyone who does
+is not Olio.

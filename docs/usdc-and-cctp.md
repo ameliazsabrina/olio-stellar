@@ -12,7 +12,7 @@ The simplest path: your client pays USDC on Stellar directly into Olio. It's
 fast, costs a fraction of a cent in network fees (which Olio covers), and settles
 in seconds.
 
-Checkout shows the requested payment, the receiving client's 2% or 5% Olio
+Checkout shows the requested payment, the 2% Olio
 service fee, the payer's total,
 and the unchanged recipient amount before authorization. The service fee is
 added on top, never deducted from the private payment.
@@ -25,7 +25,7 @@ it over.
 
 Here's the idea without the plumbing:
 
-1. Your client burns the requested USDC plus the signed 2% or 5% Olio service fee on their own chain.
+1. Your client burns the requested USDC plus the signed 2% Olio service fee on their own chain.
 2. Circle officially confirms the burn happened.
 3. The gross amount is created on Stellar. Olio sends the service fee to its
    treasury and places the full requested amount into a private note for you.

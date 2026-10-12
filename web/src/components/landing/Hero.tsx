@@ -10,10 +10,11 @@ import { useWallet } from "../WalletProvider";
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 const MENU = [
-  { id: "problem", numeral: "I", label: "Why privacy matters?" },
-  { id: "solution", numeral: "II", label: "How Olio protects you?" },
-  { id: "users", numeral: "III", label: "Who it's for?" },
-  { id: "faq", numeral: "IV", label: "Frequently Asked Questions" },
+  { id: "problem", numeral: "I", label: "Why privacy matters" },
+  { id: "steps", numeral: "II", label: "How it works" },
+  { id: "passport", numeral: "III", label: "Business Passport" },
+  { id: "users", numeral: "IV", label: "Who it's for" },
+  { id: "faq", numeral: "V", label: "FAQ" },
 ];
 
 export function Hero() {
@@ -193,15 +194,16 @@ export function Hero() {
         </svg>
         <div data-ed-hero-inner className="relative flex w-full flex-col">
           <h1
-            className="type-landing-display m-0 mt-2 flex flex-col text-[clamp(2.1rem,8vw,4.8rem)] text-ed-cream sm:mt-4 sm:text-[clamp(2.1rem,4.4vw,4.8rem)]"
+            className="type-landing-display m-0 mt-2 flex flex-col text-[clamp(2.75rem,14vw,3.5rem)] text-ed-cream sm:mt-4 sm:text-[clamp(3.5rem,4.4vw,4.8rem)]"
             id="ed-hero-title"
           >
             <span>Private</span>
-            <span>USDC</span>
+            <span>Business</span>
             <span>Payments</span>
           </h1>
-          <p className="mt-6 max-w-[29ch] text-sm uppercase leading-[1.55] tracking-[0.08em] text-ed-cream/70">
-            Get paid in USDC without publishing your income.
+          <p className="mt-4 max-w-[36ch] text-[0.96rem] font-medium leading-[1.55] text-ed-cream/75">
+            Invoice customers in USDC. Keep your revenue off the public ledger,
+            and prove any payment when your bank asks.
           </p>
           <div className="mt-6 grid grid-cols-2 gap-2.5 sm:mt-7">
             <button
@@ -211,13 +213,13 @@ export function Hero() {
                 signIn();
               }}
             >
-              Try Now
+              Get started
             </button>
             <a
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ed-cream/50 bg-transparent px-3 text-center text-sm font-semibold leading-tight tracking-[0.02em] text-ed-cream transition-opacity hover:opacity-85 sm:px-5"
               href="#steps"
             >
-              How It Works
+              How it works
             </a>
           </div>
           <ul className="mt-auto grid list-none gap-0.5 pt-5 sm:pt-6">

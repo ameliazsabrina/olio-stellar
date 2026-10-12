@@ -8,43 +8,36 @@ import { useRef } from "react";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const SOLUTION_BOXES = [
+const PILLARS = [
   {
-    label: "I",
-    text: "Private by default. Provable when needed.",
-    className: "lg:left-[6vw] lg:top-[8%] lg:w-[360px]",
-    textClassName: "text-[clamp(1.55rem,2.35vw,2.7rem)] leading-[1.03]",
-    widthClassName: "max-w-[13ch]",
+    numeral: "I",
+    title: "Private",
+    line: "Competitors, customers and strangers can't read your revenue.",
+    proof:
+      "Payments settle confidentially, and invoice contents are encrypted in your browser.",
+    className: "lg:col-span-4 lg:col-start-8 lg:row-start-1 lg:mt-20",
   },
   {
-    label: "II",
-    text: "Olio creates a private payment receipt every time you get paid.",
-    className: "lg:left-[43vw] lg:top-[22%] lg:w-[300px]",
-    textClassName: "text-[clamp(1.1rem,1.45vw,1.45rem)] leading-[1.08]",
-    widthClassName: "max-w-[14ch]",
+    numeral: "II",
+    title: "Provable",
+    line: "Answer your bank, accountant or tax office.",
+    proof:
+      "Each payment is matched to its invoice on chain, so nobody can mark it paid by hand. Disclose a single payment as a PDF receipt when you need to.",
+    className: "lg:col-span-4 lg:col-start-2 lg:row-start-2 lg:-mt-6",
   },
   {
-    label: "III",
-    text: "Clients simply pay your payment link.",
-    className: "lg:right-[7vw] lg:top-[38%] lg:w-[300px]",
-    textClassName: "text-[clamp(1.15rem,1.75vw,1.75rem)] leading-[1.05]",
-    widthClassName: "max-w-[12ch]",
-  },
-  {
-    label: "IV",
-    text: "Behind the scenes, your payment becomes confidential while remaining verifiable if you ever need to show proof to banks, accountants, and tax authorities.",
-    className: "lg:left-[24vw] lg:bottom-[14%] lg:w-[500px]",
-    textClassName: "text-[clamp(0.95rem,1.18vw,1.15rem)] leading-[1.16]",
-    widthClassName: "max-w-[31ch]",
-  },
-  {
-    label: "V",
-    text: "No complicated crypto knowledge required.",
-    className: "lg:left-[63vw] lg:bottom-[7%] lg:w-[300px]",
-    textClassName: "text-[clamp(1.15rem,1.75vw,1.75rem)] leading-[1.05]",
-    widthClassName: "max-w-[13ch]",
+    numeral: "III",
+    title: "Verified",
+    line: "Customers know they're paying a real business.",
+    proof:
+      "Every business is verified, with an Identity Verified badge you choose when to publish.",
+    className:
+      "md:col-span-2 lg:col-span-4 lg:col-start-7 lg:row-start-2 lg:mt-24",
   },
 ] as const;
+
+const SLIP_CLASS =
+  "bg-paper px-5 py-5 text-ink shadow-[0_18px_60px_rgba(32,38,26,0.08)] md:px-6 md:py-6 lg:px-7 lg:py-7";
 
 export function Solution() {
   const rootRef = useRef<HTMLElement | null>(null);
@@ -106,7 +99,7 @@ export function Solution() {
   return (
     <section
       ref={rootRef}
-      className="relative z-20 min-h-[80vh] overflow-hidden bg-ed-dark text-ink lg:h-[80vh]"
+      className="relative z-20 min-h-[80vh] overflow-hidden bg-ed-dark text-ink"
       id="solution"
       data-ed-section
       aria-labelledby="solution-title"
@@ -133,20 +126,33 @@ export function Solution() {
         aria-hidden="true"
       />
 
-      <div className="relative grid min-h-[80vh] grid-cols-1 gap-4 p-5 sm:p-6 md:grid-cols-2 md:gap-4 md:p-8 lg:block lg:h-[80vh] lg:p-0">
-        <h2 className="sr-only" id="solution-title">
-          Private by default. Provable when needed.
-        </h2>
-
-        {SOLUTION_BOXES.map((box) => (
-          <article
-            className={`flex min-h-[136px] items-start bg-paper px-5 py-5 text-ink shadow-[0_18px_60px_rgba(32,38,26,0.08)] md:last:col-span-2 md:min-h-[160px] md:px-6 md:py-6 lg:absolute lg:min-h-0 lg:px-7 lg:py-7 ${box.className}`}
-            key={box.label}
+      <div className="relative mx-auto grid min-h-[80vh] max-w-7xl grid-cols-1 content-center gap-4 px-5 py-6 sm:px-6 md:grid-cols-2 md:p-8 lg:grid-cols-12 lg:gap-x-6 lg:gap-y-0 lg:px-(--page-gutter) lg:py-(--section-space-compact)">
+        <div
+          className={`md:col-span-2 lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:self-start ${SLIP_CLASS}`}
+        >
+          <h2
+            className="max-w-[13ch] text-balance font-heading text-[clamp(1.55rem,2.35vw,2.7rem)] font-semibold leading-[1.03] tracking-[-0.025em]"
+            id="solution-title"
           >
-            <p
-              className={`${box.widthClassName} text-balance font-heading font-semibold tracking-[-0.025em] ${box.textClassName}`}
-            >
-              {box.text}
+            Private by default. Provable when needed.
+          </h2>
+        </div>
+
+        {PILLARS.map((pillar) => (
+          <article
+            className={`lg:self-start ${SLIP_CLASS} ${pillar.className}`}
+            key={pillar.numeral}
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="font-heading text-[clamp(1.4rem,1.9vw,1.9rem)] font-semibold leading-[1.05] tracking-[-0.025em]">
+                {pillar.title}
+              </h3>
+            </div>
+            <p className="mt-3 max-w-[30ch] text-[1.05rem] font-semibold leading-[1.3] tracking-[-0.01em]">
+              {pillar.line}
+            </p>
+            <p className="mt-4 border-t border-line-soft pt-4 text-[0.92rem] font-medium leading-[1.5] text-muted-text">
+              {pillar.proof}
             </p>
           </article>
         ))}

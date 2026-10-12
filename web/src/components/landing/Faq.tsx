@@ -3,36 +3,58 @@
 import { useState } from "react";
 import { LandingSection } from "./LandingSection";
 
+const DISCORD_URL = "https://discord.gg/pyVMUFWRhB";
+
 const FAQ_ITEMS = [
   {
-    question: "Do my clients need to use Olio?",
+    question: "Who is Olio built for?",
     answer:
-      "No. Just share your payment link or QR code. Your client pays using a supported wallet, while Olio handles the privacy layer behind the scenes.",
+      "Businesses that bill in USDC: service businesses with customers abroad, sole proprietors and independent professionals, and small businesses that need records, not just payments. Olio isn't built for consumer checkout.",
+  },
+  {
+    question: "Do my customers need to use Olio?",
+    answer:
+      "No. Send an invoice, or share a payment link or QR code. Your customer pays in USDC from Stellar, Ethereum, Base, Arbitrum, Avalanche or Solana, without an Olio account.",
+  },
+  {
+    question: "Do I need to verify?",
+    answer:
+      "Yes, before you receive payments. Verify as a company, or as an individual if you work as a sole proprietor. Olio uses Sumsub for the identity checks.",
+  },
+  {
+    question: "How much does Olio cost?",
+    answer:
+      "A flat 2% service fee, added on top and paid by your customer. On a 100 USDC invoice your customer pays 102 USDC and you receive the full 100. Checkout shows the fee before they pay, and Olio covers your network fees.",
   },
   {
     question: "What stays private?",
     answer:
-      "Olio prevents your payment history from becoming public business intelligence. By default, customers, payment relationships, and incoming transactions are not easily linked on-chain.",
+      "Your revenue, your customers and what each of them pays you. Payments settle into a private balance only you can read, and invoice contents are encrypted in your browser. When you cash out, the amount and destination are visible on chain.",
   },
   {
     question: "Can I still prove I received a payment?",
     answer:
-      "Yes. Olio is built for selective disclosure. Your payments stay private by default, but you can generate proof for a specific payment whenever a bank, accountant, auditor, or tax authority requires it.",
+      "Yes. Each payment is matched to the invoice it paid, so nobody can mark an invoice paid by hand. When a bank, accountant or tax office asks, disclose that single payment as a PDF receipt. The rest stays private.",
+  },
+  {
+    question: "What is the Business Passport?",
+    answer:
+      "Once your verification is approved, Olio issues an Identity Verified badge with a public link. Customers can confirm Olio verified your business without seeing your revenue, customers or balance. The badge stays private until you choose to publish it.",
   },
   {
     question: "How is Olio different from a crypto mixer?",
     answer:
-      "Mixers are designed to make the source and destination of funds difficult to trace without giving users a practical way to prove individual transactions. Olio is designed for private business payments with selective disclosure, so you can keep routine transactions private while still proving specific payments when needed.",
+      "A mixer hides where money came from and gives you no practical way to prove a single transaction. On Olio, every business goes through identity verification before it can receive payments, and each settlement is matched to the invoice it paid. Payments stay private from the public, and you can still prove any one of them.",
   },
   {
     question: "Why not just create a new wallet for every payment?",
     answer:
-      "Managing dozens or hundreds of wallets quickly becomes impractical. Even then, moving funds between wallets can still reveal payment patterns on a public blockchain. Olio is designed to preserve privacy without requiring businesses to manage a new wallet for every invoice.",
+      "Managing dozens or hundreds of wallets quickly becomes impractical, and moving funds between them can still reveal payment patterns on a public ledger. Olio keeps your revenue private without asking you to manage a new wallet for every invoice.",
   },
   {
-    question: "Who is Olio built for?",
+    question: "Will Olio ever ask for my PIN?",
     answer:
-      "Freelancers, creators, agencies, exporters, and online businesses that accept stablecoin payments but don't want their revenue, customers, or payment history exposed on a public blockchain.",
+      "Never. Not by email, chat, phone or anyone claiming to be support. Only enter your PIN in the Olio app itself. Anyone asking for it is trying to take your account.",
   },
   {
     question: "Why build on Stellar?",
@@ -75,7 +97,9 @@ export function Faq() {
             </p>
             <a
               className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2.5 rounded-lg bg-ink px-6 text-center text-base font-semibold text-paper transition-[background,transform] duration-150 ease-out hover:bg-olive-deep motion-safe:hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sage sm:mt-8 sm:w-auto sm:px-8"
-              href="#top"
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
             >
               <DiscordLogo />
               Join Discord server

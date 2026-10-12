@@ -7,7 +7,7 @@ const STELLAR_FEATURES = [
   "Low transaction costs",
   "Native USDC support",
   "Cross-border payments",
-  "Cash-out to local currency",
+  "Pay in from different chains via CCTP",
 ] as const;
 
 const SWAY = ["-10px", "8px", "-12px", "9px", "-8px"] as const;

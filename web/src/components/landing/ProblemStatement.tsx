@@ -11,7 +11,7 @@ export function ProblemStatement() {
       aria-labelledby="problem-title"
     >
       <h2 className="sr-only" id="problem-title">
-        Public wallets were never designed for your business.
+        A customer who finds your address can see what everyone else pays you.
       </h2>
       <div className="grid w-full items-center gap-14 lg:grid-cols-[0.88fr_1fr] lg:gap-20">
         <div
@@ -23,34 +23,35 @@ export function ProblemStatement() {
 
         <div className="max-w-[620px] lg:justify-self-end">
           <ScrollReveal
-            containerClassName="max-w-lg"
-            textClassName="text-[clamp(1.8rem,4vw,4.4rem)] font-semibold leading-[0.98] tracking-[-0.03em] text-ink"
+            containerClassName="max-w-xl"
+            textClassName="text-[clamp(1.8rem,3.6vw,3.6rem)] font-semibold leading-[1] tracking-[-0.03em] text-ink"
             baseRotation={0}
             blurStrength={3}
             rotationEnd="center center"
             wordAnimationEnd="center center"
           >
-            Public wallets were never designed for your business.
+            A customer who finds your address can see what everyone else pays
+            you.
           </ScrollReveal>
 
           <div className="mt-10 space-y-7 text-[clamp(1.05rem,1.55vw,1.35rem)] font-medium leading-[1.38] text-ink/88">
             <ScrollReveal
-              textClassName="max-w-[31ch]"
+              textClassName="max-w-[42ch]"
               baseRotation={1.6}
               baseOpacity={0.18}
               blurStrength={2}
               rotationEnd="center center"
               wordAnimationEnd="center center"
             >
-              Every time someone pays your wallet, they can potentially see how
+              Ordinary crypto payments put your books on a public website.
+              Anyone who learns your address can read
               <span className="font-bold text-olive-deep">
                 {" "}
-                much you earn, who else pays you, and your entire payment
-                history.
+                your revenue, your customers, your pricing and your cash flow.
               </span>
             </ScrollReveal>
             <ScrollReveal
-              textClassName="max-w-[34ch]"
+              textClassName="max-w-[42ch]"
               baseRotation={1.4}
               baseOpacity={0.18}
               blurStrength={2}
@@ -62,14 +63,15 @@ export function ProblemStatement() {
             </ScrollReveal>
 
             <ScrollReveal
-              textClassName="max-w-[29ch] text-olive-deep"
+              textClassName="max-w-[42ch] text-olive-deep"
               baseRotation={1.4}
               baseOpacity={0.2}
               blurStrength={2}
               rotationEnd="center center"
               wordAnimationEnd="center center"
             >
-              Privacy shouldn't require hiding from everyone.
+              Banks don&apos;t publish your statements. Your payment rail
+              shouldn&apos;t either.
             </ScrollReveal>
           </div>
         </div>

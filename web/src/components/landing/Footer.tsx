@@ -9,7 +9,11 @@ const NAV_LINKS = [
     Icon: BookText,
   },
   { label: "X", href: "https://x.com/olioprivacy", Icon: XLogo },
-  { label: "Discord", href: "https://discord.gg/olio", Icon: DiscordLogo },
+  {
+    label: "Discord",
+    href: "https://discord.gg/pyVMUFWRhB",
+    Icon: DiscordLogo,
+  },
 ] as const;
 
 export function Footer() {

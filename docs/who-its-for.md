@@ -1,43 +1,48 @@
 # Who Olio Is For
 
-Olio is built for people who get paid in crypto and would rather not turn their
-income into public entertainment.
+Olio is for businesses that get paid in USDC and don't want their revenue,
+pricing and customer list readable by anyone with a block explorer.
 
-## Freelancers & creators
+## Service businesses that bill international customers
 
-You send invoices. You'd rather each client not see what every other client pays
-you. Share one Olio link (or a per-project link with a fixed price), get paid,
-keep your rates between you and each client.
+Agencies, studios, software shops and outsourcing teams that invoice customers
+abroad. For example, a design studio in Jakarta billing a client in Berlin. USDC
+settles in seconds without a correspondent bank, and Olio keeps each payment
+private, so one customer can't look up what you charge the others.
 
-## Small businesses & shops
+## Sole proprietors and independent professionals
 
-Your revenue is nobody else's business — especially not a competitor's. Accept
-USDC through a payment link or QR code without publishing your sales numbers to
-the world.
+Consultants, developers, designers and other freelancers who run as a business.
+You can verify as an individual and use the same invoices, payment links and
+proofs as a company.
 
-## DAOs, teams & contributors
+## Small businesses that need records, not just payments
 
-Paying contributors from a shared treasury? Olio lets people receive funds
-privately instead of exposing every contributor's wallet and pay.
+Your revenue is nobody else's business, but your accountant, your bank and the
+tax office still need answers. Olio matches each payment to the invoice it paid,
+and you can prove any single payment without opening up the rest of your books.
 
-## Anyone who values privacy
+## You'll recognise Olio if you've said
 
-Maybe you just don't like the idea of a permanent, public, searchable record of
-every payment you've ever received. That's reason enough.
+* "I want to accept USDC without publishing my revenue."
+* "I don't want customers seeing what other customers pay me."
+* "I need to show a bank or auditor that a payment happened."
+* "I don't want my team handling wallet addresses or network fees."
 
-## The common thread
+## Not a fit yet
 
-If any of these sound like you, Olio fits:
-
-* "I want to accept crypto but not broadcast my finances."
-* "I'd like a simple link or QR code, not a wallet-address-copy-paste dance."
-* "I still need to move money to my bank sometimes."
-* "I don't want to babysit gas fees and network tokens."
+* **Consumer checkout.** Olio is built around invoices and business payments,
+  not shop-counter sales to the public.
+* **Customers who can't pay in USDC.** Customers currently pay in USDC on
+  Stellar or a supported cross-chain network.
+* **Real funds.** Olio is on testnet. Wait for launch before using it for real
+  money. See [Security & Recovery](security.md).
 
 {% hint style="info" %}
-Olio handles the network fees for you, so you don't need to hold any special
-"gas" token just to get paid or cash out. More on that in
-[How Olio Works](how-it-works.md).
+Olio covers the network fees, so neither you nor your customers need to hold a
+separate token for them. Olio charges a 2% service fee, added on top of
+the invoice and paid by the customer. You receive the full invoice amount. See
+[FAQs](faqs.md#how-much-does-olio-charge).
 {% endhint %}
 
 Ready? → [Quickstart](quickstart.md)
