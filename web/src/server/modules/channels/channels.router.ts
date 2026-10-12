@@ -1,3 +1,7 @@
+import {
+  confirmRegistryKeyChange,
+  recordKeysBeforeChange,
+} from "../businesses/businesses.keys";
 import { authorizeRelay } from "./channels.authorization";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
@@ -37,7 +41,14 @@ export const channelsRouter = createTRPCRouter({
     .input(relayInput)
     .output(relayResultOutput)
     .mutation(async ({ input, ctx }) => {
-      await authorizeRelay(input.func, ctx.privyUserId);
-      return relaySoroban(input.func, input.auth).catch(mapError);
+      const { keyChangeAccount } = await authorizeRelay(
+        input.func,
+        ctx.privyUserId,
+      );
+      if (keyChangeAccount) await recordKeysBeforeChange(keyChangeAccount);
+      const result = await relaySoroban(input.func, input.auth).catch(mapError);
+      if (keyChangeAccount)
+        void confirmRegistryKeyChange(keyChangeAccount, result.hash);
+      return result;
     }),
 });

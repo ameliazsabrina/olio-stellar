@@ -119,23 +119,6 @@ fn deposit_forwards_balance_into_pool() {
 }
 
 #[test]
-fn deposit_forwards_special_tier_gross_total() {
-    let f = setup(1_000);
-    let client = IntakeContractClient::new(&f.env, &f.intake);
-    let token = token::Client::new(&f.env, &f.asset);
-    let commitment = BytesN::from_array(&f.env, &[10u8; 32]);
-    let eph = BytesN::from_array(&f.env, &[11u8; 32]);
-    let ct = Bytes::from_array(&f.env, &[12u8; 16]);
-    let proof: Val = ().into_val(&f.env);
-    let quote = quote(&f, &commitment, 600, 500);
-    let signature = BytesN::from_array(&f.env, &[13; 64]);
-
-    client.deposit_to_pool(&commitment, &600, &quote, &signature, &proof, &eph, &ct);
-    assert_eq!(token.balance(&f.intake), 370);
-    assert_eq!(token.balance(&f.pool), 630);
-}
-
-#[test]
 fn insufficient_gross_balance_rolls_back_forwarding() {
     let f = setup(611);
     let client = IntakeContractClient::new(&f.env, &f.intake);

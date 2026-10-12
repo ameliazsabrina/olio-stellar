@@ -113,7 +113,7 @@
                         "symbol": "fee_amount"
                       },
                       "val": {
-                        "i128": "2500000"
+                        "i128": "1000000"
                       }
                     },
                     {
@@ -121,7 +121,7 @@
                         "symbol": "fee_bps"
                       },
                       "val": {
-                        "u32": 500
+                        "u32": 200
                       }
                     },
                     {
@@ -201,13 +201,13 @@
                         "symbol": "total_amount"
                       },
                       "val": {
-                        "i128": "52500000"
+                        "i128": "51000000"
                       }
                     }
                   ]
                 },
                 {
-                  "bytes": "53ea65b21aab14fa93809f731c19ec47003839ac7070c0bc18d4c8972111b2fc417d37d534598b255a99ccd65d4aa9ed4102063ffb64d8890421e0f312b37c0a"
+                  "bytes": "af5bb5a40b7673726221b7208d4eacb427ecd3fbb5d5ea6d273cfd616984550aa7518e25046df465a4d999daf551bab8bfa87a2ccc5dedfd3363632c9fdf3b05"
                 },
                 {
                   "map": [
@@ -260,7 +260,7 @@
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                     },
                     {
-                      "i128": "52500000"
+                      "i128": "51000000"
                     }
                   ]
                 }
@@ -903,7 +903,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "9947500000"
+                      "i128": "9949000000"
                     }
                   },
                   {
@@ -955,7 +955,7 @@
                       "symbol": "amount"
                     },
                     "val": {
-                      "i128": "2500000"
+                      "i128": "1000000"
                     }
                   },
                   {

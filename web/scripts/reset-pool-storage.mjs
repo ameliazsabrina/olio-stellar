@@ -59,6 +59,23 @@ try {
     );
   }
 
+  const evidenceLiabilities = (
+    await Promise.all(
+      ["settlements", "evidence_epochs"].map(async (collectionName) =>
+        (await db
+          .collection(collectionName)
+          .countDocuments({ poolId: config.scope }, { limit: 1 })) > 0
+          ? collectionName
+          : null,
+      ),
+    )
+  ).filter(Boolean);
+  if (evidenceLiabilities.length > 0) {
+    throw new Error(
+      `Refusing to reset a pool with issued evidence in: ${evidenceLiabilities.join(", ")}.`,
+    );
+  }
+
   if (!options.execute) {
     process.stdout.write(
       `${JSON.stringify({ database: config.databaseName, scope: config.scope, counts }, null, 2)}\nDry run only; no documents were deleted.\n`,

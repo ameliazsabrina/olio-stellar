@@ -126,6 +126,56 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  settlements-reconcile:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      OLIO_BASE_URL: http://web:3000
+    command: ["node", "web/scripts/settlements-worker.mjs"]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "node", "web/scripts/settlements-worker.mjs", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  evidence-epoch:
+    image: ${OLIO_IMAGE:-ghcr.io/OWNER/olio-web:latest}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      OLIO_BASE_URL: http://web:3000
+    command: ["node", "web/scripts/evidence-worker.mjs"]
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "node", "web/scripts/evidence-worker.mjs", "--health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   caddy:
     image: caddy:2
     restart: unless-stopped

@@ -54,6 +54,12 @@ try {
       },
     ),
     db
+      .collection(name("withdrawals"))
+      .createIndex({ txHash: 1 }, { name: "withdrawal_tx_hash" }),
+    db
+      .collection(name("withdrawals"))
+      .createIndex({ ledger: 1 }, { name: "withdrawal_ledger" }),
+    db
       .collection(name("async_fee_quote_contexts"))
       .createIndex(
         { expiresAt: 1 },

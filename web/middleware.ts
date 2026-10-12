@@ -57,6 +57,7 @@ export const config = {
     "/refresh",
     "/dashboard/:path*",
     "/links/:path*",
+    "/invoices/:path*",
     "/withdraw/:path*",
     "/history/:path*",
     "/settings/:path*",

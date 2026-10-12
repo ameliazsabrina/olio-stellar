@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node",
-    environmentMatchGlobs: [["test/DepositForm.test.tsx", "happy-dom"]],
+    environmentMatchGlobs: [
+      ["test/DepositForm.test.tsx", "happy-dom"],
+      ["test/InvoicesDashboard.test.tsx", "happy-dom"],
+      ["test/PayForm.invoice.test.tsx", "happy-dom"],
+    ],
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["test/**/*.{test,spec}.{ts,tsx}"],

@@ -138,4 +138,51 @@ describe("wallet escrow service", () => {
     ).rejects.toBeInstanceOf(WalletEscrowMissingError);
     expect(users.updateOne).toHaveBeenCalledTimes(1);
   });
+
+  it("refuses a rotation that would drop a retired key generation", async () => {
+    const users = {
+      updateOne: vi.fn(),
+      findOne: vi.fn().mockResolvedValue({
+        encryptedMaster: new Binary(),
+        priorEscrows: [{ generation: 1 }],
+      }),
+    };
+    mocks.getUsers.mockResolvedValue(users);
+    await expect(
+      rotateEscrow("did:privy:user", {
+        expectedRevision: 2,
+        escrow: replacement,
+      }),
+    ).rejects.toBeInstanceOf(WalletEscrowRevisionConflictError);
+    expect(users.updateOne).not.toHaveBeenCalled();
+  });
+
+  it("stores retired generations alongside a new escrow", async () => {
+    const users = {
+      updateOne: vi.fn().mockResolvedValue({ matchedCount: 1 }),
+      findOne: vi.fn(),
+    };
+    mocks.getUsers.mockResolvedValue(users);
+    await saveEscrow("did:privy:user", {
+      ...initial,
+      priorEscrows: [
+        {
+          generation: 1,
+          encryptedSecretsHex: "ee".repeat(92),
+          saltHex: "ff".repeat(16),
+          kdfParams: { m: 19_456, t: 2, p: 1 },
+          notePubkeyHex: "AB".repeat(32),
+        },
+      ],
+    });
+    const update = users.updateOne.mock.calls[0][1].$set;
+    expect(update.priorEscrows).toEqual([
+      expect.objectContaining({
+        generation: 1,
+        encryptedSecrets: expect.any(Binary),
+        notePubkey: "ab".repeat(32),
+        retiredAt: expect.any(Date),
+      }),
+    ]);
+  });
 });

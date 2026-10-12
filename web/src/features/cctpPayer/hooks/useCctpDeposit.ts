@@ -35,7 +35,7 @@ export type CctpPhase = "idle" | "burning" | "attesting" | "relaying" | "done";
 export type CctpStatus = { kind: "ok" | "err"; msg: string } | null;
 export type CctpFeePreview = {
   paymentAmount: string;
-  feeBps: 200 | 500;
+  feeBps: 200;
   feeAmount: string;
   totalAmount: string;
   policyVersion: 2;
@@ -48,9 +48,11 @@ const isSubmitted = (record: RecoveryRecord) =>
 export function useCctpDeposit({
   username,
   notePubkey,
+  invoice = null,
 }: {
   username: string;
   notePubkey: Uint8Array;
+  invoice?: { invoiceId: string; version: number } | null;
 }) {
   const [phase, setPhase] = useState<CctpPhase>("idle");
   const [status, setStatus] = useState<CctpStatus>(null);
@@ -260,6 +262,7 @@ export function useCctpDeposit({
           commitment: bytesToHex(commitmentBytes),
           salt: saltHex,
           ...identity,
+          ...(invoice ? { invoice } : {}),
         });
         const feeQuote = deserializeFeeQuoteEnvelope(serialized);
         if (
@@ -376,7 +379,7 @@ export function useCctpDeposit({
         setPollRevision((v) => v + 1);
       }
     },
-    [notePubkey, username, persist, forget],
+    [notePubkey, username, persist, forget, invoice],
   );
 
   const restore = useCallback(

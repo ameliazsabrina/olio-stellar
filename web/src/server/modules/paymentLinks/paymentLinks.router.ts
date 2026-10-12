@@ -7,7 +7,7 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "../../trpc";
-import { mapBusinessError } from "../businesses/businesses.router";
+import { mapInvoiceError } from "../invoices/invoices.router";
 import {
   PaymentLinkBusinessMismatchError,
   PaymentLinkSlugUnavailableError,
@@ -50,7 +50,7 @@ function mapError(e: unknown): never {
   if (e instanceof PaymentLinkBusinessMismatchError) {
     throw new TRPCError({ code: "FORBIDDEN", message: e.message });
   }
-  return mapBusinessError(e);
+  return mapInvoiceError(e);
 }
 
 async function authorizeLink(
@@ -74,7 +74,7 @@ export const paymentLinksRouter = createTRPCRouter({
     .output(createLinkResult)
     .mutation(async ({ ctx, input }) => {
       await authorizeLink(ctx.privyUserId, input);
-      return createLink(input).catch(mapError);
+      return createLink(input, ctx.privyUserId).catch(mapError);
     }),
 
   get: publicProcedure
@@ -97,7 +97,7 @@ export const paymentLinksRouter = createTRPCRouter({
     .output(linkOutput)
     .mutation(async ({ ctx, input }) => {
       await authorizeLink(ctx.privyUserId, input);
-      return updateLink(input).catch(mapError);
+      return updateLink(input, ctx.privyUserId).catch(mapError);
     }),
 
   setArchived: protectedProcedure

@@ -90,7 +90,6 @@ const ALL_CHANNELS: PaymentChannel[] = ["direct", "cctp"];
 const INDEXER_STALE_AFTER_MS = 120_000;
 const REQUIRED_INDEXES: Readonly<Record<string, readonly string[]>> = {
   pool_fees: ["fee_quote_id"],
-  client_fee_policies: ["active_effective_policy", "policy_audit_order"],
   cctp_relays: ["relay_state_lease", "relay_quote_id"],
   async_fee_quote_contexts: ["async_quote_expiry"],
 };
@@ -177,10 +176,10 @@ async function checkDatabase(
 ): Promise<void> {
   const missing: string[] = [];
   for (const [collectionName, required] of Object.entries(REQUIRED_INDEXES)) {
-    const resolvedCollectionName =
-      collectionName === "client_fee_policies"
-        ? collectionName
-        : poolCollectionName(collectionName, storageScope);
+    const resolvedCollectionName = poolCollectionName(
+      collectionName,
+      storageScope,
+    );
     let names: Set<string>;
     try {
       names = new Set(
@@ -369,9 +368,7 @@ export async function checkFeeQuoteReadiness(
         !feeConfig ||
         Number(feeConfig.policy_version) !== 2 ||
         !allowed ||
-        allowed.length !== 2 ||
         !allowed.includes(200) ||
-        !allowed.includes(500) ||
         !onChainSigner ||
         onChainSigner.length !== 32 ||
         !addressString(feeConfig.recipient) ||

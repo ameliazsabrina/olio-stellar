@@ -1,11 +1,15 @@
 "use client";
 
 import { ArrowDownLeft, ArrowUpRight, LockKeyhole } from "lucide-react";
+import { useMemo } from "react";
+import { useVerification } from "../../features/verification/useVerification";
+import { invoiceNumberLabel } from "../../lib/invoiceCrypto";
+import { trpc } from "../../trpc/react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { ToastFeedback } from "../ui/toast-feedback";
 import { useWallet } from "../WalletProvider";
-import { ActivityFeed } from "./ActivityFeed";
+import { ActivityFeed, type ActivitySettlement } from "./ActivityFeed";
 import { DashboardPageHeader } from "./DashboardPageHeader";
 import { useMyNotes } from "./useMyNotes";
 
@@ -13,6 +17,37 @@ export function HistoryDashboard() {
   const { address, accountUnlocked, promptUnlock } = useWallet();
   const { notes, loading, error, refresh } = useMyNotes(
     accountUnlocked ? address : undefined,
+  );
+  const { business } = useVerification();
+  const businessId = business?.businessId ?? null;
+  const leafIndexes = useMemo(
+    () =>
+      notes
+        .map((note) => note.leafIndex)
+        .sort((a, b) => b - a)
+        .slice(0, 500),
+    [notes],
+  );
+  const settlementRows = trpc.settlements.byLeaves.useQuery(
+    { businessId: businessId ?? "", leafIndexes },
+    { enabled: businessId !== null && leafIndexes.length > 0 },
+  );
+  const settlements = useMemo(
+    () =>
+      new Map<number, ActivitySettlement>(
+        (settlementRows.data ?? []).map((row) => [
+          row.leafIndex,
+          {
+            settlementId: row.settlementId,
+            txHash: row.txHash,
+            ledgerClosedAt: row.ledgerClosedAt,
+            invoiceNumber: row.invoices[0]
+              ? invoiceNumberLabel(row.invoices[0].number)
+              : null,
+          },
+        ]),
+      ),
+    [settlementRows.data],
   );
   const receivedCount = notes.length;
   const cashedOutCount = notes.filter((note) => note.spent).length;
@@ -44,6 +79,7 @@ export function HistoryDashboard() {
               loading={loading}
               title="All activity"
               showExport
+              settlements={settlements}
               appearance="linen"
             />
           )}

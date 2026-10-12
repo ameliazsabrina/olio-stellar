@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { DASHBOARD_PATH, isProtectedRoute } from "../lib/auth-routes";
+import { bytesToHex } from "../lib/crypto";
 import { deriveNoteSecrets, randomMaster } from "../lib/keys";
 import {
   accountPubkeys,
@@ -24,6 +25,7 @@ import {
   deriveAndStoreAccount,
   getAccount,
   hasLocalAccount,
+  storeAccount,
   syncLocalAccountIdentity,
 } from "../lib/notes";
 import { BadPinError } from "../lib/pin-errors";
@@ -383,6 +385,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       try {
         if (pinMode === "secure") {
           const master = randomMaster();
+          const { encryptPriorSecrets } = await import("../lib/keys");
+          const priorEscrows = [];
+          const previous = getAccount();
+          if (previous) {
+            const previousKeys = await accountPubkeys(previous);
+            priorEscrows.push(
+              encryptPriorSecrets(
+                previous,
+                pin,
+                1,
+                bytesToHex(previousKeys.notePubkey),
+              ),
+            );
+          }
           if (username) {
             const account = deriveNoteSecrets(master);
             const { notePubkey, viewPubkey } = await accountPubkeys(account);
@@ -405,9 +421,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           const { serializeEscrow, encryptMaster } = await import(
             "../lib/keys"
           );
-          await api.wallets.saveEscrow.mutate(
-            serializeEscrow(encryptMaster(master, pin)),
-          );
+          await api.wallets.saveEscrow.mutate({
+            ...serializeEscrow(encryptMaster(master, pin)),
+            ...(priorEscrows.length ? { priorEscrows } : {}),
+          });
           deriveAndStoreAccount(master);
           escrowMissingRef.current = false;
         } else if (pinMode === "set") {
@@ -447,10 +464,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 (!sameBytes(recovered.notePubkey, registered.note_pubkey) ||
                   !sameBytes(recovered.viewPubkey, registered.view_pubkey))
               ) {
-                throw new RecoveryKeyGenerationMismatchError();
+                const { deriveAllGenerations } = await import("../lib/keys");
+                let matching = null;
+                for (const generation of deriveAllGenerations(wire, pin)) {
+                  const keys = await accountPubkeys(generation.secrets);
+                  if (
+                    sameBytes(keys.notePubkey, registered.note_pubkey) &&
+                    sameBytes(keys.viewPubkey, registered.view_pubkey)
+                  ) {
+                    matching = generation.secrets;
+                    break;
+                  }
+                }
+                if (!matching) throw new RecoveryKeyGenerationMismatchError();
+                storeAccount(matching);
+              } else {
+                deriveAndStoreAccount(master);
               }
+            } else {
+              deriveAndStoreAccount(master);
             }
-            deriveAndStoreAccount(master);
           } finally {
             master.fill(0);
           }

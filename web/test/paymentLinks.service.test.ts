@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   find: vi.fn(),
   businessOwnsUsername: vi.fn(),
   publishedPublicIdsFor: vi.fn(),
+  assertLinkableInvoice: vi.fn(),
+  invoiceStates: vi.fn(),
 }));
 
 vi.mock("../src/server/db/mongo", () => ({
@@ -36,6 +38,10 @@ vi.mock("../src/server/modules/businesses/businesses.service", () => ({
 }));
 vi.mock("../src/server/modules/passport/passport.service", () => ({
   publishedPublicIdsFor: mocks.publishedPublicIdsFor,
+}));
+vi.mock("../src/server/modules/invoices/invoices.service", () => ({
+  assertLinkableInvoice: mocks.assertLinkableInvoice,
+  invoiceStates: mocks.invoiceStates,
 }));
 
 import {
@@ -57,6 +63,8 @@ beforeEach(() => {
   mocks.toArray.mockResolvedValue([]);
   mocks.businessOwnsUsername.mockResolvedValue(true);
   mocks.publishedPublicIdsFor.mockResolvedValue(new Map());
+  mocks.assertLinkableInvoice.mockResolvedValue(undefined);
+  mocks.invoiceStates.mockResolvedValue(new Map());
 });
 
 describe("createLink", () => {
@@ -102,6 +110,7 @@ describe("createLink", () => {
       archivedAt: null,
       businessClaimed: false,
       verifiedBusinessPublicId: null,
+      invoiceId: null,
     });
     expect(link).not.toHaveProperty("manageTokenHash");
   });
@@ -177,6 +186,7 @@ describe("getLink", () => {
       archivedAt: null,
       businessClaimed: false,
       verifiedBusinessPublicId: null,
+      invoiceId: null,
     });
   });
 
@@ -246,6 +256,7 @@ describe("listLinksByOwner", () => {
         archivedAt: null,
         businessClaimed: false,
         verifiedBusinessPublicId: null,
+        invoiceId: null,
       },
     ]);
   });
@@ -457,5 +468,53 @@ describe("claimLinkForBusiness", () => {
     );
     const out = await getLink(doc._id);
     expect(out?.verifiedBusinessPublicId).toBe("pub_abcdef");
+  });
+});
+
+describe("invoice-bound links", () => {
+  const base = {
+    username: "alice",
+    slug: "invoice-7",
+    amount: "250000000",
+    description: "Invoice 7",
+  };
+
+  it("requires an authenticated manager before binding an invoice", async () => {
+    await expect(
+      createLink({ ...base, invoiceId: "inv_12345678" }),
+    ).rejects.toBeInstanceOf(PaymentLinkUnauthorizedError);
+    expect(mocks.insertOne).not.toHaveBeenCalled();
+  });
+
+  it("checks the invoice belongs to the link owner before inserting", async () => {
+    const out = await createLink(
+      { ...base, invoiceId: "inv_12345678" },
+      "privy:alice",
+    );
+    expect(mocks.assertLinkableInvoice).toHaveBeenCalledWith(
+      "privy:alice",
+      "inv_12345678",
+      "alice",
+    );
+    expect(mocks.insertOne.mock.calls[0][0].invoiceId).toBe("inv_12345678");
+    expect(out.invoiceId).toBe("inv_12345678");
+    expect(out.status).toBe("pending");
+  });
+
+  it("derives paid from the invoice projection instead of the stored status", async () => {
+    mocks.findOne.mockResolvedValue({
+      _id: "abc123",
+      owner: "alice",
+      slug: "tips",
+      amount: null,
+      label: null,
+      status: "pending",
+      state: "active",
+      invoiceId: "inv_12345678",
+      createdAt: new Date("2026-07-11T00:00:00Z"),
+    });
+    mocks.invoiceStates.mockResolvedValue(new Map([["inv_12345678", "paid"]]));
+    const out = await getLink("abc123");
+    expect(out?.status).toBe("paid");
   });
 });

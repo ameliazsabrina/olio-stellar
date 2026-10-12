@@ -8,6 +8,24 @@ export type DepositDoc = {
   ciphertext: Binary;
   ledger: number;
   txHash: string;
+  eventId?: string | null;
+  ts: Date;
+};
+
+export type WithdrawalDoc = {
+  _id: string;
+  dest: string;
+  amount: bigint;
+  txHash: string;
+  eventId: string;
+  ledger: number;
+  ts: Date;
+};
+
+export type PoolRootDoc = {
+  _id: number;
+  root: string;
+  ledger: number;
   ts: Date;
 };
 
@@ -25,7 +43,7 @@ export type UsernameDoc = {
 };
 
 export type IndexerStateDoc = {
-  _id: "pool" | "registry";
+  _id: "pool" | "registry" | "settlements" | "evidence";
   lastLedger: number;
   lastLeafIndex?: number;
   updatedAt: Date;
@@ -38,6 +56,12 @@ export type IndexerStateDoc = {
   leaseOwner?: string;
   leaseUntil?: Date;
   nullifiersComplete?: boolean;
+  rootLeafCount?: number;
+  rootFrontier?: string[];
+  rootsVerifiedAt?: Date;
+  rootsMismatch?: boolean;
+  lastRunAt?: Date;
+  degradedReasons?: string[];
 };
 
 export type SpentNullifierDoc = {
@@ -61,17 +85,6 @@ export type FeeDoc = {
   feeBps: number;
   quoteId: string;
   ts: Date;
-};
-
-export type ClientFeePolicyDoc = {
-  _id: string;
-  feeBps: 200 | 500;
-  state: "active" | "disabled";
-  effectiveAt: Date;
-  expiresAt: Date | null;
-  reason: string;
-  updatedAt: Date;
-  updatedBy: string;
 };
 
 export type CctpRelayDoc = {
@@ -119,9 +132,228 @@ export type PaymentLinkDoc = {
   manageTokenHash?: string; // sha-256 of the per-link manage capability token
   businessId?: string;
   businessClaimedAt?: Date;
+  invoiceId?: string | null;
   createdAt: Date;
   updatedAt?: Date;
   archivedAt?: Date | null;
+};
+
+export type StellarNetworkName = "testnet" | "mainnet";
+
+export type InvoiceState =
+  | "draft"
+  | "issued"
+  | "partially_paid"
+  | "paid"
+  | "cancelled"
+  | "void";
+
+export type InvoiceDoc = {
+  _id: string;
+  businessId: string;
+  number: number;
+  currentVersion: number;
+  state: InvoiceState;
+  amountDue: bigint;
+  allocatedAmount: bigint;
+  refundedAmount: bigint;
+  appliedAllocationIds: string[];
+  projectionRevision: number;
+  issuedAt: Date | null;
+  cancelledAt: Date | null;
+  voidedAt: Date | null;
+  erasedAt: Date | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InvoiceVersionDoc = {
+  _id: string;
+  invoiceId: string;
+  version: number;
+  businessId: string;
+  network: StellarNetworkName;
+  poolId: string;
+  asset: string;
+  amountDue: bigint;
+  issuedAt: Date;
+  dueAt: Date | null;
+  encryptedContent: string | null;
+  wrappedKey: string | null;
+  contentCommitment: string;
+  invoiceCommitment: string;
+  createdBy: string;
+  createdAt: Date;
+};
+
+export type InvoiceEventKind =
+  | "created"
+  | "issued"
+  | "revised"
+  | "cancelled"
+  | "allocation"
+  | "refund"
+  | "erased";
+
+export type InvoiceEventDoc = {
+  _id: string;
+  invoiceId: string;
+  businessId: string;
+  kind: InvoiceEventKind;
+  version: number | null;
+  amount: bigint | null;
+  settlementId: string | null;
+  actor: string;
+  at: Date;
+};
+
+export type InvoiceCounterDoc = {
+  _id: string;
+  seq: number;
+};
+
+export type PaymentChannel = "direct" | "cctp";
+
+export type PaymentIntentDoc = {
+  _id: string;
+  invoiceId: string;
+  invoiceVersion: number;
+  invoiceCommitment: string;
+  intentNonce: string;
+  quoteId: string;
+  businessId: string;
+  noteCommitment: string;
+  amount: bigint;
+  channel: PaymentChannel;
+  state: "open" | "settled" | "expired";
+  expiresAt: Date;
+  railRefs: { sourceDomain?: number; payerSentAt?: Date };
+  settlementId: string | null;
+  settledAt: Date | null;
+  createdAt: Date;
+};
+
+export type QuoteContextDoc = {
+  _id: string;
+  channel: PaymentChannel;
+  network: StellarNetworkName;
+  poolId: string;
+  recipientOwner: string;
+  businessId: string | null;
+  notePubkey: string;
+  viewPubkey?: string;
+  commitment: string;
+  paymentAmount: bigint | null;
+  intentId: string | null;
+  settlementId: string | null;
+  source: "issue" | "async_copy" | "cctp_session";
+  createdAt: Date;
+};
+
+export type SettlementRail = "direct" | "cctp" | "fiat";
+
+export type EvidenceLevel =
+  | "intent_bound"
+  | "attributed"
+  | "historical_claim"
+  | "unattributed";
+
+export type SettlementQualification = {
+  counted: boolean;
+  selfFunded: boolean;
+  policyVersion: number;
+};
+
+export type SettlementDoc = {
+  _id: string;
+  network: StellarNetworkName;
+  poolId: string;
+  asset: string;
+  txHash: string;
+  eventId: string | null;
+  leafIndex: number;
+  noteCommitment: string;
+  quoteId: string | null;
+  intentId: string | null;
+  invoiceCommitment: string | null;
+  businessId: string | null;
+  payer: string | null;
+  amount: bigint | null;
+  ledger: number;
+  ledgerClosedAt: Date;
+  rail: SettlementRail;
+  railRefs: {
+    sourceDomain: number | null;
+    sourceTxHash: string | null;
+    payerSentAt: Date | null;
+    mintTxHash: string | null;
+  };
+  evidenceLevel: EvidenceLevel;
+  qualification: SettlementQualification;
+  allocatedAmount: bigint;
+  refundedAmount: bigint;
+  appliedAllocationIds: string[];
+  appliedAdjustmentIds: string[];
+  evidenceVersion: number;
+  issuer: "olio";
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SettlementAllocationDoc = {
+  _id: string;
+  settlementId: string;
+  invoiceId: string;
+  invoiceVersion: number;
+  amount: bigint;
+  createdAt: Date;
+  appliedAt: Date | null;
+  reversedAt: Date | null;
+  reversalReason: string | null;
+};
+
+export type SettlementAdjustmentDoc = {
+  _id: string;
+  settlementId: string;
+  businessId: string;
+  kind: "refund";
+  amount: bigint;
+  withdrawTxHash: string;
+  nullifier: string;
+  dest: string;
+  recordedBy: string;
+  verifiedAt: Date;
+};
+
+export type BusinessKeyDoc = {
+  _id: string;
+  businessId: string;
+  generation: number;
+  notePubkey: string;
+  viewPubkey: string;
+  activeFromLedger: number;
+  activeToLedger: number | null;
+  source: "bind" | "relay" | "sync";
+  recordedAt: Date;
+};
+
+export type EvidenceEpochDoc = {
+  _id: string;
+  network: StellarNetworkName;
+  poolId: string;
+  epoch: number;
+  manifestHash: string;
+  anchorState: "pending" | "submitted" | "confirmed";
+  anchorTxHash: string | null;
+  issuedAt: Date;
+};
+
+export type EvidenceKeyDoc = {
+  _id: string;
+  publicKey: string;
+  validFrom: Date;
+  validTo: Date | null;
 };
 
 export type BusinessType = "individual" | "company";
@@ -294,8 +526,18 @@ export type UserDoc = {
   masterSalt?: Binary;
   kdfParams?: { m: number; t: number; p: number };
   escrowRevision?: number;
+  priorEscrows?: PriorEscrowDoc[];
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type PriorEscrowDoc = {
+  generation: number;
+  encryptedSecrets: Binary;
+  salt: Binary;
+  kdfParams: { m: number; t: number; p: number };
+  notePubkey: string;
+  retiredAt: Date;
 };
 
 declare global {
@@ -373,12 +615,6 @@ export async function getSpentNullifiers(): Promise<
 
 export async function getFees(): Promise<Collection<FeeDoc>> {
   return (await getDb()).collection<FeeDoc>(poolCollectionName("pool_fees"));
-}
-
-export async function getClientFeePolicies(): Promise<
-  Collection<ClientFeePolicyDoc>
-> {
-  return (await getDb()).collection<ClientFeePolicyDoc>("client_fee_policies");
 }
 
 export async function getCctpRelays(): Promise<Collection<CctpRelayDoc>> {
@@ -501,4 +737,100 @@ export async function getCctpSessions(): Promise<Collection<CctpSessionDoc>> {
   return (await getDb()).collection<CctpSessionDoc>(
     poolCollectionName("cctp_sessions"),
   );
+}
+
+const bigintCollection = { useBigInt64: true } as const;
+
+export async function getWithdrawals(): Promise<Collection<WithdrawalDoc>> {
+  return (await getDb()).collection<WithdrawalDoc>(
+    poolCollectionName("withdrawals"),
+    bigintCollection,
+  );
+}
+
+export async function getPoolRoots(): Promise<Collection<PoolRootDoc>> {
+  return (await getDb()).collection<PoolRootDoc>(
+    poolCollectionName("pool_roots"),
+  );
+}
+
+export async function getInvoices(): Promise<Collection<InvoiceDoc>> {
+  return (await getDb()).collection<InvoiceDoc>("invoices", bigintCollection);
+}
+
+export async function getInvoiceVersions(): Promise<
+  Collection<InvoiceVersionDoc>
+> {
+  return (await getDb()).collection<InvoiceVersionDoc>(
+    "invoice_versions",
+    bigintCollection,
+  );
+}
+
+export async function getInvoiceEvents(): Promise<Collection<InvoiceEventDoc>> {
+  return (await getDb()).collection<InvoiceEventDoc>(
+    "invoice_events",
+    bigintCollection,
+  );
+}
+
+export async function getInvoiceCounters(): Promise<
+  Collection<InvoiceCounterDoc>
+> {
+  return (await getDb()).collection<InvoiceCounterDoc>("invoice_counters");
+}
+
+export async function getPaymentIntents(): Promise<
+  Collection<PaymentIntentDoc>
+> {
+  return (await getDb()).collection<PaymentIntentDoc>(
+    "payment_intents",
+    bigintCollection,
+  );
+}
+
+export async function getQuoteContexts(): Promise<Collection<QuoteContextDoc>> {
+  return (await getDb()).collection<QuoteContextDoc>(
+    "quote_contexts",
+    bigintCollection,
+  );
+}
+
+export async function getSettlements(): Promise<Collection<SettlementDoc>> {
+  return (await getDb()).collection<SettlementDoc>(
+    "settlements",
+    bigintCollection,
+  );
+}
+
+export async function getSettlementAllocations(): Promise<
+  Collection<SettlementAllocationDoc>
+> {
+  return (await getDb()).collection<SettlementAllocationDoc>(
+    "settlement_allocations",
+    bigintCollection,
+  );
+}
+
+export async function getSettlementAdjustments(): Promise<
+  Collection<SettlementAdjustmentDoc>
+> {
+  return (await getDb()).collection<SettlementAdjustmentDoc>(
+    "settlement_adjustments",
+    bigintCollection,
+  );
+}
+
+export async function getBusinessKeys(): Promise<Collection<BusinessKeyDoc>> {
+  return (await getDb()).collection<BusinessKeyDoc>("business_keys");
+}
+
+export async function getEvidenceEpochs(): Promise<
+  Collection<EvidenceEpochDoc>
+> {
+  return (await getDb()).collection<EvidenceEpochDoc>("evidence_epochs");
+}
+
+export async function getEvidenceKeys(): Promise<Collection<EvidenceKeyDoc>> {
+  return (await getDb()).collection<EvidenceKeyDoc>("evidence_keys");
 }

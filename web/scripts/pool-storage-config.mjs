@@ -75,7 +75,7 @@ export function loadPoolStorageConfig(options) {
   if (scope !== poolId) {
     throw new Error("Pool storage scope must equal NEXT_PUBLIC_OLIO_POOL_ID.");
   }
-  return { databaseName, envPath, scope, uri };
+  return { databaseName, envPath, scope, uri, values };
 }
 
 export const POOL_COLLECTION_BASES = [
@@ -85,4 +85,6 @@ export const POOL_COLLECTION_BASES = [
   "pool_fees",
   "cctp_relays",
   "async_fee_quote_contexts",
+  "withdrawals",
+  "pool_roots",
 ];

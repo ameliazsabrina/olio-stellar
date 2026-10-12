@@ -19,7 +19,7 @@ import {
 import { Binary } from "mongodb";
 import { env } from "../../../env";
 import { getServerEnv } from "../../../env.server";
-import { getUsers, type UserDoc } from "../../db/mongo";
+import { getUsers, type PriorEscrowDoc, type UserDoc } from "../../db/mongo";
 import { getPrivyUser, getPrivyUserByWalletAddress } from "../../lib/privy";
 import { relayXdr } from "../channels/channels.service";
 import {
@@ -32,6 +32,7 @@ import {
 } from "./wallets.errors";
 import type {
   EscrowOutput,
+  PriorEscrowInput,
   PrivyWalletInput,
   RotateEscrowInput,
   RotateEscrowOutput,
@@ -522,6 +523,13 @@ export async function saveEscrow(
         masterSalt: binary(input.masterSaltHex),
         kdfParams: input.kdfParams,
         escrowRevision: 1,
+        ...(input.priorEscrows
+          ? {
+              priorEscrows: input.priorEscrows.map((prior) =>
+                toPriorEscrowDoc(prior),
+              ),
+            }
+          : {}),
         updatedAt: new Date(),
       },
     },
@@ -541,6 +549,16 @@ export async function rotateEscrow(
 ): Promise<RotateEscrowOutput> {
   const users = await getUsers();
   const revision = input.expectedRevision + 1;
+  const stored = await users.findOne({ privyUserId });
+  const storedGenerations = (stored?.priorEscrows ?? [])
+    .map((prior) => prior.generation)
+    .sort((a, b) => a - b);
+  const submittedGenerations = (input.escrow.priorEscrows ?? [])
+    .map((prior) => prior.generation)
+    .sort((a, b) => a - b);
+  if (storedGenerations.join(",") !== submittedGenerations.join(",")) {
+    throw new WalletEscrowRevisionConflictError();
+  }
   const result = await users.updateOne(
     {
       privyUserId,
@@ -555,6 +573,18 @@ export async function rotateEscrow(
         masterSalt: binary(input.escrow.masterSaltHex),
         kdfParams: input.escrow.kdfParams,
         escrowRevision: revision,
+        ...(input.escrow.priorEscrows
+          ? {
+              priorEscrows: input.escrow.priorEscrows.map((prior) =>
+                toPriorEscrowDoc(
+                  prior,
+                  stored?.priorEscrows?.find(
+                    (s) => s.generation === prior.generation,
+                  )?.retiredAt,
+                ),
+              ),
+            }
+          : {}),
         updatedAt: new Date(),
       },
     },
@@ -575,6 +605,31 @@ export async function getEscrow(privyUserId: string): Promise<EscrowOutput> {
     encryptedMasterHex: hex(doc.encryptedMaster),
     masterSaltHex: hex(doc.masterSalt),
     kdfParams: doc.kdfParams,
+    ...(doc.priorEscrows?.length
+      ? {
+          priorEscrows: doc.priorEscrows.map((prior) => ({
+            generation: prior.generation,
+            encryptedSecretsHex: hex(prior.encryptedSecrets),
+            saltHex: hex(prior.salt),
+            kdfParams: prior.kdfParams,
+            notePubkeyHex: prior.notePubkey,
+          })),
+        }
+      : {}),
     revision: doc.escrowRevision ?? 1,
+  };
+}
+
+function toPriorEscrowDoc(
+  prior: PriorEscrowInput,
+  retiredAt = new Date(),
+): PriorEscrowDoc {
+  return {
+    generation: prior.generation,
+    encryptedSecrets: binary(prior.encryptedSecretsHex),
+    salt: binary(prior.saltHex),
+    kdfParams: prior.kdfParams,
+    notePubkey: prior.notePubkeyHex.toLowerCase(),
+    retiredAt,
   };
 }

@@ -436,13 +436,8 @@ fn fee_quotes_use_floor_rounding_and_preserve_principal() {
         (1_i128, 200_u32, 0_i128, 1_i128),
         (49, 200, 0, 49),
         (50, 200, 1, 51),
-        (1, 500, 0, 1),
-        (19, 500, 0, 19),
-        (20, 500, 1, 21),
         (10_000_000, 200, 200_000, 10_200_000),
-        (10_000_000, 500, 500_000, 10_500_000),
         (1_000_000_000, 200, 20_000_000, 1_020_000_000),
-        (1_000_000_000, 500, 50_000_000, 1_050_000_000),
     ] {
         assert_eq!(f.pool.quote_fee(&principal, &bps), (fee, total));
     }
@@ -450,15 +445,15 @@ fn fee_quotes_use_floor_rounding_and_preserve_principal() {
         f.pool.try_quote_fee(&0, &200).err().unwrap(),
         Ok(Error::InvalidAmount)
     );
-    for invalid_bps in [0_u32, 1, 199, 201, 499, 501, 10_000] {
+    for invalid_bps in [0_u32, 1, 199, 201, 499, 500, 501, 10_000] {
         assert_eq!(
             f.pool.try_quote_fee(&1, &invalid_bps).err().unwrap(),
             Ok(Error::InvalidQuote)
         );
     }
-    let expected_fee = (u64::MAX as i128) * 500 / 10_000;
+    let expected_fee = (u64::MAX as i128) * 200 / 10_000;
     assert_eq!(
-        f.pool.quote_fee(&(u64::MAX as i128), &500),
+        f.pool.quote_fee(&(u64::MAX as i128), &200),
         (expected_fee, (u64::MAX as i128) + expected_fee)
     );
 }
@@ -552,12 +547,12 @@ fn deposit_debits_gross_and_fails_atomically_when_total_is_unavailable() {
 }
 
 #[test]
-fn signed_special_tier_settles_five_percent_and_replay_is_rejected() {
+fn signed_quote_settles_two_percent_and_replay_is_rejected() {
     let f = setup();
     let token = token::Client::new(&f.env, &f.asset);
     let commitment = decode(&f.env, FIX_COMMITMENT);
     let (eph, ct) = dummy_bytes(&f.env);
-    let (quote, signature) = signed_quote(&f, &f.payer, &commitment, 50_000_000, 500);
+    let (quote, signature) = signed_quote(&f, &f.payer, &commitment, 50_000_000, 200);
     let payer_before = token.balance(&f.payer);
 
     f.pool.deposit(
@@ -570,9 +565,9 @@ fn signed_special_tier_settles_five_percent_and_replay_is_rejected() {
         &eph,
         &ct,
     );
-    assert_eq!(token.balance(&f.payer), payer_before - 52_500_000);
+    assert_eq!(token.balance(&f.payer), payer_before - 51_000_000);
     assert_eq!(token.balance(&f.pool.address), 50_000_000);
-    assert_eq!(token.balance(&f.fee_recipient), 2_500_000);
+    assert_eq!(token.balance(&f.fee_recipient), 1_000_000);
     assert!(f.pool.is_quote_used(&quote.quote_id));
 
     assert_eq!(

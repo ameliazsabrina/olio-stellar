@@ -21,7 +21,12 @@ const forbidden = () =>
     code: "FORBIDDEN",
     message: "Unsupported or unauthorized relay operation.",
   });
-export async function authorizeRelay(func: string, user: string | null) {
+export type RelayAuthorization = { keyChangeAccount: string | null };
+const noKeyChange: RelayAuthorization = { keyChangeAccount: null };
+export async function authorizeRelay(
+  func: string,
+  user: string | null,
+): Promise<RelayAuthorization> {
   let call: xdr.InvokeContractArgs;
   try {
     call = xdr.HostFunction.fromXDR(func, "base64").invokeContract();
@@ -82,7 +87,7 @@ export async function authorizeRelay(func: string, user: string | null) {
         if (!user || wallet?.contractId !== quote.depositor) throw forbidden();
         await requireSubmission(user);
       }
-      return;
+      return noKeyChange;
     } catch (error) {
       if (error instanceof TRPCError) throw error;
       throw forbidden();
@@ -94,8 +99,9 @@ export async function authorizeRelay(func: string, user: string | null) {
     ["register", "set_pubkey"].includes(operation) &&
     scValToNative(args[0]) === wallet.contractId
   )
-    return;
-  if (contract === wallet.contractId && operation === "set_owner") return;
+    return { keyChangeAccount: wallet.contractId };
+  if (contract === wallet.contractId && operation === "set_owner")
+    return noKeyChange;
   const payment =
     (contract === poolId && ["withdraw", "transfer"].includes(operation)) ||
     (contract === usdcSacId &&
@@ -103,4 +109,5 @@ export async function authorizeRelay(func: string, user: string | null) {
       scValToNative(args[0]) === wallet.contractId);
   if (!payment) throw forbidden();
   await requireSubmission(user);
+  return noKeyChange;
 }

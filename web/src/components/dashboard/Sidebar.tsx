@@ -6,6 +6,7 @@ import {
   AtSign,
   BadgeCheck,
   ChevronDown,
+  FileText,
   History,
   LayoutDashboard,
   Link2,
@@ -20,6 +21,7 @@ import { useEffect, useState } from "react";
 import {
   DASHBOARD_PATH,
   HISTORY_PATH,
+  INVOICES_PATH,
   LINKS_PATH,
   PASSPORT_PATH,
   SETTINGS_PATH,
@@ -50,6 +52,7 @@ import { useWallet } from "../WalletProvider";
 const NAV_ITEMS = [
   { label: "Dashboard", href: DASHBOARD_PATH, icon: LayoutDashboard },
   { label: "Links", href: LINKS_PATH, icon: Link2 },
+  { label: "Invoices", href: INVOICES_PATH, icon: FileText },
   {
     label: "Withdraw",
     href: WITHDRAW_PATH,
@@ -155,6 +158,8 @@ export function DashboardSidebar() {
                       activeHref === href ||
                       (href === LINKS_PATH &&
                         activeHref.startsWith(LINKS_PATH)) ||
+                      (href === INVOICES_PATH &&
+                        activeHref.startsWith(INVOICES_PATH)) ||
                       (href === WITHDRAW_PATH &&
                         activeHref.startsWith(WITHDRAW_PATH)) ||
                       (href === HISTORY_PATH &&

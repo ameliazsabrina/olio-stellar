@@ -30,11 +30,15 @@ const payInput = z.object({
 });
 type PayInput = z.infer<typeof payInput>;
 
+type InvoiceBinding = { invoiceId: string; version: number } | null;
+
 export function CctpPayForm(props: {
   username: string;
   notePubkey: Uint8Array;
   lockedAmount?: string | null;
   chain: CctpChain;
+  invoice?: InvoiceBinding;
+  disabled?: boolean;
 }) {
   return (
     <SolanaWalletProvider>
@@ -48,16 +52,21 @@ function CctpPayFormInner({
   notePubkey,
   lockedAmount,
   chain,
+  invoice = null,
+  disabled = false,
 }: {
   username: string;
   notePubkey: Uint8Array;
   lockedAmount?: string | null;
   chain: CctpChain;
+  invoice?: InvoiceBinding;
+  disabled?: boolean;
 }) {
   const { phase, status, start, hasPendingPayment, payments, exportRecovery } =
     useCctpDeposit({
       username,
       notePubkey,
+      invoice,
     });
   const { publicKey, signTransaction } = useWallet();
   const { connection } = useConnection();
@@ -285,7 +294,9 @@ function CctpPayFormInner({
           <Button
             className="min-h-11"
             type="submit"
-            disabled={busy || previewing || !preview || routeBlocked}
+            disabled={
+              busy || previewing || !preview || routeBlocked || disabled
+            }
           >
             {busy && (
               <Loader

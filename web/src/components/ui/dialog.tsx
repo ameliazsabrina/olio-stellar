@@ -66,10 +66,11 @@ function DialogContent({
           size === "lg" && "sm:max-w-xl",
           appearance === "glass" &&
             `${glassPopoverClass} ${glassThemeClass} [&_[data-slot=dialog-close]]:text-white/60 [&_[data-slot=dialog-close]]:hover:bg-white/10 [&_[data-slot=dialog-close]]:hover:text-white`,
-          // Solid linen (brand white) surface with obsidian components. The
-          // theme-linen class remaps every token (popover/card/foreground/
-          // primary), so default Buttons render obsidian and text reads dark.
-          appearance === "linen" && "theme-linen bg-brand-linen",
+          // Solid linen surface with obsidian components. The theme-linen
+          // class remaps every token (popover/card/foreground/primary), and
+          // the dashboard dark theme remaps them again, so the surface reads
+          // from --popover rather than a fixed brand colour.
+          appearance === "linen" && "theme-linen bg-popover",
           className,
         )}
         {...props}

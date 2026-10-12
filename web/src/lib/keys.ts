@@ -3,7 +3,7 @@ import { argon2id } from "@noble/hashes/argon2.js";
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha512 } from "@noble/hashes/sha2.js";
 import { concatBytes, randomBytes } from "@noble/hashes/utils.js";
-import { bytesToHex, fromBE, hexToBytes, R } from "./crypto";
+import { bytesToHex, fromBE, hexToBytes, R, toBE32 } from "./crypto";
 import { BadPinError } from "./pin-errors";
 
 const utf8 = (s: string) => new TextEncoder().encode(s);
@@ -107,6 +107,119 @@ export function deserializeEscrow(t: EscrowTransport): EscrowBlob {
   };
 }
 
+export type PriorEscrowTransport = {
+  generation: number;
+  encryptedSecretsHex: string;
+  saltHex: string;
+  kdfParams: KdfParams;
+  notePubkeyHex: string;
+};
+
+export type EscrowWithHistory = EscrowTransport & {
+  priorEscrows?: PriorEscrowTransport[];
+};
+
+export type KeyGeneration = {
+  generation: number;
+  current: boolean;
+  secrets: NoteSecrets;
+};
+
+function packSecrets(secrets: NoteSecrets): Uint8Array {
+  return concatBytes(toBE32(secrets.ownerSecret), secrets.viewSk);
+}
+
+function unpackSecrets(bytes: Uint8Array): NoteSecrets {
+  return {
+    ownerSecret: fromBE(bytes.slice(0, 32)),
+    viewSk: bytes.slice(32, 64),
+  };
+}
+
+export function encryptPriorSecrets(
+  secrets: NoteSecrets,
+  pin: string,
+  generation: number,
+  notePubkeyHex: string,
+  params: KdfParams = DEFAULT_KDF,
+): PriorEscrowTransport {
+  const salt = randomBytes(16);
+  const nonce = randomBytes(12);
+  const packed = packSecrets(secrets);
+  try {
+    const ct = gcm(escrowKey(pin, salt, params), nonce).encrypt(packed);
+    return {
+      generation,
+      encryptedSecretsHex: bytesToHex(concatBytes(nonce, ct)),
+      saltHex: bytesToHex(salt),
+      kdfParams: params,
+      notePubkeyHex,
+    };
+  } finally {
+    packed.fill(0);
+  }
+}
+
+export function decryptPriorSecrets(
+  prior: PriorEscrowTransport,
+  pin: string,
+): NoteSecrets {
+  const blob = hexToBytes(prior.encryptedSecretsHex);
+  const packed = gcm(
+    escrowKey(pin, hexToBytes(prior.saltHex), prior.kdfParams),
+    blob.slice(0, 12),
+  ).decrypt(blob.slice(12));
+  return unpackSecrets(packed);
+}
+
+export function nextGeneration(escrow: EscrowWithHistory): number {
+  return (
+    (escrow.priorEscrows ?? []).reduce(
+      (max, prior) => Math.max(max, prior.generation),
+      0,
+    ) + 1
+  );
+}
+
+export function deriveAllGenerations(
+  escrow: EscrowWithHistory,
+  pin: string,
+): KeyGeneration[] {
+  assertPin(pin);
+  let master: Uint8Array | undefined;
+  try {
+    try {
+      master = decryptMaster(deserializeEscrow(escrow), pin);
+    } catch {
+      throw new BadPinError();
+    }
+    const generations: KeyGeneration[] = [
+      {
+        generation: nextGeneration(escrow),
+        current: true,
+        secrets: deriveNoteSecrets(master),
+      },
+    ];
+    const priors = [...(escrow.priorEscrows ?? [])].sort(
+      (a, b) => b.generation - a.generation,
+    );
+    for (const prior of priors) {
+      try {
+        generations.push({
+          generation: prior.generation,
+          current: false,
+          secrets: decryptPriorSecrets(prior, pin),
+        });
+      } catch {
+        throw new BadPinError();
+      }
+    }
+    return generations;
+  } finally {
+    master?.fill(0);
+  }
+}
+
 export function verifyEscrowPin(
   currentEscrow: EscrowTransport,
   pin: string,
@@ -125,10 +238,10 @@ export function verifyEscrowPin(
 }
 
 export function rotateEscrow(
-  currentEscrow: EscrowTransport,
+  currentEscrow: EscrowWithHistory,
   currentPin: string,
   newPin: string,
-): EscrowTransport {
+): EscrowWithHistory {
   assertPin(currentPin);
   assertPin(newPin);
   const blob = deserializeEscrow(currentEscrow);
@@ -139,7 +252,29 @@ export function rotateEscrow(
     } catch {
       throw new BadPinError();
     }
-    return serializeEscrow(encryptMaster(master, newPin, DEFAULT_KDF));
+    const rotated = serializeEscrow(encryptMaster(master, newPin, DEFAULT_KDF));
+    if (!currentEscrow.priorEscrows) return rotated;
+    return {
+      ...rotated,
+      priorEscrows: currentEscrow.priorEscrows.map((prior) => {
+        let secrets: NoteSecrets;
+        try {
+          secrets = decryptPriorSecrets(prior, currentPin);
+        } catch {
+          throw new BadPinError();
+        }
+        try {
+          return encryptPriorSecrets(
+            secrets,
+            newPin,
+            prior.generation,
+            prior.notePubkeyHex,
+          );
+        } finally {
+          secrets.viewSk.fill(0);
+        }
+      }),
+    };
   } finally {
     master?.fill(0);
   }

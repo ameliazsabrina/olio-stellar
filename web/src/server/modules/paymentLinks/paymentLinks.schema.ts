@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { businessIdSchema } from "../businesses/businesses.schema";
+import { invoiceIdSchema } from "../invoices/invoices.schema";
 import { usernameSchema } from "../usernames/usernames.schema";
 
 const USDC_DECIMALS = 7;
@@ -79,6 +80,8 @@ const labelInput = z
     return value || undefined;
   });
 
+const invoiceIdInput = invoiceIdSchema.nullable().optional();
+
 export const createLinkInput = z
   .object({
     username: usernameSchema,
@@ -86,6 +89,7 @@ export const createLinkInput = z
     amount: amountInput,
     description: descriptionInput,
     label: labelInput.optional(),
+    invoiceId: invoiceIdInput,
   })
   .strict()
   .transform(({ label, ...input }) => ({
@@ -121,6 +125,7 @@ export const updateLinkInput = z
     manageToken: manageTokenInput,
     amount: amountInput,
     description: descriptionInput,
+    invoiceId: invoiceIdInput,
   })
   .strict();
 
@@ -161,6 +166,7 @@ export const linkOutput = z.object({
   archivedAt: z.string().nullable(),
   businessClaimed: z.boolean(),
   verifiedBusinessPublicId: z.string().nullable(),
+  invoiceId: z.string().nullable(),
 });
 
 // Raw manage token is returned exactly once, at creation; never on reads.
