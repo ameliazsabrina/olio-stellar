@@ -87,9 +87,9 @@ Create the evidence skeleton:
 node scripts/certify-testnet.mjs init --run-id=<run-id> --revision=<git-revision> --diff-hash=<hash>
 ```
 
-Use two recipient owners and controlled payers. For 100 USDC principal, verify 102 gross at 200 bps and 105 gross at 500 bps. The payer/intake loses gross, the pool gains exactly 100, the treasury gains 2 or 5, exactly one principal-sized note decrypts, and withdrawal returns the full 100 without a second Olio fee. Record network fees separately.
+Use two recipient owners and controlled payers. For 100 USDC principal, verify 102 gross at 200 bps, and confirm the pool rejects a quote at any other rate. The payer/intake loses gross, the pool gains exactly 100, the treasury gains 2, exactly one principal-sized note decrypts, and withdrawal returns the full 100 without a second Olio fee. Record network fees separately.
 
-Run free-form and managed links for both tiers; wallet mismatch, rejection, insufficient gross, duplicate clicks, expiry, changed amount/account/recipient/policy; signed-field tampering and replay; pause/transfer/withdraw behavior; and indexer restart/concurrency. A simulated rejection must be labeled simulation evidence, not a submitted on-chain rejection.
+Run free-form and managed links; wallet mismatch, rejection, insufficient gross, duplicate clicks, expiry, changed amount/account/recipient/policy; signed-field tampering and replay; pause/transfer/withdraw behavior; and indexer restart/concurrency. A simulated rejection must be labeled simulation evidence, not a submitted on-chain rejection.
 
 For every enabled EVM source and Solana, verify the six-decimal gross burn, immutable hook/source binding, attested message, Stellar mint, intake deposit, restart recovery, and concurrent retry behavior. A failure after mint must recover without a second mint, fee, commitment, or use of unrelated intake funds. Disable any source that is not individually certified.
 

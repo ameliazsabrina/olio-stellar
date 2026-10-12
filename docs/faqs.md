@@ -19,8 +19,8 @@ token just to get paid or cash out.
 
 ## How much does Olio charge?
 
-The payer pays the receiving client's 2% or 5% Olio service fee on top of the
-requested payment. A 100 USDC request costs 102 or 105 USDC, while the recipient
+The payer pays a flat 2% Olio service fee on top of the
+requested payment. A 100 USDC request costs 102 USDC, while the recipient
 receives the full 100 USDC. Checkout
 shows the payment, fee, total, and recipient amount before approval. Third-party
 cash or on-ramp providers may quote separate fees.

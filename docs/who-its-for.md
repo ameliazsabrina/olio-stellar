@@ -40,7 +40,7 @@ and you can prove any single payment without opening up the rest of your books.
 
 {% hint style="info" %}
 Olio covers the network fees, so neither you nor your customers need to hold a
-separate token for them. Olio charges a 2% or 5% service fee, added on top of
+separate token for them. Olio charges a 2% service fee, added on top of
 the invoice and paid by the customer. You receive the full invoice amount. See
 [FAQs](faqs.md#how-much-does-olio-charge).
 {% endhint %}

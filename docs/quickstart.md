@@ -57,7 +57,7 @@ customer choose the amount, and a managed link has a fixed amount and label.
 
 Your customer opens the link and pays in USDC from a Stellar wallet or from
 another chain such as Ethereum, Base or Solana. They don't need an Olio account.
-Olio's 2% or 5% service fee is added on top of the invoice, so you receive the
+Olio's 2% service fee is added on top of the invoice, so you receive the
 full amount.
 
 The invoice updates when the payment settles: **Partially paid** if the customer

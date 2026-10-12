@@ -69,10 +69,10 @@ Being honest here — Olio hides the *link* between payments, not everything:
 * The public fee event includes the rate and amount. It does not include the
   username, payment-link ID, note/view key, or salt.
 
-The pool accepts only 200 or 500 bps, verifies a dedicated Ed25519 quote signer,
+The pool accepts only 200 bps (2%), verifies a dedicated Ed25519 quote signer,
 checks expiry and exact arithmetic, and consumes each random quote ID once.
 Signer rotation is timelocked. Private transfers are disabled in this release
-because the current transfer circuit cannot enforce the hidden recipient tier.
+because the current transfer circuit cannot enforce the service fee.
 
 For the cleanest privacy, let funds rest and avoid withdrawing exact
 payment-sized amounts immediately. Full details in

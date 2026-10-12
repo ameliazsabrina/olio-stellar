@@ -35,7 +35,7 @@
 | Hash | Poseidon (shared across circuit / contract / browser) |
 | Withdraw public signals | `[root, nullifier, recipient, amount]` |
 | Transfer public signals | Circuit retained, but pool transfer entry point is gated off in this deployment |
-| Olio fee policy v2 | Allowed rates `200` or `500` bps; `floor(principal * bps / 10_000)` |
+| Olio fee policy v2 | Allowed rate `200` bps (2%); `floor(principal * bps / 10_000)` |
 | Fee quote format | v1 canonical Soroban XDR, SHA-256, Ed25519 authorization |
 | Pool fee event | payer, treasury, principal, rate, fee, total, policy version, and opaque quote ID |
 

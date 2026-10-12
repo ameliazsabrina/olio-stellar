@@ -41,7 +41,7 @@ For payments that don't need an invoice. Every link has a QR code.
 
 ## Fees at checkout
 
-Before the customer approves, checkout shows the payment amount, your 2% or 5%
+Before the customer approves, checkout shows the payment amount, the 2%
 Olio service fee, and their total. The fee is added on top, so you receive the
 full amount.
 
