@@ -11,12 +11,12 @@ import { Card } from "../../../components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
 import { glassSegmentedClass } from "../../../components/ui/glass";
 import { Input } from "../../../components/ui/input";
 import { ToastFeedback } from "../../../components/ui/toast-feedback";
+import { CctpChainMenuItems } from "../../../features/cctpPayer/CctpChainMenuItems";
 import type { CctpChain } from "../../../features/cctpPayer/hooks/useCctpDeposit";
 import { usePublicInvoice } from "../../../features/invoices/usePublicInvoice";
 import { usePayerWallet } from "../../../features/payerWallet/hooks/usePayerWallet";
@@ -314,60 +314,15 @@ export function PayForm({
                   appearance="glass"
                   align="end"
                   sideOffset={8}
-                  className="p-2"
+                  className="max-h-[min(26rem,var(--available-height))] p-2"
                 >
-                  <DropdownMenuItem
-                    className="min-h-12 cursor-pointer gap-3 px-3 text-brand-linen focus:bg-brand-linen/14 focus:text-brand-linen"
-                    onClick={() => {
+                  <CctpChainMenuItems
+                    onSelect={(chain) => {
                       setStatus(null);
-                      setCctpChain("solana");
+                      setCctpChain(chain);
                       setMethod("cctp");
                     }}
-                  >
-                    <Image
-                      src="/assets/sol.png"
-                      alt=""
-                      width={28}
-                      height={28}
-                      className="size-7 rounded-full"
-                    />
-                    Solana
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="min-h-12 cursor-pointer gap-3 px-3 text-brand-linen focus:bg-brand-linen/14 focus:text-brand-linen"
-                    onClick={() => {
-                      setStatus(null);
-                      setCctpChain("base");
-                      setMethod("cctp");
-                    }}
-                  >
-                    <Image
-                      src="/assets/base.png"
-                      alt=""
-                      width={28}
-                      height={28}
-                      className="size-7 rounded-full"
-                    />
-                    Base
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled
-                    className="min-h-12 gap-3 px-3 text-brand-linen/60 opacity-100 data-disabled:opacity-100"
-                  >
-                    <Image
-                      src="/assets/eth.png"
-                      alt=""
-                      width={28}
-                      height={28}
-                      className="size-7 rounded-full"
-                    />
-                    <span className="grid gap-0.5">
-                      <span>EVM Chains</span>
-                      <span className="text-xs font-normal text-brand-linen/45">
-                        (under development)
-                      </span>
-                    </span>
-                  </DropdownMenuItem>
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

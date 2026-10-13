@@ -31,6 +31,9 @@ vi.mock("../src/features/payerWallet/hooks/usePayerWallet", () => ({
   }),
 }));
 vi.mock("../src/lib/cctp", () => ({ cctpIntakeContract: "" }));
+vi.mock("../src/features/cctpPayer/CctpChainMenuItems", () => ({
+  CctpChainMenuItems: () => null,
+}));
 vi.mock("../src/app/pay/[username]/CctpPayForm", () => ({
   CctpPayForm: () => null,
 }));

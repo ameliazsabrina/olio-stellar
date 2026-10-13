@@ -2,8 +2,9 @@ import "server-only";
 import { z } from "zod";
 import { env } from "../../../env";
 import { getServerEnv } from "../../../env.server";
+import { CCTP_SOURCE_DOMAINS } from "../../../lib/cctp";
 
-export const sourceDomainSchema = z.union([z.literal(0), z.literal(1), z.literal(3), z.literal(5), z.literal(6)]);
+export const sourceDomainSchema = z.number().int().refine(domain => CCTP_SOURCE_DOMAINS.includes(domain), "Unsupported CCTP source domain.");
 export const routeManifestSchema = z.object({
   // A manifest is an operator assertion backed by the certification artifact.
   network: z.literal("testnet"),
@@ -15,7 +16,7 @@ export const routeManifestSchema = z.object({
     domain: sourceDomainSchema,
     eligible: z.boolean(),
     certified: z.boolean(),
-  }).strict()).max(5),
+  }).strict()).max(CCTP_SOURCE_DOMAINS.length),
 }).strict().refine(v => new Set(v.routes.map(r => r.domain)).size === v.routes.length);
 
 export function cctpConfig() {

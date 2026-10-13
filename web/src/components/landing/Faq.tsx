@@ -14,7 +14,7 @@ const FAQ_ITEMS = [
   {
     question: "Do my customers need to use Olio?",
     answer:
-      "No. Send an invoice, or share a payment link or QR code. Your customer pays in USDC from Stellar, Ethereum, Base, Arbitrum, Avalanche or Solana, without an Olio account.",
+      "No. Send an invoice, or share a payment link or QR code. Your customer pays in USDC from Stellar, Solana, Ethereum, Base, Arbitrum, Avalanche, Polygon, Optimism and 14 more chains, without an Olio account.",
   },
   {
     question: "Do I need to verify?",

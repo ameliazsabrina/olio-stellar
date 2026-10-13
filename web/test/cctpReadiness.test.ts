@@ -59,7 +59,7 @@ describe("CCTP route readiness gates", () => {
   });
 
   it.each([
-    ["unknown source domain", () => {}, 2, "unsupported", "unsupported_source"],
+    ["unknown source domain", () => {}, 4, "unsupported", "unsupported_source"],
     ["mainnet deployment", () => state.testnet.mockImplementation(() => { throw new Error("testnet only"); }), 0, "temporarily_unavailable", "dependency_unavailable"],
     ["missing manifest", () => { state.config = { ...healthy(), manifest: null }; }, 0, "eligibility_unavailable", "eligibility_not_confirmed"],
     ["ineligible route", () => {}, 6, "eligibility_unavailable", "eligibility_not_confirmed"],
