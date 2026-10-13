@@ -4,17 +4,18 @@ import { getServerEnv } from "../../../env.server";
 import { EVM_SOURCES } from "../../../lib/cctp";
 import { sourceDomainSchema } from "./cctp.config";
 import { CctpOperationalError } from "./cctp.errors";
-import { boundedJson, isSolanaSignature } from "./iris.client";
 import { coordination, digest, sharedBudget } from "./cctp.storage";
+import { boundedJson, isSolanaSignature } from "./iris.client";
 
+// EVM sources default to their registry RPC; Solana devnet is the one non-EVM source.
 const defaults: Record<number, string> = {
-  0: "https://ethereum-sepolia-rpc.publicnode.com", 1: "https://api.avax-test.network/ext/bc/C/rpc",
-  3: "https://sepolia-rollup.arbitrum.io/rpc", 6: "https://sepolia.base.org", 5: "https://api.devnet.solana.com",
+  ...Object.fromEntries(Object.values(EVM_SOURCES).map(s => [s.domain, s.rpcUrl])),
+  5: "https://api.devnet.solana.com",
 };
 // Full base58 genesis hash of Solana devnet (`solana genesis-hash -u devnet`).
 const SOLANA_DEVNET_GENESIS_HASH = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
 const endpointSchema = z.string().url().refine(s => { const u = new URL(s); return u.protocol === "https:" && !u.username && !u.password && !u.hash; });
-const endpointsSchema = z.record(z.string().regex(/^(0|1|3|5|6)$/), z.array(endpointSchema).min(1).max(3));
+const endpointsSchema = z.record(z.string().regex(/^\d{1,3}$/).refine(key => sourceDomainSchema.safeParse(Number(key)).success), z.array(endpointSchema).min(1).max(3));
 function endpoints(domain: number): string[] {
   sourceDomainSchema.parse(domain);
   const raw = getServerEnv().CCTP_SOURCE_RPC_URLS;

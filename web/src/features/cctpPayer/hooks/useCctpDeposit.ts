@@ -3,7 +3,11 @@
 import type { Connection } from "@solana/web3.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CCTP_CHAIN_DOMAIN, cctpIntakeContract } from "../../../lib/cctp";
+import {
+  CCTP_CHAIN_DOMAIN,
+  type CctpChain,
+  cctpIntakeContract,
+} from "../../../lib/cctp";
 import {
   bytesToHex,
   commitment,
@@ -29,7 +33,7 @@ import {
 
 export type { CctpChain } from "../../../lib/cctp";
 export type CctpStartOpts =
-  | { chain: "evm" | "base" }
+  | { chain: Exclude<CctpChain, "solana"> }
   | { chain: "solana"; wallet: SolanaBurnWallet; connection: Connection };
 export type CctpPhase = "idle" | "burning" | "attesting" | "relaying" | "done";
 export type CctpStatus = { kind: "ok" | "err"; msg: string } | null;

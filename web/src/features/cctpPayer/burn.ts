@@ -228,9 +228,7 @@ export async function burnToStellar(params: {
   const chainId = Number.parseInt(chainIdHex, 16);
   const source: EvmSource | undefined = evmSourceByChainId(chainId);
   if (!source) {
-    throw new Error(
-      "Switch your wallet to a CCTP testnet (Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, or Avalanche Fuji).",
-    );
+    throw new Error("Switch your wallet to a supported CCTP testnet.");
   }
   const sourcePayer = account.slice(2).padStart(64, "0").toLowerCase();
   if (
