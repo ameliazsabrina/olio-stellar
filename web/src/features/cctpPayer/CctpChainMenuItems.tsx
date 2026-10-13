@@ -8,8 +8,24 @@ type ChainOption = { chain: CctpChain; label: string; icon?: string };
 
 const ICONS: Partial<Record<CctpChain, string>> = {
   solana: "/assets/sol.png",
-  base: "/assets/base.png",
   ethereum: "/assets/eth.png",
+  base: "/assets/base.png",
+  arbitrum: "/assets/arbitrum.png",
+  avalanche: "/assets/avalanche.png",
+  optimism: "/assets/optimism.png",
+  polygon: "/assets/polygon.png",
+  arc: "/assets/arc.png",
+  hyperevm: "/assets/hyperevm.png",
+  injective: "/assets/injective.png",
+  ink: "/assets/ink.png",
+  linea: "/assets/linea.png",
+  monad: "/assets/monad.png",
+  plume: "/assets/plume.png",
+  sei: "/assets/sei.jpeg",
+  sonic: "/assets/sonic.png",
+  unichain: "/assets/unichain.png",
+  worldchain: "/assets/worldchain.png",
+  xdc: "/assets/xdc.png",
 };
 
 // The most-used sources lead; the rest follow alphabetically.
@@ -63,10 +79,8 @@ export function CctpChainMenuItems({
       ) : (
         <span
           aria-hidden="true"
-          className="grid size-7 place-items-center rounded-full bg-brand-linen/15 text-xs font-semibold text-brand-linen ring-1 ring-brand-linen/20"
-        >
-          {option.label.charAt(0)}
-        </span>
+          className="size-7 shrink-0 rounded-full bg-brand-linen/15 ring-1 ring-brand-linen/20"
+        />
       )}
       {option.label}
     </DropdownMenuItem>

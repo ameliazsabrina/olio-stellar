@@ -43,3 +43,18 @@ describe("CCTP source registry", () => {
     }
   });
 });
+
+describe("CCTP chain picker", () => {
+  it("points every chain icon at a file in public/", async () => {
+    const { existsSync } = await import("node:fs");
+    const { CCTP_CHAIN_OPTIONS } = await import(
+      "../src/features/cctpPayer/CctpChainMenuItems"
+    );
+    for (const option of CCTP_CHAIN_OPTIONS) {
+      if (option.icon) expect(existsSync(`public${option.icon}`)).toBe(true);
+    }
+    expect(
+      CCTP_CHAIN_OPTIONS.filter((o) => !o.icon).map((o) => o.chain),
+    ).toEqual(["codex", "morph"]);
+  });
+});
