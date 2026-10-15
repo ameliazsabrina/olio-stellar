@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { PAYER_MESSAGES, toPayerError, tooManyAttempts } from "../../lib/payerErrors";
 import { rateLimit } from "../../lib/rateLimit";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
@@ -38,26 +39,33 @@ function enforceRateLimit(
     limit,
     RATE_WINDOW_MS,
   );
-  if (!ok) {
-    throw new TRPCError({
-      code: "TOO_MANY_REQUESTS",
-      message: `Too many requests. Retry in ${Math.ceil(retryAfterMs / 1000)}s.`,
-    });
-  }
+  if (!ok) throw tooManyAttempts(retryAfterMs);
 }
 
+// Only /pay calls this router; internal messages travel as the cause for logs.
+// Pre-send failures reach the payer as-is; post-send ones are replaced client-side.
+const NETWORK_UNAVAILABLE =
+  "Payments from this network are temporarily unavailable. You haven't been charged.";
+
 function mapError(e: unknown): never {
-  if (e instanceof CctpOperationalError) throw new TRPCError({ code: e.code === "unauthorized" ? "NOT_FOUND" : e.code === "throttled" ? "TOO_MANY_REQUESTS" : "PRECONDITION_FAILED", message: e.message });
+  if (e instanceof CctpOperationalError) {
+    if (e.code === "unauthorized")
+      throw new TRPCError({ code: "NOT_FOUND", message: "We couldn't find this payment. Check your payment backup.", cause: e });
+    if (e.code === "throttled") throw tooManyAttempts(e.retryAfterMs);
+    if (e.code === "binding")
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This payment can't continue. Please start a new payment.", cause: e });
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: NETWORK_UNAVAILABLE, cause: e });
+  }
   if (e instanceof CctpPayeeError) {
-    throw new TRPCError({ code: "NOT_FOUND", message: e.message });
+    throw new TRPCError({ code: "NOT_FOUND", message: PAYER_MESSAGES.recipientNotFound, cause: e });
   }
   if (e instanceof CctpConfigError) {
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: e.message });
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Paying from other networks isn't available right now.", cause: e });
   }
   if (e instanceof CctpAttestationError || e instanceof CctpRelayError) {
-    throw new TRPCError({ code: "BAD_GATEWAY", message: e.message });
+    throw new TRPCError({ code: "BAD_GATEWAY", message: NETWORK_UNAVAILABLE, cause: e });
   }
-  throw e;
+  throw toPayerError(e);
 }
 
 export const cctpRouter = createTRPCRouter({

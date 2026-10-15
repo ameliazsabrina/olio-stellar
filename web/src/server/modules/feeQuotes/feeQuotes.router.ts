@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { PAYER_MESSAGES, toPayerError } from "../../lib/payerErrors";
 import { __resetRateLimit, rateLimit } from "../../lib/rateLimit";
 import { createTRPCRouter, publicProcedure } from "../../trpc";
 import {
@@ -6,6 +7,7 @@ import {
   InvoiceConflictError,
   InvoiceNotFoundError,
   InvoiceStateError,
+  type InvoiceStateReason,
 } from "../invoices/invoices.errors";
 import {
   FeePolicyUnavailableError,
@@ -43,23 +45,45 @@ export function resetFeeQuoteRateLimitsForTests(): void {
   if (process.env.NODE_ENV === "test") __resetRateLimit();
 }
 
+// Only /pay calls this router, so every message below is payer-facing copy.
+const INVOICE_STATE_MESSAGES: Partial<Record<InvoiceStateReason, string>> = {
+  not_payable: "This invoice is not open for payment.",
+  payment_in_progress:
+    "Another payment for this invoice is processing. Please wait and try again.",
+  business_inactive: "This business can't receive payments right now.",
+  account_unbound: "This business can't receive payments right now.",
+};
+
 function mapError(error: unknown): never {
-  if (error instanceof FeeQuoteBadRequestError || error instanceof RangeError) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
-  }
-  if (error instanceof FeeQuoteRecipientNotFoundError) {
-    throw new TRPCError({ code: "NOT_FOUND", message: error.message });
-  }
-  if (error instanceof FeePolicyUnavailableError) {
+  if (error instanceof FeeQuoteBadRequestError) {
     throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: error.message,
+      code: "BAD_REQUEST",
+      message: error.publicMessage ?? PAYER_MESSAGES.invalidRequest,
+      cause: error,
     });
   }
-  if (error instanceof FeeQuoteSignerError) {
+  if (error instanceof RangeError) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This amount can't be paid from this network. Try a slightly different amount.",
+      cause: error,
+    });
+  }
+  if (error instanceof FeeQuoteRecipientNotFoundError) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: PAYER_MESSAGES.recipientNotFound,
+    });
+  }
+  if (
+    error instanceof FeePolicyUnavailableError ||
+    error instanceof FeeQuoteSignerError
+  ) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: "Fee quoting is unavailable.",
+      message: PAYER_MESSAGES.unavailable,
+      cause: error,
     });
   }
   if (error instanceof FeeQuoteRouteUnavailableError) {
@@ -67,35 +91,53 @@ function mapError(error: unknown): never {
     // carried as the cause so it is logged without leaking to the caller.
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: error.message,
+      message:
+        "Payments from this network aren't available right now. You haven't been charged.",
       cause: error,
     });
   }
   if (error instanceof FeeQuoteReadinessError) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: "Payment quoting is unavailable.",
+      message: PAYER_MESSAGES.unavailable,
+      cause: error,
     });
   }
   if (error instanceof FeeQuoteRateLimitError) {
-    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: error.message });
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: PAYER_MESSAGES.busy,
+    });
   }
   if (error instanceof InvoiceNotFoundError) {
-    throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "We couldn't find this invoice.",
+    });
   }
-  if (
-    error instanceof InvoiceStateError ||
-    error instanceof InvoiceConfigError
-  ) {
+  if (error instanceof InvoiceStateError) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
-      message: error.message,
+      message:
+        INVOICE_STATE_MESSAGES[error.reason] ??
+        "This invoice can't be paid here.",
+      cause: error,
+    });
+  }
+  if (error instanceof InvoiceConfigError) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Invoice payments are temporarily unavailable.",
+      cause: error,
     });
   }
   if (error instanceof InvoiceConflictError) {
-    throw new TRPCError({ code: "CONFLICT", message: error.message });
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This invoice was just updated. Reload the page and try again.",
+    });
   }
-  throw error;
+  throw toPayerError(error);
 }
 
 export const feeQuotesRouter = createTRPCRouter({

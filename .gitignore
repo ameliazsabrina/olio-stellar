@@ -39,3 +39,4 @@ web/playwright/.cache/
 
 # Release split helper (local only).
 release-split/
+internal/

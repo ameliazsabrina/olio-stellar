@@ -48,9 +48,7 @@ export function useEvmPayerWallet(source: EvmSource | undefined) {
         offAccounts();
         offChain();
       };
-    } catch {
-      /* A wallet is optional until the payer chooses Connect wallet. */
-    }
+    } catch {}
   }, [source]);
 
   const connect = useCallback(async () => {
@@ -61,10 +59,10 @@ export function useEvmPayerWallet(source: EvmSource | undefined) {
       const accounts = await provider.request({
         method: "eth_requestAccounts",
       });
-      if (!accounts[0]) throw new Error("No EVM account authorized.");
+      if (!accounts[0])
+        throw new Error("Allow access to a wallet account to continue.");
       setAddress(accounts[0]);
       if (source) await ensureEvmChain(source, provider);
-      // Read accounts again because a wallet may change them while switching networks.
       const current = await provider.request({ method: "eth_accounts" });
       setAddress(current[0] ?? null);
       setChainId(Number(await provider.request({ method: "eth_chainId" })));
@@ -72,7 +70,7 @@ export function useEvmPayerWallet(source: EvmSource | undefined) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Unable to connect your EVM wallet.",
+          : "Couldn't connect your wallet.",
       );
     } finally {
       setConnecting(false);

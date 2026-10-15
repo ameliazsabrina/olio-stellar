@@ -73,7 +73,7 @@ export async function burnFromSolana(params: {
   if (
     params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000))
   ) {
-    throw new Error("The fee quote expired before the CCTP burn.");
+    throw new Error("This price expired. Please try again.");
   }
   const { wallet, connection } = params;
   const owner = wallet.publicKey;
@@ -87,7 +87,7 @@ export async function burnFromSolana(params: {
       bytesToHex(owner.toBytes()).toLowerCase()
   ) {
     throw new Error(
-      "Connected Solana wallet does not match the signed fee quote.",
+      "Your connected wallet changed. Please try again.",
     );
   }
 
@@ -174,13 +174,13 @@ export async function burnFromSolana(params: {
   tx.partialSign(messageSentEventKeypair);
   await params.beforeBurn?.();
   const signed = await signTransaction(tx);
-  if (!wallet.publicKey?.equals(owner) || params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000))) throw new Error("Wallet changed or the payment quote expired before submission.");
-  if (!signed.signature || !signed.verifySignatures()) throw new Error("The wallet did not sign the payment transaction.");
+  if (!wallet.publicKey?.equals(owner) || params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000))) throw new Error("Your wallet changed or the price expired. Please try again.");
+  if (!signed.signature || !signed.verifySignatures()) throw new Error("The payment wasn't approved in your wallet.");
   const signature = base58(signed.signature);
   // Persist the signed identifier before any HTTP broadcast; a lost response cannot lose the payment.
   await params.onSubmitted?.(signature, { blockhash, lastValidBlockHeight });
 
-  if (await connection.getBlockHeight("confirmed") > lastValidBlockHeight) throw new Error("The signed transaction expired before broadcast. Resume tracking to reconcile it.");
+  if (await connection.getBlockHeight("confirmed") > lastValidBlockHeight) throw new Error("This payment took too long to send. Please try again.");
   await connection.sendRawTransaction(signed.serialize(), { skipPreflight: false, preflightCommitment: "confirmed", maxRetries: 2 });
   // The durable worker observes finality. No WebSocket confirmation dependency.
 

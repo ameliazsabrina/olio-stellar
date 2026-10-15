@@ -28,37 +28,32 @@ export type RouteGate =
       retryAt: number | null;
     };
 
+// Payer-facing copy: say whether to wait or come back, not which upstream failed.
+const BUSY = "Payments from this network are busy. Try again in a moment.";
+const PAUSED = "Payments from this network are paused for now.";
+const UNSUPPORTED = "Payments from this network aren't supported yet.";
+
 const REASON_MESSAGES: Record<string, string> = {
-  unsupported_source: "This chain isn't a supported CCTP source.",
-  eligibility_not_confirmed: "Payments from this chain aren't open yet.",
-  route_not_certified: "Payments from this chain are temporarily paused.",
-  upstream_denied_investigate:
-    "Circle's attestation service is refusing requests from Olio. Payments are paused until an operator reviews it.",
-  upstream_denied:
-    "Circle's attestation service is refusing requests. Try again later.",
-  upstream_backoff:
-    "Circle's attestation service is recovering. Try again in a moment.",
+  unsupported_source: UNSUPPORTED,
+  eligibility_not_confirmed: UNSUPPORTED,
+  route_not_certified: PAUSED,
+  upstream_denied_investigate: PAUSED,
+  upstream_denied: PAUSED,
+  upstream_backoff: BUSY,
   worker_unavailable:
-    "Olio's settlement worker is offline. Payments from this chain resume automatically once it is back.",
-  storage_not_ready: "Olio's payment storage isn't ready. Try again shortly.",
-  provider_fee_requires_gross_up:
-    "Circle is charging a transfer fee on this route, which Olio doesn't support yet.",
-  dependency_unavailable:
-    "A service Olio depends on is unavailable. Try again shortly.",
-  throttled: "Too many attestation requests right now. Try again in a moment.",
-  timeout:
-    "Circle's attestation service is slow to respond. Try again shortly.",
-  transport:
-    "Olio couldn't reach Circle's attestation service. Try again shortly.",
-  configuration: "Cross-chain payments aren't configured on this deployment.",
-  unsupported: "This route isn't available right now.",
+    "Payments from this network are paused and will resume automatically.",
+  storage_not_ready: BUSY,
+  provider_fee_requires_gross_up: UNSUPPORTED,
+  dependency_unavailable: BUSY,
+  throttled: BUSY,
+  timeout: BUSY,
+  transport: BUSY,
+  configuration: "Paying from other networks isn't available right now.",
+  unsupported: UNSUPPORTED,
 };
 
 export function describeReadiness(readiness: RouteReadiness): string {
-  return (
-    REASON_MESSAGES[readiness.reason] ??
-    "Cross-chain payments from this chain are temporarily unavailable."
-  );
+  return REASON_MESSAGES[readiness.reason] ?? BUSY;
 }
 
 export function useCctpRouteReadiness(
@@ -124,8 +119,7 @@ export function useCctpRouteReadiness(
         setGate({
           kind: "blocked",
           readiness: null,
-          message:
-            "Olio couldn't confirm this route is open. Try again shortly.",
+          message: BUSY,
           retryAt: Date.now() + 15_000,
         });
         timer.current = setTimeout(run, 15_000);

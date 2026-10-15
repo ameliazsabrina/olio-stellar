@@ -51,7 +51,7 @@ export function getEvmProvider(): EIP1193Provider {
   const provider = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
   if (!provider) {
     throw new Error(
-      "No EVM wallet found. Install MetaMask to pay from an EVM chain.",
+      "No wallet found. Install MetaMask to pay from this network.",
     );
   }
   return provider;
@@ -183,14 +183,14 @@ export async function evmCctpIdentity(expectedDomain?: number): Promise<{
   const [account] = (await provider.request({
     method: "eth_requestAccounts",
   })) as `0x${string}`[];
-  if (!account) throw new Error("No EVM account authorized.");
+  if (!account)
+    throw new Error("Allow access to a wallet account to continue.");
   if (expected) await ensureEvmChain(expected, provider);
   const chainIdHex = (await provider.request({
     method: "eth_chainId",
   })) as string;
   const source = evmSourceByChainId(Number.parseInt(chainIdHex, 16));
-  if (!source)
-    throw new Error("Switch your wallet to a supported CCTP testnet.");
+  if (!source) throw new Error("Switch your wallet to a supported network.");
   if (expected && source.domain !== expected.domain)
     throw new Error(`Switch your wallet to ${expected.name} to continue.`);
   return {
@@ -208,18 +208,19 @@ export async function burnToStellar(params: {
   if (
     params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000))
   ) {
-    throw new Error("The fee quote expired before the CCTP burn.");
+    throw new Error("This price expired. Please try again.");
   }
   const provider = getEvmProvider();
   const [account] = (await provider.request({
     method: "eth_requestAccounts",
   })) as `0x${string}`[];
-  if (!account) throw new Error("No EVM account authorized.");
+  if (!account)
+    throw new Error("Allow access to a wallet account to continue.");
 
   // The signed quote, not the wallet's current network, determines where funds burn.
   const quotedSource = EVM_SOURCES[params.feeQuote.quote.sourceDomain];
   if (!quotedSource)
-    throw new Error("Unsupported EVM source in the signed fee quote.");
+    throw new Error("This network isn't supported. Please try again.");
   await ensureEvmChain(quotedSource, provider);
 
   const chainIdHex = (await provider.request({
@@ -228,7 +229,7 @@ export async function burnToStellar(params: {
   const chainId = Number.parseInt(chainIdHex, 16);
   const source: EvmSource | undefined = evmSourceByChainId(chainId);
   if (!source) {
-    throw new Error("Switch your wallet to a supported CCTP testnet.");
+    throw new Error("Switch your wallet to a supported network.");
   }
   const sourcePayer = account.slice(2).padStart(64, "0").toLowerCase();
   if (
@@ -236,9 +237,7 @@ export async function burnToStellar(params: {
     bytesToHex(params.feeQuote.quote.sourcePayer).slice(2).toLowerCase() !==
       sourcePayer
   ) {
-    throw new Error(
-      "Connected EVM wallet does not match the signed fee quote.",
-    );
+    throw new Error("Your connected wallet changed. Please try again.");
   }
 
   const publicClient = createPublicClient({
@@ -274,7 +273,9 @@ export async function burnToStellar(params: {
       timeout: 120_000,
     });
     if (receipt.status !== "success")
-      throw new Error("USDC approval failed. No payment was submitted.");
+      throw new Error(
+        "USDC approval didn't go through. You haven't been charged.",
+      );
   }
 
   await params.beforeBurn?.();
@@ -290,7 +291,7 @@ export async function burnToStellar(params: {
       "Your wallet account or network changed. Review the payment again.",
     );
   if (params.feeQuote.quote.expiresAt <= BigInt(Math.floor(Date.now() / 1000)))
-    throw new Error("The fee quote expired before the CCTP burn.");
+    throw new Error("This price expired. Please try again.");
   const txHash = await walletClient.writeContract({
     account,
     chain: null,

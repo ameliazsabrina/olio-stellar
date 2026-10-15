@@ -76,7 +76,7 @@ export function CreateAccountForm({
           <DialogTitle>Create Your Account</DialogTitle>
           <DialogDescription className="mx-auto">
             Pick a username. It will become your payment link, like
-            olio.xyz/@jimmymcgill.
+            oliopay.xyz/pay/@loremipsum.
           </DialogDescription>
         </DialogHeader>
 

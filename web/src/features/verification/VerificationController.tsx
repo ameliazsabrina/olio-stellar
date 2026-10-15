@@ -7,7 +7,15 @@ import {
   type ReactNode,
 } from "react";
 import Image from "next/image";
-import { Check, LogOut, Moon, RotateCw, Sun, XIcon } from "lucide-react";
+import {
+  Check,
+  Loader,
+  LogOut,
+  Moon,
+  RotateCw,
+  Sun,
+  XIcon,
+} from "lucide-react";
 import { useWallet } from "../../components/WalletProvider";
 import { useDashboardTheme } from "../../components/dashboard/DashboardBackground";
 import {
@@ -273,7 +281,7 @@ function AccountVerification({ children }: { children: ReactNode }) {
     {
       title: `Verify your ${isCompany ? "company" : "identity"}`,
       description:
-        "Documents and selfies go straight to our verification partner. This takes a few minutes.",
+        "Documents go straight to our verification partner. This takes a few minutes.",
     },
     {
       title: "Submission received",
@@ -286,8 +294,14 @@ function AccountVerification({ children }: { children: ReactNode }) {
       {ready && fresh && boundData?.submitted ? (
         children
       ) : (
-        <div role="status" className="py-16 text-center">
-          Loading your data...
+        <div
+          role="status"
+          className="flex min-h-dvh flex-col items-center justify-center gap-3 text-center"
+        >
+          <Loader
+            className="size-8 text-foreground/70 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
         </div>
       )}
       <Dialog
@@ -529,9 +543,9 @@ function AccountVerification({ children }: { children: ReactNode }) {
                   ))}
                 {step === 1 && (
                   <p className="rounded-xl border border-(--control-border) bg-(--control) px-3.5 py-3 text-xs leading-[17px] text-(--control-muted)">
-                    Documents and selfies are collected by our verification
-                    partner. Olio stores your verification status. Your public
-                    badge is optional.
+                    Documents are collected by our verification partner. Olio
+                    stores your verification status. Your public badge is
+                    optional.
                   </p>
                 )}
                 {step === 2 &&

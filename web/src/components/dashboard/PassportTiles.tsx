@@ -202,46 +202,6 @@ export function PassportTiles() {
           }
         />
       </section>
-
-      <section
-        className="min-w-0 md:col-span-2 lg:col-span-12"
-        aria-labelledby="passport-scope-heading"
-      >
-        <DashboardTile
-          appearance="linen"
-          className="min-h-0"
-          header={
-            <h2 id="passport-scope-heading" className="dashboard-tile-title">
-              What this badge means
-            </h2>
-          }
-          content={
-            <div className="mt-5 grid gap-4 text-sm leading-6 text-muted-foreground sm:grid-cols-3">
-              <p>
-                <span className="font-semibold text-foreground">
-                  Verified:{" "}
-                </span>
-                identity documents and checks passed Olio's policy at the time
-                shown.
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">
-                  Not verified:{" "}
-                </span>
-                revenue, customer relationships, creditworthiness or legal
-                compliance in any jurisdiction.
-              </p>
-              <p>
-                <span className="font-semibold text-foreground">
-                  Kept current:{" "}
-                </span>
-                Olio re-checks the result on a schedule and hides the badge if
-                it lapses, is suspended, or the linked account changes.
-              </p>
-            </div>
-          }
-        />
-      </section>
     </>
   );
 }

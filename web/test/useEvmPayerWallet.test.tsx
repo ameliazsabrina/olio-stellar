@@ -57,6 +57,6 @@ it("reports a missing wallet only after connect", async () => {
   await act(async () => {
     await result.current.connect();
   });
-  expect(result.current.error).toMatch(/No EVM wallet found/);
+  expect(result.current.error).toMatch(/No wallet found/);
   expect(result.current.connecting).toBe(false);
 });

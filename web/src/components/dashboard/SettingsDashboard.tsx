@@ -51,7 +51,7 @@ export function SettingsDashboard() {
     <>
       <DashboardPageHeader
         title="Settings"
-        description="The essentials for your Olio account, explained without the crypto jargon."
+        description="The essentials for your Olio account."
       />
 
       <div className="grid grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
@@ -102,12 +102,6 @@ function IdentityTile({ username }: { username: string | null }) {
               This is the public name people use to pay you. It does not reveal
               your balance or payment history.
             </p>
-          </div>
-        }
-        footer={
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <LockKeyhole className="size-3.5" aria-hidden="true" />
-            Your handle is permanent and cannot be renamed.
           </div>
         }
       />

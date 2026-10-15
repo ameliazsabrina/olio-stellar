@@ -70,7 +70,7 @@ describe("CctpPayForm authoritative fee review", () => {
         chain="evm"
       />,
     );
-    fireEvent.change(screen.getByLabelText("USDC (from an EVM chain)"), {
+    fireEvent.change(screen.getByLabelText("USDC (from another network)"), {
       target: { value: "100" },
     });
 
@@ -93,10 +93,10 @@ describe("CctpPayForm authoritative fee review", () => {
         chain="evm"
       />,
     );
-    fireEvent.change(screen.getByLabelText("USDC (from an EVM chain)"), {
+    fireEvent.change(screen.getByLabelText("USDC (from another network)"), {
       target: { value: "100" },
     });
-    expect(screen.getByRole("button", { name: "Pay via CCTP" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pay" })).toBeDisabled();
     expect(screen.queryByText(/Olio service fee/)).not.toBeInTheDocument();
   });
 
@@ -122,12 +122,12 @@ describe("CctpPayForm authoritative fee review", () => {
         chain="solana"
       />,
     );
-    fireEvent.change(screen.getByLabelText("USDC (from Solana devnet)"), {
+    fireEvent.change(screen.getByLabelText("USDC (from Solana)"), {
       target: { value: "100" },
     });
     await waitFor(() =>
       expect(mocks.toastError).toHaveBeenCalledWith(
-        expect.stringMatching(/settlement worker is offline/),
+        expect.stringMatching(/paused and will resume automatically/),
         expect.objectContaining({
           id: "cctp-route-unavailable",
           action: expect.objectContaining({ label: "Check again" }),
@@ -138,9 +138,9 @@ describe("CctpPayForm authoritative fee review", () => {
       expect(screen.getByText("Olio service fee (2%)")).toBeInTheDocument(),
     );
     expect(mocks.readiness).toHaveBeenCalledWith({ sourceDomain: 5 });
-    expect(screen.getByRole("button", { name: "Pay via CCTP" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Pay" })).toBeDisabled();
     expect(
-      screen.queryByText(/settlement worker is offline/),
+      screen.queryByText(/paused and will resume automatically/),
     ).not.toBeInTheDocument();
   });
 
@@ -159,16 +159,14 @@ describe("CctpPayForm authoritative fee review", () => {
         chain="solana"
       />,
     );
-    fireEvent.change(screen.getByLabelText("USDC (from Solana devnet)"), {
+    fireEvent.change(screen.getByLabelText("USDC (from Solana)"), {
       target: { value: "100" },
     });
     await waitFor(() =>
       expect(screen.getByText("Olio service fee (2%)")).toBeInTheDocument(),
     );
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Pay via CCTP" }),
-      ).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Pay" })).toBeEnabled(),
     );
     expect(screen.queryByText(/Checking this route/)).not.toBeInTheDocument();
   });
@@ -184,14 +182,16 @@ describe("CctpPayForm authoritative fee review", () => {
     expect(
       screen.getByLabelText("USDC (from Base Sepolia)"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Burn USDC on Base Sepolia/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Pay with USDC on Base Sepolia/),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(mocks.readiness).toHaveBeenCalledWith({ sourceDomain: 6 }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
     await waitFor(() =>
       expect(mocks.toastError).toHaveBeenCalledWith(
-        expect.stringMatching(/No EVM wallet found/),
+        expect.stringMatching(/No wallet found/),
         expect.objectContaining({ id: "cctp-evm-wallet-error" }),
       ),
     );

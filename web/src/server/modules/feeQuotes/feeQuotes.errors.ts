@@ -1,4 +1,12 @@
-export class FeeQuoteBadRequestError extends Error {}
+export class FeeQuoteBadRequestError extends Error {
+  /** Payer-facing copy; integrity failures keep the generic default. */
+  readonly publicMessage?: string;
+
+  constructor(message: string, publicMessage?: string) {
+    super(message);
+    this.publicMessage = publicMessage;
+  }
+}
 export class FeeQuoteRecipientNotFoundError extends Error {}
 export class FeePolicyUnavailableError extends Error {}
 export class FeeQuoteSignerError extends Error {}

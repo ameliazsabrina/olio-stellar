@@ -82,15 +82,6 @@ const nextConfig = {
     "@openzeppelin/relayer-plugin-channels",
     "snarkjs",
   ],
-  webpack: (config, { dev }) => {
-    // The proof dependency graph (snarkjs/wasmcurves) makes Next's
-    // persistent filesystem cache balloon to ~2GB. In dev, use an in-memory
-    // cache instead so nothing accumulates on disk between restarts.
-    if (dev) {
-      config.cache = { type: "memory" };
-    }
-    return config;
-  },
 };
 
 export default (phase) => ({

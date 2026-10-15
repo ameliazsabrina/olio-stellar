@@ -109,7 +109,7 @@ describe("EVM CCTP gross burn", () => {
           quote: { ...feeQuote.quote, expiresAt: 1n },
         },
       }),
-    ).rejects.toThrow("expired before the CCTP burn");
+    ).rejects.toThrow("This price expired");
     expect(mocks.request).not.toHaveBeenCalled();
     expect(mocks.writeContract).not.toHaveBeenCalled();
   });

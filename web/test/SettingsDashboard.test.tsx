@@ -161,11 +161,7 @@ describe("SettingsDashboard identity verification", () => {
 describe("SettingsDashboard passport", () => {
   it("hosts the Business Passport controls", () => {
     render(<SettingsDashboard />);
-    for (const name of [
-      "Business Passport",
-      "Who can see it",
-      "What this badge means",
-    ]) {
+    for (const name of ["Business Passport", "Who can see it"]) {
       expect(screen.getByRole("region", { name })).toBeInTheDocument();
     }
     expect(

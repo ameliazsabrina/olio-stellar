@@ -1,5 +1,4 @@
 import "server-only";
-import { requireAccountSubmission } from "../verification/verification.submission";
 
 import { randomBytes } from "node:crypto";
 import { Address, Keypair } from "@stellar/stellar-sdk";
@@ -43,6 +42,7 @@ import {
 import { getAsyncFeeQuoteContexts } from "../../db/mongo";
 import { routeReadiness } from "../cctp/cctp.readiness";
 import { I64_MAX as MAX_RECORDED_AMOUNT } from "../invoices/invoices.state";
+import { requireAccountSubmission } from "../verification/verification.submission";
 import {
   bindInvoiceIntent,
   recordQuoteAttribution,
@@ -87,7 +87,10 @@ async function resolveRecipient(username: string) {
 function parsePaymentAmount(value: string): bigint {
   const amount = BigInt(value);
   if (amount <= 0n)
-    throw new FeeQuoteBadRequestError("Payment amount must be positive.");
+    throw new FeeQuoteBadRequestError(
+      "Payment amount must be positive.",
+      "Enter an amount greater than zero.",
+    );
   return amount;
 }
 
@@ -169,7 +172,10 @@ export async function issueFeeQuote(
   }
   const paymentAmount = parsePaymentAmount(input.paymentAmount);
   if (paymentAmount > MAX_RECORDED_AMOUNT)
-    throw new FeeQuoteBadRequestError("Payment amount is too large.");
+    throw new FeeQuoteBadRequestError(
+      "Payment amount is too large.",
+      "This amount is too large. Try a smaller amount.",
+    );
   validateAddress(input.depositor, "Depositor");
   const recipient = await resolveRecipient(input.username);
   await requireAccountSubmission(recipient.owner);
@@ -206,7 +212,10 @@ export async function issueFeeQuote(
       !SUPPORTED_CCTP_DOMAINS.has(input.sourceDomain) ||
       input.sourceDomain === CCTP_STELLAR_DOMAIN
     ) {
-      throw new FeeQuoteBadRequestError("Unsupported CCTP source domain.");
+      throw new FeeQuoteBadRequestError(
+        "Unsupported CCTP source domain.",
+        "Payments from this network aren't supported yet.",
+      );
     }
     sourceDomain = input.sourceDomain;
     sourcePayer = Uint8Array.from(hexToBytes(input.sourcePayer));

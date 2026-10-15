@@ -115,7 +115,7 @@ export function InvoicesDashboard() {
         }
       />
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
         <section
           className="min-w-0 md:col-span-2 lg:col-span-8"
           aria-labelledby="invoices-list-heading"

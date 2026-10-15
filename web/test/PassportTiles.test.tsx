@@ -247,8 +247,8 @@ describe("publication consent", () => {
 describe("scope disclosure", () => {
   it("states what the badge does and does not cover", () => {
     render(<PassportTiles />);
-    const scope = screen.getByRole("region", { name: "What this badge means" });
-    expect(scope).toHaveTextContent(/identity documents and checks passed/i);
+    const scope = screen.getByRole("region", { name: "Business Passport" });
+    expect(scope).toHaveTextContent(/covers identity only/i);
     expect(scope).toHaveTextContent(/revenue/i);
     expect(scope).toHaveTextContent(/creditworthiness/i);
   });

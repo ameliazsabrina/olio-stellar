@@ -36,7 +36,7 @@ export type CctpStartOpts =
   | { chain: Exclude<CctpChain, "solana"> }
   | { chain: "solana"; wallet: SolanaBurnWallet; connection: Connection };
 export type CctpPhase = "idle" | "burning" | "attesting" | "relaying" | "done";
-export type CctpStatus = { kind: "ok" | "err"; msg: string } | null;
+export type CctpStatus = { kind: "ok" | "info" | "err"; msg: string } | null;
 export type CctpFeePreview = {
   paymentAmount: string;
   feeBps: 200;
@@ -60,6 +60,8 @@ export function useCctpDeposit({
 }) {
   const [phase, setPhase] = useState<CctpPhase>("idle");
   const [status, setStatus] = useState<CctpStatus>(null);
+  // Kept apart from `status` so a transient poll failure never replaces a payment result.
+  const [trackingError, setTrackingError] = useState<string | null>(null);
   const [records, setRecords] = useState<RecoveryRecord[]>([]);
   const [pollRevision, setPollRevision] = useState(0);
   const active = useRef(false);
@@ -126,7 +128,7 @@ export function useCctpDeposit({
       } catch {
         setStatus({
           kind: "err",
-          msg: "Payment recovery storage is unavailable. Restore your recovery file before starting another payment.",
+          msg: "We couldn't load your saved payments. Restore your payment backup before paying again.",
         });
       }
     };
@@ -185,17 +187,17 @@ export function useCctpDeposit({
               setPhase("done");
               setStatus({
                 kind: "ok",
-                msg: `Paid ${current.result?.paymentAmount} USDC to @${username}.`,
+                msg: `${current.result?.paymentAmount ? `Paid ${current.result.paymentAmount} USDC to @${username}.` : `Payment to @${username} completed.`} It can take a while for @${username} to receive it.`,
               });
             }
             failures = 0;
+            setTrackingError(null);
           } catch {
             failures++;
             if (!cancelled)
-              setStatus({
-                kind: "err",
-                msg: "Payment tracking is temporarily unavailable. Your recovery is saved.",
-              });
+              setTrackingError(
+                "We can't check your payment status right now. We'll keep trying.",
+              );
           }
         }
       }
@@ -236,11 +238,11 @@ export function useCctpDeposit({
       setPhase("burning");
       try {
         if (!cctpIntakeContract)
-          throw new Error("Cross-chain deposits aren't configured.");
-        if (!/^\d+(\.\d{1,6})?$/.test(amount))
           throw new Error(
-            "Cross-chain payments support at most 6 decimal places.",
+            "Paying from other networks isn't available right now.",
           );
+        if (!/^\d+(\.\d{1,6})?$/.test(amount))
+          throw new Error("Use at most 6 decimal places.");
         const paymentAmount = toBaseUnits(amount);
         const salt = randomFieldElement();
         const saltHex = bytesToHex(toBE32(salt));
@@ -278,7 +280,7 @@ export function useCctpDeposit({
           feeQuote.quote.policyVersion !== expectedFee.policyVersion
         )
           throw new Error(
-            "The recipient's fee changed. Review the updated total before paying.",
+            "The recipient’s fee changed. Review the updated total and pay again.",
           );
         recovery = {
           version: 1,
@@ -337,7 +339,7 @@ export function useCctpDeposit({
           if (!saved)
             setStatus({
               kind: "err",
-              msg: "Payment saved on Olio. Export recovery now because browser storage is unavailable.",
+              msg: "Your payment was sent, but this browser couldn't keep a copy. Save a payment backup now.",
             });
         };
         if (opts.chain === "solana")
@@ -358,14 +360,14 @@ export function useCctpDeposit({
           });
         setStatus({
           kind: "ok",
-          msg: "Payment submitted. Olio is completing it automatically — you can close this page.",
+          msg: `Payment sent. It can take a while for @${username} to receive it.`,
         });
       } catch (error) {
         // A burned payment is durable and tracked automatically; an unburned intent is discarded so it never blocks a retry.
         if (burned)
           setStatus({
-            kind: "err",
-            msg: "Payment submitted. Olio is completing it automatically.",
+            kind: "info",
+            msg: "Your payment is processing. Please wait.",
           });
         else {
           if (recovery) forget(recovery);
@@ -374,7 +376,7 @@ export function useCctpDeposit({
             msg:
               error instanceof Error
                 ? error.message
-                : "Cross-chain payment unavailable.",
+                : "Payment didn't go through. Please try again.",
           });
         }
       } finally {
@@ -388,7 +390,8 @@ export function useCctpDeposit({
 
   const restore = useCallback(
     async (text: string) => {
-      if (text.length > 100_000) throw new Error("Recovery file is too large.");
+      if (text.length > 100_000)
+        throw new Error("This backup file is too large.");
       const restored = z
         .array(recoveryRecordSchema)
         .min(1)
@@ -399,9 +402,7 @@ export function useCctpDeposit({
           record.input.username !== username ||
           record.input.feeQuote.quote.depositor !== cctpIntakeContract
         )
-          throw new Error(
-            "Recovery belongs to a different recipient or deployment.",
-          );
+          throw new Error("This backup file is for a different recipient.");
         if (record.sessionId)
           await api.cctp.sessionStatus.mutate({
             sessionId: record.sessionId,
@@ -413,12 +414,17 @@ export function useCctpDeposit({
     },
     [persist, username],
   );
+  // needs_attention records get their own error toast, so they are not "being completed automatically".
   const hasPendingPayment = records.some(
-    (r) => r.status?.stage !== "completed" && isSubmitted(r),
+    (r) =>
+      r.status?.stage !== "completed" &&
+      r.status?.stage !== "needs_attention" &&
+      isSubmitted(r),
   );
   return {
     phase,
     status,
+    trackingError,
     start,
     hasPendingPayment,
     payments: records,

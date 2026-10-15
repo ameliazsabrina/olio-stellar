@@ -6,8 +6,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { DashboardTile } from "../../../components/dashboard/DashboardTile";
 import { Button } from "../../../components/ui/button";
-import { Card } from "../../../components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +36,6 @@ import {
 import { deserializeFeeQuoteEnvelope } from "../../../lib/fee-quote";
 import { proveDeposit } from "../../../lib/prover";
 import {
-  explorerTxUrl,
   type OlioAccount,
   poolDeposit,
   usdcBalance,
@@ -44,9 +43,19 @@ import {
 import { cn } from "../../../lib/utils";
 import { api } from "../../../trpc/client";
 import { CctpPayForm } from "./CctpPayForm";
+import { FeeBreakdown } from "./FeeBreakdown";
 import { InvoicePaySummary } from "./InvoicePaySummary";
 
 type Method = "stellar" | "cctp";
+
+// Active segment mirrors the dashboard rail's selected item.
+const segmentClass = (active: boolean) =>
+  cn(
+    "flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen",
+    active
+      ? "bg-brand-linen !text-brand-obsidian"
+      : "text-brand-linen/88 hover:bg-brand-linen/10 hover:text-brand-linen",
+  );
 
 const payInput = z.object({
   amount: z
@@ -55,6 +64,18 @@ const payInput = z.object({
     .refine((v) => toBaseUnits(v) > 0n, "Enter an amount greater than zero."),
 });
 type PayInput = z.infer<typeof payInput>;
+
+// Network and contract errors arrive as raw host text; payers only need to know whether to wait or retry.
+function friendlyPayError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/NOT_FOUND/.test(message))
+    return "Your payment is taking longer than usual. Check your wallet before trying again.";
+  if (/Error\(Contract,\s*#10\)/.test(message))
+    return "Payments are paused right now. Please try again later.";
+  if (!message || /HostError|Error\(|Transaction failed|simulat/i.test(message))
+    return "Payment didn't go through. Please try again.";
+  return message;
+}
 
 export function PayForm({
   account,
@@ -76,10 +97,11 @@ export function PayForm({
     policyVersion: 2;
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewRevision, setPreviewRevision] = useState(0);
   const [status, setStatus] = useState<{
     kind: "ok" | "err";
     msg: string;
-    url?: string;
   } | null>(null);
   const cctpEnabled = Boolean(cctpIntakeContract);
   const methodCount = 1 + Number(cctpEnabled);
@@ -116,17 +138,20 @@ export function PayForm({
   });
   const enteredAmount = watch("amount");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: previewRevision intentionally retries the same quote request.
   useEffect(() => {
     if (
       method !== "stellar" ||
       !/^\d+(\.\d{1,7})?$/.test(enteredAmount || "")
     ) {
       setPreview(null);
+      setPreviewError(null);
       setPreviewing(false);
       return;
     }
     let cancelled = false;
     setPreview(null);
+    setPreviewError(null);
     setPreviewing(true);
     const timer = window.setTimeout(() => {
       api.feeQuotes.preview
@@ -140,13 +165,11 @@ export function PayForm({
         })
         .catch((error) => {
           if (!cancelled) {
-            setStatus({
-              kind: "err",
-              msg:
-                error instanceof Error
-                  ? error.message
-                  : "Fee quote is unavailable.",
-            });
+            setPreviewError(
+              error instanceof Error
+                ? error.message
+                : "The recipient’s fee is temporarily unavailable.",
+            );
           }
         })
         .finally(() => {
@@ -157,7 +180,7 @@ export function PayForm({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [enteredAmount, method, username]);
+  }, [enteredAmount, method, previewRevision, username]);
 
   useEffect(() => {
     reset({ amount: lockedAmount ?? "" });
@@ -175,7 +198,7 @@ export function PayForm({
       }
       const units = toBaseUnits(amount);
       if (!preview || preview.paymentAmount !== units.toString()) {
-        throw new Error("Wait for the current fee quote before paying.");
+        throw new Error("Still working out the fee. Please wait a moment.");
       }
       const signer = kitSigner(address);
       const salt = randomFieldElement();
@@ -210,7 +233,7 @@ export function PayForm({
       if ((await usdcBalance(signer.address)) < feeQuote.quote.totalAmount) {
         setStatus({
           kind: "err",
-          msg: "Not enough testnet USDC. Add a trustline and fund at faucet.circle.com.",
+          msg: "Not enough USDC in your wallet. Add USDC to your wallet and get test funds at faucet.circle.com.",
         });
         return;
       }
@@ -226,7 +249,7 @@ export function PayForm({
         salt,
       );
 
-      const { txHash } = await poolDeposit(
+      await poolDeposit(
         signer,
         note,
         units,
@@ -237,238 +260,193 @@ export function PayForm({
       );
       setStatus({
         kind: "ok",
-        msg: `Sent ${amount} USDC to @${username}; total charged ${fromBaseUnits(feeQuote.quote.totalAmount)} USDC.${invoiceBinding ? " The invoice updates once the payment settles." : ""} See the proof here.`,
-        url: explorerTxUrl(txHash),
+        msg: `Sent ${amount} USDC to @${username}; total charged ${fromBaseUnits(feeQuote.quote.totalAmount)} USDC. It can take a while for @${username} to receive it.${invoiceBinding ? " The invoice updates once it arrives." : ""}`,
       });
       reset({ amount: lockedAmount ?? "" });
     } catch (e) {
-      setStatus({
-        kind: "err",
-        msg: e instanceof Error ? e.message : "Payment failed.",
-      });
+      setStatus({ kind: "err", msg: friendlyPayError(e) });
     }
   });
 
   return (
     <>
       {invoiceId ? <InvoicePaySummary view={invoiceView} /> : null}
-      <Card appearance="glass" density="spacious" className="gap-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="type-product-panel-title text-brand-linen">
-            {lockedAmount ? "Requested amount" : "Amount"}
-          </h2>
-          {link?.label ? (
-            <span className="truncate text-sm text-brand-linen/60">
-              {link.label}
-            </span>
-          ) : null}
-        </div>
+      <DashboardTile
+        appearance="glass"
+        className="min-h-0 text-brand-linen"
+        header={
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="dashboard-tile-title">
+              {lockedAmount ? "Requested amount" : "Amount"}
+            </h2>
+            {link?.label ? (
+              <span className="truncate text-[0.8125rem] leading-[1.1875rem] text-brand-linen/70">
+                {link.label}
+              </span>
+            ) : null}
+          </div>
+        }
+        content={
+          <div className="mt-5 grid gap-5">
+            {methodCount > 1 && (
+              <div
+                className={cn(
+                  glassSegmentedClass,
+                  "grid gap-1 p-1",
+                  methodCount === 3 ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatus(null);
+                    setMethod("stellar");
+                  }}
+                  className={segmentClass(method === "stellar")}
+                >
+                  <Image
+                    src="/assets/stellar-black.webp"
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="size-5 rounded-full object-cover"
+                  />
+                  <span>Stellar wallet</span>
+                </button>
 
-        {methodCount > 1 && (
-          <div
-            className={cn(
-              glassSegmentedClass,
-              "grid gap-1 p-1",
-              methodCount === 3 ? "grid-cols-3" : "grid-cols-2",
+                {cctpEnabled && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className={cn("group", segmentClass(method === "cctp"))}
+                      aria-label="Select another network"
+                    >
+                      <span>Another network</span>
+                      <ChevronDown
+                        className="size-4 transition-transform group-data-[popup-open]:rotate-180"
+                        aria-hidden="true"
+                      />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      appearance="glass"
+                      align="end"
+                      sideOffset={8}
+                      className="max-h-[min(26rem,var(--available-height))] p-2"
+                    >
+                      <CctpChainMenuItems
+                        onSelect={(chain) => {
+                          setStatus(null);
+                          setCctpChain(chain);
+                          setMethod("cctp");
+                        }}
+                      />
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             )}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setStatus(null);
-                setMethod("stellar");
-              }}
-              className={`flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand-linen/70 ${
-                method === "stellar"
-                  ? "bg-brand-linen/15 text-brand-linen ring-1 ring-brand-linen/20"
-                  : "text-brand-linen/55 hover:bg-brand-linen/8 hover:text-brand-linen"
-              }`}
-            >
-              <Image
-                src="/assets/stellar-black.webp"
-                alt=""
-                width={20}
-                height={20}
-                className="size-5 rounded-full object-cover"
-              />
-              <span>Stellar wallet</span>
-            </button>
 
-            {cctpEnabled && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className={`group flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand-linen/70 ${
-                    method === "cctp"
-                      ? "bg-brand-linen/15 text-brand-linen ring-1 ring-brand-linen/20"
-                      : "text-brand-linen/55 hover:bg-brand-linen/8 hover:text-brand-linen"
-                  }`}
-                  aria-label="Select another chain"
+            {method === "cctp" ? (
+              <CctpPayForm
+                username={username}
+                notePubkey={account.note_pubkey}
+                lockedAmount={lockedAmount}
+                chain={cctpChain}
+                invoice={invoiceBinding}
+                disabled={invoiceBlocked}
+              />
+            ) : (
+              <form className="grid gap-3" onSubmit={onSubmit}>
+                <label
+                  className="text-sm font-semibold text-brand-linen"
+                  htmlFor="amount"
                 >
-                  <span>Another chain</span>
-                  <ChevronDown
-                    className="size-4 transition-transform group-data-[popup-open]:rotate-180"
-                    aria-hidden="true"
+                  USDC
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    appearance="glass"
+                    id="amount"
+                    className="min-h-11 flex-1"
+                    inputMode="decimal"
+                    placeholder="5.00"
+                    readOnly={Boolean(lockedAmount)}
+                    aria-readonly={Boolean(lockedAmount)}
+                    {...register("amount")}
                   />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  appearance="glass"
-                  align="end"
-                  sideOffset={8}
-                  className="max-h-[min(26rem,var(--available-height))] p-2"
-                >
-                  <CctpChainMenuItems
-                    onSelect={(chain) => {
-                      setStatus(null);
-                      setCctpChain(chain);
-                      setMethod("cctp");
-                    }}
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  {address ? (
+                    <Button
+                      // variant="glass"
+                      className="min-h-11"
+                      type="submit"
+                      disabled={
+                        isSubmitting || previewing || !preview || invoiceBlocked
+                      }
+                    >
+                      {isSubmitting && (
+                        <Loader
+                          className="size-4 motion-safe:animate-spin"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {isSubmitting ? "Paying…" : "Pay"}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="min-h-11"
+                      type="button"
+                      onClick={connect}
+                      disabled={connecting}
+                    >
+                      {connecting && (
+                        <Loader
+                          className="size-4 motion-safe:animate-spin"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {connecting ? "Connecting…" : "Connect wallet"}
+                    </Button>
+                  )}
+                </div>
+                <span className="text-xs leading-[1.0625rem] text-brand-linen/70">
+                  {address
+                    ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)}. No network fees, you only need USDC.`
+                    : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}
+                </span>
+                <FeeBreakdown previewing={previewing} preview={preview} />
+                <ToastFeedback
+                  message={walletError}
+                  variant="error"
+                  toastId="payer-wallet-error"
+                />
+                <ToastFeedback
+                  message={errors.amount?.message}
+                  variant="error"
+                  toastId="payment-amount-error"
+                />
+                <ToastFeedback
+                  message={previewError}
+                  variant="error"
+                  toastId="payment-fee-preview-error"
+                  action={
+                    previewError
+                      ? {
+                          label: "Try again",
+                          onClick: () =>
+                            setPreviewRevision((value) => value + 1),
+                        }
+                      : undefined
+                  }
+                />
+                <ToastFeedback
+                  message={status?.msg}
+                  variant={status?.kind === "ok" ? "success" : "error"}
+                  toastId="payment-status"
+                />
+              </form>
             )}
           </div>
-        )}
-
-        {method === "cctp" ? (
-          <CctpPayForm
-            username={username}
-            notePubkey={account.note_pubkey}
-            lockedAmount={lockedAmount}
-            chain={cctpChain}
-            invoice={invoiceBinding}
-            disabled={invoiceBlocked}
-          />
-        ) : (
-          <form className="grid gap-2" onSubmit={onSubmit}>
-            <label
-              className="text-sm font-semibold text-brand-linen"
-              htmlFor="amount"
-            >
-              USDC
-            </label>
-            <div className="flex flex-wrap items-center gap-3">
-              <Input
-                appearance="glass"
-                id="amount"
-                className="min-h-11 flex-1"
-                inputMode="decimal"
-                placeholder="5.00"
-                readOnly={Boolean(lockedAmount)}
-                aria-readonly={Boolean(lockedAmount)}
-                {...register("amount")}
-              />
-              {address ? (
-                <Button
-                  // variant="glass"
-                  className="min-h-11"
-                  type="submit"
-                  disabled={
-                    isSubmitting || previewing || !preview || invoiceBlocked
-                  }
-                >
-                  {isSubmitting && (
-                    <Loader
-                      className="size-4 motion-safe:animate-spin"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {isSubmitting ? "Paying…" : "Pay"}
-                </Button>
-              ) : (
-                <Button
-                  className="min-h-11"
-                  type="button"
-                  onClick={connect}
-                  disabled={connecting}
-                >
-                  {connecting && (
-                    <Loader
-                      className="size-4 motion-safe:animate-spin"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {connecting ? "Connecting…" : "Connect wallet"}
-                </Button>
-              )}
-            </div>
-            <span className="text-xs text-brand-linen/55">
-              {address
-                ? `Paying from ${address.slice(0, 4)}…${address.slice(-4)} — gasless, you only need USDC.`
-                : "Pay with your own Stellar wallet (Freighter, xBull, LOBSTR…)."}
-            </span>
-            {previewing ? (
-              <p
-                className="text-sm text-brand-linen/65"
-                role="status"
-                aria-live="polite"
-              >
-                Checking the recipient’s fee…
-              </p>
-            ) : preview ? (
-              <dl
-                className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl border border-brand-linen/15 p-3 text-sm text-brand-linen/75"
-                aria-label="Payment breakdown"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                <dt>Payment amount</dt>
-                <dd className="text-right">
-                  {fromBaseUnits(BigInt(preview.paymentAmount))} USDC
-                </dd>
-                <dt>Olio service fee ({preview.feeBps / 100}%)</dt>
-                <dd className="text-right">
-                  {fromBaseUnits(BigInt(preview.feeAmount))} USDC
-                </dd>
-                <dt className="font-semibold text-brand-linen">Total</dt>
-                <dd className="text-right font-semibold text-brand-linen">
-                  {fromBaseUnits(BigInt(preview.totalAmount))} USDC
-                </dd>
-                <dt>Recipient receives</dt>
-                <dd className="text-right">
-                  {fromBaseUnits(BigInt(preview.paymentAmount))} USDC
-                </dd>
-              </dl>
-            ) : null}
-            <ToastFeedback
-              message={walletError}
-              variant="error"
-              toastId="payer-wallet-error"
-            />
-            <ToastFeedback
-              message={errors.amount?.message}
-              variant="error"
-              toastId="payment-amount-error"
-            />
-            <ToastFeedback
-              message={status?.msg}
-              content={
-                status?.kind === "ok" && status.url
-                  ? (() => {
-                      const [before, after] = status.msg.split("here");
-                      return (
-                        <span>
-                          {before}
-                          <a
-                            href={status.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="View transaction proof in Stellar Explorer"
-                            className="underline underline-offset-2"
-                          >
-                            here
-                          </a>
-                          {after}
-                        </span>
-                      );
-                    })()
-                  : undefined
-              }
-              variant={status?.kind === "ok" ? "success" : "error"}
-              toastId="payment-status"
-            />
-          </form>
-        )}
-      </Card>
+        }
+      />
     </>
   );
 }

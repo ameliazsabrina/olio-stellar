@@ -92,7 +92,8 @@ describe("feeQuotes API", () => {
       }),
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
-      message: "Payment quoting is unavailable.",
+      message:
+        "Payments are temporarily unavailable. Please try again in a moment.",
     });
     expect(mocks.preview).not.toHaveBeenCalled();
   });
@@ -116,7 +117,7 @@ describe("feeQuotes API", () => {
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
       message:
-        "This cross-chain route is unavailable. No payment has been initiated.",
+        "Payments from this network aren't available right now. You haven't been charged.",
     });
   });
 
@@ -170,5 +171,4 @@ describe("feeQuotes API", () => {
     });
     expect(mocks.issue).toHaveBeenCalledTimes(16);
   });
-
 });

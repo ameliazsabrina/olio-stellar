@@ -187,9 +187,8 @@ export function VerificationDashboard() {
               content={
                 <div className="mt-6">
                   <p className="mb-4 max-w-2xl text-sm leading-6 text-brand-linen/70">
-                    Documents and selfies are collected by our verification
-                    partner inside this secure frame. Olio never sees or stores
-                    them.
+                    Documents are collected by our verification partner inside
+                    this secure frame. Olio never sees or stores them.
                   </p>
                   <SumsubVerification
                     getToken={requestToken}
@@ -588,9 +587,7 @@ function PrivacyTile() {
       }
       content={
         <ul className="mt-6 space-y-3 text-sm leading-6 text-muted-foreground">
-          <li>
-            Documents and selfies go to our verification partner, not Olio.
-          </li>
+          <li>Documents go to our verification partner, not Olio.</li>
           <li>Your balance, notes and payment history are never shared.</li>
           <li>
             Nothing is published until you turn on your badge in Settings.

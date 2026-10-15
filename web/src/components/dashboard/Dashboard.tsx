@@ -21,11 +21,7 @@ import {
   useState,
 } from "react";
 import { fromBaseUnits } from "../../lib/crypto";
-import {
-  HISTORY_PATH,
-  LINKS_PATH,
-  WITHDRAW_PATH,
-} from "../../lib/auth-routes";
+import { HISTORY_PATH, LINKS_PATH, WITHDRAW_PATH } from "../../lib/auth-routes";
 import type { MyNote } from "../../lib/notes";
 import { cn } from "../../lib/utils";
 import { trpc } from "../../trpc/react";
@@ -45,8 +41,6 @@ import { useMyNotes } from "./useMyNotes";
 const tileFocus =
   "group block min-h-full rounded-[1.75rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen focus-visible:ring-offset-4 focus-visible:ring-offset-brand-obsidian";
 const bodySmall = "text-[0.8125rem] leading-[1.1875rem]";
-// Mobile action cards (Figma "Overview - Mobile", 167×150): icon top, title
-// bottom. Applied inside a DashboardTile with compactOnMobile.
 const compactHeader = "max-md:flex max-md:flex-1 max-md:flex-col";
 const compactRow =
   "max-md:flex-1 max-md:flex-col-reverse max-md:items-start max-md:justify-between";
@@ -240,7 +234,10 @@ export function Dashboard() {
             className="dashboard-nav-card items-center justify-between text-center text-brand-linen max-md:items-start max-md:text-left"
             header={
               <span className="flex items-center justify-center max-md:size-10 max-md:rounded-full max-md:bg-brand-linen max-md:text-brand-obsidian">
-                <Plus className="size-8 max-md:size-[1.125rem]" aria-hidden="true" />
+                <Plus
+                  className="size-8 max-md:size-[1.125rem]"
+                  aria-hidden="true"
+                />
               </span>
             }
             content={
@@ -289,8 +286,8 @@ export function Dashboard() {
                   <h2 className="dashboard-tile-title">Private pool</h2>
                 </div>
                 <p className={cn(bodySmall, "text-brand-linen/88")}>
-                  Your payments sit among every deposit in the pool. The
-                  bigger the pool, the harder any one of them is to pick out.
+                  Your payments sit among every deposit in the pool. The bigger
+                  the pool, the harder any one of them is to pick out.
                 </p>
               </div>
             }
@@ -346,7 +343,9 @@ function TileHeading({
 }) {
   return (
     <div className={cn("grid gap-3", compactHeader)}>
-      <div className={cn("flex items-center justify-between gap-4", compactRow)}>
+      <div
+        className={cn("flex items-center justify-between gap-4", compactRow)}
+      >
         <h2 className={cn("dashboard-tile-title", compactTitle)}>{title}</h2>
         {arrow ? <QuietArrow tone={arrow} /> : null}
       </div>
@@ -426,7 +425,10 @@ function AddCashTile({
         header={
           <div className={cn("grid gap-3", compactHeader)}>
             <div
-              className={cn("flex items-center justify-between gap-4", compactRow)}
+              className={cn(
+                "flex items-center justify-between gap-4",
+                compactRow,
+              )}
             >
               <h2 className={cn("dashboard-tile-title", compactTitle)}>
                 Add cash
@@ -444,8 +446,8 @@ function AddCashTile({
               </a>
             </div>
             <p className={cn(bodySmall, "text-brand-linen/88 max-md:hidden")}>
-              Put money into your private balance by paying your own link.
-              Use it for payments, or withdraw it whenever you need it.
+              Put money into your private balance by paying your own link. Use
+              it for payments, or withdraw it whenever you need it.
             </p>
           </div>
         }
@@ -676,7 +678,7 @@ function StatusTile({
           <p className={cn(bodySmall, "mt-0.5 text-muted-foreground")}>
             {loading
               ? "Loading your links…"
-              : `${total} ${total === 1 ? "link" : "links"} in total`}
+              : `${total} ${total === 1 ? "link" : "links"} you've created, grouped by status.`}
           </p>
         </div>
       }
@@ -872,7 +874,10 @@ function TopLinksTile({
   links: { id: string; label: string; amount: bigint }[];
   money: (units: bigint) => string;
 }) {
-  const max = links.reduce((m, link) => (link.amount > m ? link.amount : m), 1n);
+  const max = links.reduce(
+    (m, link) => (link.amount > m ? link.amount : m),
+    1n,
+  );
 
   return (
     <DashboardTile

@@ -196,7 +196,7 @@ describe("useCctpDeposit durable recovery", () => {
     };
     await expect(
       result.current.restore(JSON.stringify([foreign])),
-    ).rejects.toThrow(/different recipient or deployment/);
+    ).rejects.toThrow(/different recipient/);
   });
 
   it("discards an unburned intent when the route is unavailable and never blocks the next attempt", async () => {

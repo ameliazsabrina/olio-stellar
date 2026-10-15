@@ -19,8 +19,9 @@ import { useCctpRouteReadiness } from "../../../features/cctpPayer/hooks/useCctp
 import { useEvmPayerWallet } from "../../../features/cctpPayer/hooks/useEvmPayerWallet";
 import { SolanaWalletProvider } from "../../../features/cctpPayer/SolanaWalletProvider";
 import { evmSourceForChain } from "../../../lib/cctp";
-import { fromBaseUnits, toBaseUnits } from "../../../lib/crypto";
+import { toBaseUnits } from "../../../lib/crypto";
 import { api } from "../../../trpc/client";
+import { FeeBreakdown } from "./FeeBreakdown";
 
 const payInput = z.object({
   amount: z
@@ -62,12 +63,19 @@ function CctpPayFormInner({
   invoice?: InvoiceBinding;
   disabled?: boolean;
 }) {
-  const { phase, status, start, hasPendingPayment, payments, exportRecovery } =
-    useCctpDeposit({
-      username,
-      notePubkey,
-      invoice,
-    });
+  const {
+    phase,
+    status,
+    trackingError,
+    start,
+    hasPendingPayment,
+    payments,
+    exportRecovery,
+  } = useCctpDeposit({
+    username,
+    notePubkey,
+    invoice,
+  });
   const { publicKey, signTransaction } = useWallet();
   const { connection } = useConnection();
   const evmSource = evmSourceForChain(chain);
@@ -77,6 +85,7 @@ function CctpPayFormInner({
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewRevision, setPreviewRevision] = useState(0);
+  const [feeChanged, setFeeChanged] = useState<string | null>(null);
 
   const {
     register,
@@ -141,6 +150,7 @@ function CctpPayFormInner({
 
   const onSubmit = handleSubmit(async ({ amount }) => {
     if (routeBlocked) return;
+    setFeeChanged(null);
     let latest: CctpFeePreview;
     try {
       latest = await api.feeQuotes.preview.query({
@@ -165,6 +175,9 @@ function CctpPayFormInner({
       latest.totalAmount !== preview.totalAmount
     ) {
       setPreview(latest);
+      setFeeChanged(
+        "The recipient’s fee changed. Review the updated total and pay again.",
+      );
       return;
     }
     if (chain === "solana") {
@@ -179,22 +192,18 @@ function CctpPayFormInner({
 
   const phaseLabel =
     phase === "burning"
-      ? "Confirm payment in your wallet…"
-      : phase === "attesting"
-        ? "Waiting for confirmation…"
-        : phase === "relaying"
-          ? "Completing payment…"
-          : "Confirm payment";
+      ? "Confirm the payment in your wallet…"
+      : "Processing, please wait…";
 
   const idleHint =
     chain === "solana"
-      ? "Burn USDC on Solana — it arrives as a private note."
+      ? "Pay with USDC from your Solana wallet. Your payment stays private."
       : evmSource
-        ? `Burn USDC on ${evmSource.name} — it arrives as a private note.`
-        : "Burn USDC on Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, or Avalanche Fuji — it arrives as a private note.";
+        ? `Pay with USDC on ${evmSource.name}. Your payment stays private.`
+        : "Pay with USDC on Ethereum, Base, Arbitrum, or Avalanche. Your payment stays private.";
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       {chain === "solana" ? (
         <div className="flex justify-start [&_.wallet-adapter-button]:rounded-xl [&_.wallet-adapter-button]:bg-brand-linen/15 [&_.wallet-adapter-button]:text-brand-linen [&_.wallet-adapter-button]:ring-1 [&_.wallet-adapter-button]:ring-brand-linen/25 [&_.wallet-adapter-button]:backdrop-blur-xl [&_.wallet-adapter-button:hover]:bg-brand-linen/20">
           <WalletMultiButton />
@@ -229,55 +238,52 @@ function CctpPayFormInner({
       <ToastFeedback
         message={
           hasPendingPayment
-            ? "A previous payment is still being completed automatically — you can close this page. You can also send another payment now."
+            ? "Your payment is processing. You can close this page."
             : null
         }
         toastId="cctp-pending-payment"
         content={
           <div className="grid gap-2">
-            <p>
-              A previous payment is still being completed automatically — you
-              can close this page. You can also send another payment now.
-            </p>
+            <p>Your payment is processing. You can close this page.</p>
             <button
               type="button"
               className="justify-self-start text-sm underline underline-offset-4"
               onClick={exportRecovery}
             >
-              Export payment recovery
+              Save payment backup
             </button>
           </div>
         }
       />
+      {/* In-progress payments are covered by the toast above; only stuck ones get their own. */}
       {payments?.map((payment) => (
         <ToastFeedback
           key={payment.input.feeQuote.quote.quoteId}
           toastId={`cctp-payment-${payment.input.feeQuote.quote.quoteId}`}
-          variant={
-            payment.status?.stage === "needs_attention" ? "error" : "info"
-          }
+          variant="error"
           message={
-            payment.status?.stage === "completed"
-              ? null
-              : payment.status?.stage === "needs_attention"
-                ? "Payment needs attention. Recovery remains saved."
-                : payment.sourceTxHash
-                  ? "Payment submitted — waiting for confirmation"
-                  : "Payment preparation saved"
+            payment.status?.stage === "needs_attention"
+              ? "This payment is taking longer than usual. Save a payment backup to keep it safe."
+              : null
           }
         />
       ))}
+      <ToastFeedback
+        message={trackingError}
+        variant="error"
+        toastId="cctp-payment-tracking"
+      />
 
-      <form className="grid gap-2" onSubmit={onSubmit}>
+      <form className="grid gap-3" onSubmit={onSubmit}>
         <label
           className="text-sm font-semibold text-brand-linen"
           htmlFor="cctp-amount"
         >
           {chain === "solana"
-            ? "USDC (from Solana devnet)"
+            ? "USDC (from Solana)"
             : evmSource
               ? `USDC (from ${evmSource.name})`
-              : "USDC (from an EVM chain)"}
+              : "USDC (from another network)"}
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <Input
@@ -304,10 +310,10 @@ function CctpPayFormInner({
                 aria-hidden="true"
               />
             )}
-            {busy ? "Working…" : "Pay via CCTP"}
+            {busy ? "Working…" : "Pay"}
           </Button>
         </div>
-        <span className="text-xs text-brand-linen/55">
+        <span className="text-xs leading-[1.0625rem] text-brand-linen/70">
           {busy ? phaseLabel : idleHint}
         </span>
         <ToastFeedback
@@ -316,39 +322,7 @@ function CctpPayFormInner({
           toastId="cctp-route-unavailable"
           action={{ label: "Check again", onClick: recheck }}
         />
-        {previewing ? (
-          <p
-            className="text-sm text-brand-linen/65"
-            role="status"
-            aria-live="polite"
-          >
-            Checking the recipient’s fee…
-          </p>
-        ) : preview ? (
-          <dl
-            className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-xl border border-brand-linen/15 p-3 text-sm text-brand-linen/75"
-            aria-label="Payment breakdown"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            <dt>Payment amount</dt>
-            <dd className="text-right">
-              {fromBaseUnits(BigInt(preview.paymentAmount))} USDC
-            </dd>
-            <dt>Olio service fee ({preview.feeBps / 100}%)</dt>
-            <dd className="text-right">
-              {fromBaseUnits(BigInt(preview.feeAmount))} USDC
-            </dd>
-            <dt className="font-semibold text-brand-linen">Total</dt>
-            <dd className="text-right font-semibold text-brand-linen">
-              {fromBaseUnits(BigInt(preview.totalAmount))} USDC
-            </dd>
-            <dt>Recipient receives</dt>
-            <dd className="text-right">
-              {fromBaseUnits(BigInt(preview.paymentAmount))} USDC
-            </dd>
-          </dl>
-        ) : null}
+        <FeeBreakdown previewing={previewing} preview={preview} />
         <ToastFeedback
           message={previewError}
           variant="error"
@@ -363,13 +337,24 @@ function CctpPayFormInner({
           }
         />
         <ToastFeedback
+          message={feeChanged}
+          variant="error"
+          toastId="cctp-fee-changed"
+        />
+        <ToastFeedback
           message={errors.amount?.message}
           variant="error"
           toastId="cctp-amount-error"
         />
         <ToastFeedback
           message={status?.msg}
-          variant={status?.kind === "ok" ? "success" : "error"}
+          variant={
+            status?.kind === "ok"
+              ? "success"
+              : status?.kind === "info"
+                ? "info"
+                : "error"
+          }
           toastId="cctp-payment-status"
         />
       </form>
