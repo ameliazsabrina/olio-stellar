@@ -8,9 +8,13 @@ import {
   type DisclosureBundle,
   verifyDisclosure,
 } from "../../lib/disclosure";
-import { downloadDisclosurePdf } from "../../lib/disclosurePdf";
+import {
+  downloadReceiptPdf,
+  type ReceiptSettlement,
+} from "../../lib/disclosurePdf";
 import { getAccount, scanMyNotes } from "../../lib/notes";
 import { cn } from "../../lib/utils";
+import { trpc } from "../../trpc/react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -29,12 +33,20 @@ export function DiscloseDialog({
   open,
   onClose,
   leafIndex,
+  settlement,
 }: {
   open: boolean;
   onClose: () => void;
   leafIndex: number | null;
+  settlement?: ReceiptSettlement | null;
 }) {
-  const { username } = useWallet();
+  const { username, address } = useWallet();
+  const onboarding = trpc.verification.onboarding.useQuery(
+    { accountKey: address },
+    { enabled: open && !!address },
+  );
+  const business = onboarding.data?.business ?? null;
+  const [downloading, setDownloading] = useState(false);
   const [step, setStep] = useState<Step>("building");
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<DisclosureBundle | null>(null);
@@ -77,9 +89,10 @@ export function DiscloseDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent appearance="linen" size="md">
         <DialogHeader>
-          <DialogTitle>Create payment receipt</DialogTitle>
+          <DialogTitle>Download receipt</DialogTitle>
           <DialogDescription>
-            Build a verifiable receipt for this private payment.
+            A one-page receipt for this payment. It shows no other payments or
+            balances.
           </DialogDescription>
         </DialogHeader>
 
@@ -140,10 +153,39 @@ export function DiscloseDialog({
               variant="default"
               className="min-h-11 mt-4"
               size="lg"
-              onClick={() => void downloadDisclosurePdf(bundle)}
+              disabled={downloading}
+              aria-busy={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadReceiptPdf({
+                    amount: BigInt(bundle.amount),
+                    leafIndex: bundle.leafIndex,
+                    username: bundle.username,
+                    displayName: business?.displayName ?? null,
+                    settlement,
+                  });
+                } catch (e) {
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Could not create the PDF.",
+                  );
+                  setStep("error");
+                } finally {
+                  setDownloading(false);
+                }
+              }}
             >
-              <Download className="size-4" aria-hidden="true" />
-              Download receipt (PDF)
+              {downloading ? (
+                <Loader
+                  className="size-4 motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Download className="size-4" aria-hidden="true" />
+              )}
+              Download PDF
             </Button>
           </div>
         )}

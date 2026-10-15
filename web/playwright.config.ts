@@ -54,6 +54,9 @@ export default defineConfig({
       SUMSUB_INDIVIDUAL_LEVEL: "olio-individual",
       SUMSUB_COMPANY_LEVEL: "olio-company",
       VERIFICATION_WORKER_ENABLED: "false",
+      // .env.local may enable this for `next dev`; the production runtime
+      // under test refuses to boot with it.
+      POOL_INDEXER_TOLERATE_RETENTION_GAP: "false",
       NEXT_PUBLIC_STELLAR_NETWORK: "testnet",
     },
   },

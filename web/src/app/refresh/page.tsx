@@ -3,7 +3,12 @@
 import { getAccessToken } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { DASHBOARD_PATH, SIGN_IN_PATH } from "../../lib/auth-routes";
+import {
+  DASHBOARD_PATH,
+  PRIVY_ACCESS_TOKEN_COOKIE,
+  PRIVY_SESSION_COOKIE,
+  SIGN_IN_PATH,
+} from "../../lib/auth-routes";
 
 function safeRedirect(value: string | null): string {
   if (!value?.startsWith("/") || value.startsWith("//")) {
@@ -12,23 +17,32 @@ function safeRedirect(value: string | null): string {
   return value;
 }
 
+// A session cookie Privy can no longer refresh would make the middleware
+// bounce "/" straight back here, so drop it before going to sign-in.
+function clearStaleSessionCookies() {
+  for (const name of [PRIVY_SESSION_COOKIE, PRIVY_ACCESS_TOKEN_COOKIE]) {
+    document.cookie = `${name}=; Max-Age=0; path=/`;
+  }
+}
+
 function RefreshSession() {
   const router = useRouter();
   const searchParams = useSearchParams();
   useEffect(() => {
     let cancelled = false;
+    const signIn = () => {
+      clearStaleSessionCookies();
+      router.replace(SIGN_IN_PATH);
+    };
     getAccessToken()
       .then((token) => {
-        if (!cancelled) {
-          router.replace(
-            token
-              ? safeRedirect(searchParams.get("redirect_uri"))
-              : SIGN_IN_PATH,
-          );
-        }
+        if (cancelled) return;
+        if (token)
+          router.replace(safeRedirect(searchParams.get("redirect_uri")));
+        else signIn();
       })
       .catch(() => {
-        if (!cancelled) router.replace(SIGN_IN_PATH);
+        if (!cancelled) signIn();
       });
     return () => {
       cancelled = true;

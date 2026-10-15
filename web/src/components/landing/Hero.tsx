@@ -12,7 +12,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 const MENU = [
   { id: "problem", numeral: "I", label: "Why privacy matters" },
   { id: "steps", numeral: "II", label: "How it works" },
-  { id: "passport", numeral: "III", label: "Business Passport" },
+  { id: "track-record", numeral: "III", label: "Track Record" },
   { id: "users", numeral: "IV", label: "Who it's for" },
   { id: "faq", numeral: "V", label: "FAQ" },
 ];

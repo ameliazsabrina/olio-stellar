@@ -186,10 +186,7 @@ export const publicInvoiceOutput = z
     encryptedContent: z.string().nullable(),
     contentCommitment: z.string(),
     invoiceCommitment: z.string(),
-    business: z.object({
-      displayName: z.string().nullable(),
-      verifiedPublicId: z.string().nullable(),
-    }),
+    business: z.object({ displayName: z.string().nullable() }),
   })
   .nullable();
 

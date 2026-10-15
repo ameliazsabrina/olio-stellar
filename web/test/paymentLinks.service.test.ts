@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   sort: vi.fn(),
   find: vi.fn(),
   businessOwnsUsername: vi.fn(),
-  publishedPublicIdsFor: vi.fn(),
   assertLinkableInvoice: vi.fn(),
   invoiceStates: vi.fn(),
 }));
@@ -35,9 +34,6 @@ vi.mock("../src/server/db/mongo", () => ({
 }));
 vi.mock("../src/server/modules/businesses/businesses.service", () => ({
   businessOwnsUsername: mocks.businessOwnsUsername,
-}));
-vi.mock("../src/server/modules/passport/passport.service", () => ({
-  publishedPublicIdsFor: mocks.publishedPublicIdsFor,
 }));
 vi.mock("../src/server/modules/invoices/invoices.service", () => ({
   assertLinkableInvoice: mocks.assertLinkableInvoice,
@@ -62,7 +58,6 @@ beforeEach(() => {
   mocks.sort.mockReturnValue({ toArray: mocks.toArray });
   mocks.toArray.mockResolvedValue([]);
   mocks.businessOwnsUsername.mockResolvedValue(true);
-  mocks.publishedPublicIdsFor.mockResolvedValue(new Map());
   mocks.assertLinkableInvoice.mockResolvedValue(undefined);
   mocks.invoiceStates.mockResolvedValue(new Map());
 });
@@ -109,7 +104,6 @@ describe("createLink", () => {
       updatedAt: doc.updatedAt.toISOString(),
       archivedAt: null,
       businessClaimed: false,
-      verifiedBusinessPublicId: null,
       invoiceId: null,
     });
     expect(link).not.toHaveProperty("manageTokenHash");
@@ -185,7 +179,6 @@ describe("getLink", () => {
       updatedAt: createdAt.toISOString(),
       archivedAt: null,
       businessClaimed: false,
-      verifiedBusinessPublicId: null,
       invoiceId: null,
     });
   });
@@ -255,7 +248,6 @@ describe("listLinksByOwner", () => {
         updatedAt: null,
         archivedAt: null,
         businessClaimed: false,
-        verifiedBusinessPublicId: null,
         invoiceId: null,
       },
     ]);
@@ -432,7 +424,6 @@ describe("claimLinkForBusiness", () => {
       "biz_123456789",
     );
     expect(out.businessClaimed).toBe(true);
-    expect(out.verifiedBusinessPublicId).toBeNull();
   });
 
   it("refuses when the username is not bound to the business", async () => {
@@ -460,14 +451,12 @@ describe("claimLinkForBusiness", () => {
     expect(mocks.businessOwnsUsername).not.toHaveBeenCalled();
   });
 
-  it("exposes a public identity id only when the business has a published badge", async () => {
+  it("exposes no public identity id for a claimed link now that badges are retired", async () => {
     const doc = storedDoc({ businessId: "biz_123456789" });
     mocks.findOne.mockResolvedValue(doc);
-    mocks.publishedPublicIdsFor.mockResolvedValue(
-      new Map([["biz_123456789", "pub_abcdef"]]),
-    );
     const out = await getLink(doc._id);
-    expect(out?.verifiedBusinessPublicId).toBe("pub_abcdef");
+    expect(out?.businessClaimed).toBe(true);
+    expect(out).not.toHaveProperty("verifiedBusinessPublicId");
   });
 });
 

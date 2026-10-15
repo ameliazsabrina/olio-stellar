@@ -337,6 +337,7 @@ export function InvoicesDashboard() {
           invoiceId={selectedId}
           open={selectedId !== null && editor === null}
           username={username}
+          businessName={business?.displayName ?? null}
           origin={origin}
           opened={selectedId ? (opened.get(selectedId) ?? null) : null}
           locked={!accountUnlocked}

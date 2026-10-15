@@ -94,6 +94,12 @@ export const serverEnvSchema = z.object({
     ),
   ),
   SETTLEMENTS_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+  // Dev-only: an RPC retention gap (indexer offline longer than the RPC's
+  // event window) no longer marks the nullifier mirror incomplete. Rejected
+  // at production runtime and on mainnet by getServerEnv.
+  POOL_INDEXER_TOLERATE_RETENTION_GAP: z
+    .enum(["true", "false"])
+    .default("false"),
   EVIDENCE_MODE: z.enum(["off", "testnet", "mainnet"]).default("off"),
   EVIDENCE_SIGNER_SECRET: optionalString,
   EVIDENCE_SIGNER_KEY_ID: z.preprocess(
@@ -187,6 +193,8 @@ export function getServerEnv() {
     VERIFICATION_OPERATOR_PRIVY_IDS:
       process.env.VERIFICATION_OPERATOR_PRIVY_IDS,
     SETTLEMENTS_WORKER_ENABLED: process.env.SETTLEMENTS_WORKER_ENABLED,
+    POOL_INDEXER_TOLERATE_RETENTION_GAP:
+      process.env.POOL_INDEXER_TOLERATE_RETENTION_GAP,
     EVIDENCE_MODE: process.env.EVIDENCE_MODE,
     EVIDENCE_SIGNER_SECRET: process.env.EVIDENCE_SIGNER_SECRET,
     EVIDENCE_SIGNER_KEY_ID: process.env.EVIDENCE_SIGNER_KEY_ID,
@@ -200,6 +208,14 @@ export function getServerEnv() {
   const productionRuntime =
     parsed.NODE_ENV === "production" &&
     process.env.NEXT_PHASE !== "phase-production-build";
+  if (
+    parsed.POOL_INDEXER_TOLERATE_RETENTION_GAP === "true" &&
+    (productionRuntime || process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet")
+  ) {
+    throw new Error(
+      "POOL_INDEXER_TOLERATE_RETENTION_GAP is a local-development setting and is not allowed in production or on mainnet.",
+    );
+  }
   if (
     productionRuntime &&
     parsed.EVIDENCE_MODE !== "off" &&

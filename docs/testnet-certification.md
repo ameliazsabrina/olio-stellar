@@ -41,7 +41,7 @@ FEE_RECIPIENT=G... scripts/deploy-testnet.sh \
 
 Remove `--dry-run` only after checking the exact treasury, deployer, operator, registry, database, and testnet budget. Resume an interrupted run with `--resume <manifest>`. A fresh registry requires the explicit `--new-registry` flag. The deployment command stages secrets in a mode-0600 pending file, validates pool signer and intake pairing, then activates the complete environment with one rename.
 
-Rebuild/restart Next.js after activation. Run `pnpm --filter web readiness:testnet -- --channel=direct`; the process exits nonzero and prints bounded codes while any prerequisite is missing. Synchronize the new empty index once before expecting `INDEXER_NOT_READY` to clear. Readiness also requires an indexer watermark less than two minutes old; compare its published ledger with the live RPC ledger and confirm the on-chain leaf count equals the scoped `deposits` count.
+Rebuild/restart Next.js after activation. Run `pnpm --filter web readiness:testnet -- --channel=direct`; the process exits nonzero and prints bounded codes while any prerequisite is missing. Readiness also requires an indexer watermark less than two minutes old; compare its published ledger with the live RPC ledger and confirm the on-chain leaf count equals the scoped `deposits` count.
 
 To reset a confirmed-empty local pool mirror, preview the exact scope first and
 then execute with an explicit backup directory. The command refuses to reset a

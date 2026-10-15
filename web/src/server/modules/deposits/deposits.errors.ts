@@ -1,3 +1,11 @@
+// Written to indexer_state.lastError by a sync that succeeded but degraded.
+// Payment readiness matches the gap message to tell a pure retention gap
+// (non-blocking) from a sync error (blocking), so keep these shared.
+export const POOL_INDEXER_GAP_MESSAGE =
+  "Retention gap skipped a ledger window; some spent notes may be missing from the mirror until a full resync.";
+export const POOL_INDEXER_ROOT_MESSAGE =
+  "Mirrored pool root does not match the contract; evidence issuance is halted until the mirror is rebuilt.";
+
 export class DepositIndexGapError extends Error {
   constructor(onChainCount: number, mirroredCount: number) {
     super(

@@ -23,18 +23,40 @@ export type Scenario = {
   identity: Identity | null;
   failures: Partial<Record<Procedure, { code: string; message: string }>>;
   tokenExpiresAfter: number;
+  statements: StatementItem[];
+};
+
+export type StatementItem = {
+  statementId: string;
+  status: "valid" | "revoked" | "expired";
+  period: { preset: "3m" | "6m" | "12m" | "all"; from: string; to: string };
+  detail: "summary" | "full";
+  payerMask: "masked" | "full" | "hidden" | null;
+  summary: {
+    totalReceived: string;
+    paymentCount: number;
+    distinctPayers: number;
+    excludedCount: number;
+  };
+  digest: string;
+  issuedAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
 };
 
 export type Procedure =
   | "businesses.mine"
   | "businesses.create"
   | "businesses.bindAccount"
+  | "verification.onboarding"
   | "verification.status"
   | "verification.start"
   | "verification.sdkToken"
   | "verification.refresh"
   | "passport.identity"
-  | "passport.setVisibility";
+  | "passport.issueStatement"
+  | "passport.listStatements"
+  | "passport.revokeStatement";
 
 export type Business = {
   businessId: string;
@@ -81,8 +103,6 @@ export type Identity = {
   displayName: string | null;
   type: "individual" | "company";
   credential: Credential | null;
-  publishable: boolean;
-  publicPath: string | null;
 };
 
 export const BUSINESS: Business = {
@@ -145,8 +165,6 @@ export function identity(overrides: Partial<Identity> = {}): Identity {
     displayName: BUSINESS.displayName,
     type: "individual",
     credential: null,
-    publishable: false,
-    publicPath: null,
     ...overrides,
   };
 }
@@ -158,7 +176,94 @@ export function scenario(overrides: Partial<Scenario> = {}): Scenario {
     identity: identity(),
     failures: {},
     tokenExpiresAfter: 0,
+    statements: [],
     ...overrides,
+  };
+}
+
+const E2E_STATEMENT_ID = "pst_e2eStatement0000000000";
+
+function issuedStatement(input: {
+  detail: "summary" | "full";
+  period: "3m" | "6m" | "12m" | "all";
+  payerMask: "masked" | "full" | "hidden";
+}) {
+  const issuedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 90 * 86_400_000).toISOString();
+  const from = new Date(
+    Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 2, 1),
+  ).toISOString();
+  const months = [0, 1, 2].map((offset) => {
+    const date = new Date(from);
+    date.setUTCMonth(date.getUTCMonth() + offset);
+    return {
+      month: date.toISOString().slice(0, 7),
+      count: 1,
+      amount: "250000000",
+    };
+  });
+  const summary = {
+    totalReceived: "750000000",
+    paymentCount: 3,
+    distinctPayers: 2,
+    excludedCount: 1,
+  };
+  const statement = {
+    kind: "olio.passport.statement",
+    version: 1,
+    statementId: E2E_STATEMENT_ID,
+    issuer: "olio",
+    network: "testnet",
+    poolId: "CE2EPOOL",
+    business: {
+      displayName: BUSINESS.displayName,
+      type: "individual",
+      verified: true,
+      checkedAt: issuedAt,
+      validUntil: expiresAt,
+    },
+    period: { preset: input.period, from, to: issuedAt },
+    detail: input.detail,
+    payerMask: input.detail === "full" ? input.payerMask : null,
+    summary,
+    months,
+    rows:
+      input.detail === "full"
+        ? months.map((month) => ({
+            date: `${month.month}-05T10:00:00.000Z`,
+            amount: "250000000",
+            refunded: "0",
+            rail: "direct",
+            invoices: [],
+            txHash: "ab".repeat(32),
+            evidenceLevel: "attributed",
+            payer: input.payerMask === "hidden" ? null : "GABC…WXYZ",
+          }))
+        : null,
+    qualificationPolicyVersion: 1,
+    recordsAsOf: issuedAt,
+    issuedAt,
+    expiresAt,
+  };
+  const item: StatementItem = {
+    statementId: E2E_STATEMENT_ID,
+    status: "valid",
+    period: statement.period,
+    detail: input.detail,
+    payerMask: statement.payerMask,
+    summary,
+    digest: "ef".repeat(32),
+    issuedAt,
+    expiresAt,
+    revokedAt: null,
+  };
+  return {
+    item,
+    output: {
+      statement,
+      digest: item.digest,
+      verifyPath: `/verify/${E2E_STATEMENT_ID}`,
+    },
   };
 }
 
@@ -183,6 +288,8 @@ function resultFor(
     case "businesses.mine":
       return { data: state.businesses };
     case "businesses.create": {
+      // Like the server, an existing (possibly unlinked) profile is returned as-is.
+      if (state.businesses[0]) return { data: state.businesses[0] };
       const created: Business = {
         ...BUSINESS,
         type: (input as { type: "individual" | "company" }).type,
@@ -206,6 +313,20 @@ function resultFor(
       if (state.status) state.status = { ...state.status, canStart: true };
       return { data: { business: bound, changed: true } };
     }
+    case "verification.onboarding": {
+      // The business bound to the signed-in account, as useVerification reads it.
+      const business =
+        state.businesses.find((candidate) => candidate.accountBound) ?? null;
+      const bound = business ? state.status : null;
+      return {
+        data: {
+          business,
+          status: bound,
+          submitted: !!bound && bound.eligibility !== "not_started",
+          serviceAvailable: true,
+        },
+      };
+    }
     case "verification.status":
       return { data: state.status };
     case "verification.start": {
@@ -222,26 +343,30 @@ function resultFor(
       return { data: { token: "e2e-sdk-token", expiresInSeconds: 600 } };
     case "verification.refresh":
       return { data: { status: state.status, reconciled: true } };
+    case "notifications.list":
+      return { data: { items: [], nextCursor: null, unreadCount: 0 } };
     case "passport.identity":
       return { data: state.identity };
-    case "passport.setVisibility": {
-      const published = (input as { published: boolean }).published;
-      const current = state.identity;
-      if (!current?.credential || !current.publishable) {
-        return {
-          error: {
-            code: "PRECONDITION_FAILED",
-            message:
-              "Your identity badge can be published once verification is approved and current.",
-          },
-        };
-      }
-      state.identity = {
-        ...current,
-        credential: { ...current.credential, published },
-        publicPath: published ? `/business/${current.publicId}` : null,
+    case "passport.listStatements":
+      return { data: state.statements };
+    case "passport.issueStatement": {
+      const issued = issuedStatement(
+        input as Parameters<typeof issuedStatement>[0],
+      );
+      state.statements = [issued.item, ...state.statements];
+      return { data: issued.output };
+    }
+    case "passport.revokeStatement": {
+      const { statementId } = input as { statementId: string };
+      const revokedAt = new Date().toISOString();
+      state.statements = state.statements.map((item) =>
+        item.statementId === statementId
+          ? { ...item, status: "revoked", revokedAt }
+          : item,
+      );
+      return {
+        data: state.statements.find((item) => item.statementId === statementId),
       };
-      return { data: state.identity };
     }
     default:
       return {

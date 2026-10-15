@@ -4,6 +4,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Binary, MongoServerError } from "mongodb";
+import { getServerEnv } from "../../../env.server";
 import { bytesToHex } from "../../../lib/crypto";
 import {
   fetchPoolEventsSince,
@@ -27,6 +28,8 @@ import {
 import { I64_MAX } from "../invoices/invoices.state";
 import {
   DepositIndexGapError,
+  POOL_INDEXER_GAP_MESSAGE,
+  POOL_INDEXER_ROOT_MESSAGE,
   PoolConfigurationMismatchError,
 } from "./deposits.errors";
 import {
@@ -154,11 +157,14 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     const { events, scannedFromLedger, latestLedger } =
       await fetchPoolEventsSince(fromLedger);
     const retentionGap = fromLedger > 0 && scannedFromLedger !== fromLedger + 1;
+    const tolerateGap =
+      retentionGap &&
+      getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP === "true";
     const nullifiersComplete =
-      (state?.nullifiersComplete ?? true) && !retentionGap;
+      (state?.nullifiersComplete ?? true) && (!retentionGap || tolerateGap);
     if (retentionGap) {
       console.warn(
-        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; spend events in the gap may be unindexed (nullifier mirror marked incomplete)`,
+        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; spend events in the gap may be unindexed (${tolerateGap ? "tolerated by POOL_INDEXER_TOLERATE_RETENTION_GAP" : "nullifier mirror marked incomplete"})`,
       );
     }
 
@@ -282,10 +288,6 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     const rootsMismatch =
       roots.fields.rootsMismatch ?? state?.rootsMismatch ?? false;
     const indexedAt = new Date();
-    const gapMessage =
-      "Retention gap skipped a ledger window; some spent notes may be missing from the mirror until a full resync.";
-    const rootMessage =
-      "Mirrored pool root does not match the contract; evidence issuance is halted until the mirror is rebuilt.";
     const healthy = nullifiersComplete && !rootsMismatch;
     await states.updateOne(
       { _id: "pool", leaseOwner: owner },
@@ -299,11 +301,16 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
           indexedAt,
           updatedAt: indexedAt,
           nullifiersComplete,
+          ...(tolerateGap ? { retentionGapToleratedAt: indexedAt } : {}),
           ...roots.fields,
           health: healthy ? "healthy" : "degraded",
           ...(healthy
             ? {}
-            : { lastError: nullifiersComplete ? rootMessage : gapMessage }),
+            : {
+                lastError: nullifiersComplete
+                  ? POOL_INDEXER_ROOT_MESSAGE
+                  : POOL_INDEXER_GAP_MESSAGE,
+              }),
         },
         ...(healthy ? { $unset: { lastError: "" } } : {}),
       },

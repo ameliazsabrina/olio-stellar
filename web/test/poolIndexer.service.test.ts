@@ -235,6 +235,70 @@ describe("syncPoolIndex", () => {
     );
   });
 
+  it("tolerates a retention gap when the dev-only flag is set", async () => {
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    try {
+      const { syncPoolIndex } = await import(
+        "../src/server/modules/deposits/deposits.service"
+      );
+      const result = await syncPoolIndex();
+
+      expect(result.status).toBe("synced");
+      expect(mocks.stateUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: "pool" }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            publishedLedger: 60,
+            nullifiersComplete: true,
+            retentionGapToleratedAt: expect.any(Date),
+            health: "healthy",
+          }),
+        }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("does not clear an already-incomplete mirror when tolerating gaps", async () => {
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    mocks.stateFindOne.mockResolvedValue({
+      _id: "pool",
+      poolId: "CPOOL",
+      publishedLedger: 10,
+      publishedLeafIndex: -1,
+      nullifiersComplete: false,
+    });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    try {
+      const { syncPoolIndex } = await import(
+        "../src/server/modules/deposits/deposits.service"
+      );
+      await syncPoolIndex();
+
+      expect(mocks.stateUpdateOne).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: "pool" }),
+        expect.objectContaining({
+          $set: expect.objectContaining({
+            nullifiersComplete: false,
+            health: "degraded",
+          }),
+        }),
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("keeps nullifiers incomplete sticky across a later clean sync", async () => {
     mocks.stateFindOne.mockResolvedValue({
       _id: "pool",

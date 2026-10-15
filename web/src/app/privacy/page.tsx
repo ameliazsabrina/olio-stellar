@@ -19,8 +19,8 @@ const SECTIONS = [
   ["purposes-and-legal-bases", "Purposes and legal bases"],
   ["verification-through-sumsub", "Verification through Sumsub"],
   [
-    "business-passport-and-public-profiles",
-    "Business Passport and public profiles",
+    "track-record-and-public-profiles",
+    "Track Record and public profiles",
   ],
   [
     "public-blockchains-and-payment-privacy",
@@ -54,12 +54,12 @@ const purposeRows = [
     "Performance of a contract or requested precontractual steps, where applicable",
   ],
   [
-    "Carry out identity/business verification and determine passport eligibility",
+    "Carry out identity/business verification and determine Track Record eligibility",
     "Verification submissions, results, business relationships, and case records",
     "[IDENTIFY THE BASIS FOR EACH CHECK; CITE ANY APPLICABLE LEGAL OBLIGATION. DO NOT ASSUME ALL KYC IS LEGALLY MANDATED FOR OLIO.]",
   ],
   [
-    "Publish a Business Passport at an authorized user's request",
+    "Publish a verified badge at an authorized user's request",
     "The public fields listed in Section 7 and publication evidence",
     "[CONFIRM THE BASIS AND AUTHORITY TO PUBLISH PERSONAL DATA, INCLUDING REPRESENTATIVE OR SOLE-TRADER NAMES]",
   ],
@@ -145,7 +145,7 @@ const retentionRows = [
     "[PERIOD, STARTING EVENT, AND APPLICABLE REQUIREMENT]",
   ],
   [
-    "Passport credentials and publication/action audit records",
+    "Track Record credentials and publication/action audit records",
     "[PERIOD AND STARTING EVENT; DISTINGUISH PUBLIC AVAILABILITY FROM INTERNAL RETENTION]",
   ],
   [
@@ -216,7 +216,7 @@ export default function PrivacyPolicyPage() {
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-olive-deep sm:text-lg">
               How Olio processes personal data across accounts, payments,
-              verification, and Business Passport services.
+              verification, and Track Record services.
             </p>
             <dl className="mt-10 flex flex-col gap-4 border-t border-ed-line pt-6 text-sm sm:flex-row sm:gap-12">
               <div>
@@ -266,7 +266,7 @@ export default function PrivacyPolicyPage() {
                 <strong>Olio / OlioPay</strong> (&quot;Olio,&quot;
                 &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), processes
                 personal data when you use oliopay.xyz and our related account,
-                payment, verification, and Business Passport services (the
+                payment, verification, and Track Record services (the
                 &quot;Services&quot;).
               </p>
               <p>
@@ -316,7 +316,7 @@ export default function PrivacyPolicyPage() {
                 blockchain.
               </p>
               <p>
-                The current Business Passport provides identity-verification
+                The current Track Record provides identity-verification
                 status. This Policy does not describe an available revenue
                 score, credit rating, business-quality grade, or portable
                 cryptographically signed financial credential. Before
@@ -437,7 +437,7 @@ export default function PrivacyPolicyPage() {
                   information.
                 </p>
               </Subsection>
-              <Subsection title="Business Passport information">
+              <Subsection title="Track Record information">
                 <p>
                   We process the business profile, authorized members,
                   verification case references, credential status, publication
@@ -555,25 +555,25 @@ export default function PrivacyPolicyPage() {
               <p>
                 If you decline information or consent necessary for a particular
                 check, that check may not be completed and the associated
-                feature or passport may be unavailable. This does not
+                feature or verified badge may be unavailable. This does not
                 automatically mean that every Olio service is unavailable.
               </p>
             </PolicySection>
 
             <PolicySection
               number={7}
-              id="business-passport-and-public-profiles"
-              title="Business Passport and public profiles"
+              id="track-record-and-public-profiles"
+              title="Track Record and public profiles"
             >
               <p>
-                The current Business Passport is an Olio-issued
+                The current Track Record is an Olio-issued
                 identity-verification status displayed through a hosted public
                 page. Sumsub performs configured checks; Olio applies its
                 credential policy to determine eligibility.
               </p>
               <p>
                 An authorized owner or administrator can choose to publish an
-                eligible passport. The public response contains:
+                eligible verified badge. The public response contains:
               </p>
               <ul>
                 <li>
@@ -603,14 +603,14 @@ export default function PrivacyPolicyPage() {
                 information they receive.
               </p>
               <p>
-                Eligibility is reassessed over time. A passport may become
+                Eligibility is reassessed over time. A verified badge may become
                 unavailable when unpublished, suspended, stale, or expired.
                 Unpublishing removes public availability through Olio&apos;s
-                passport response; it does not delete internal verification
+                badge response; it does not delete internal verification
                 records or remove copies already held by others.
               </p>
               <p>
-                The passport does not certify revenue, transaction volume,
+                The verified badge does not certify revenue, transaction volume,
                 independent customers, creditworthiness, business quality, or
                 general legal compliance. Publishing it does not authorize
                 publication of the business&apos;s entire financial history.
@@ -715,7 +715,7 @@ export default function PrivacyPolicyPage() {
                 </li>
               </ul>
               <p>
-                Public passport viewers and people to whom you send disclosure
+                Public badge viewers and people to whom you send disclosure
                 exports also receive information as described above.
               </p>
               <p>
@@ -809,7 +809,7 @@ export default function PrivacyPolicyPage() {
                 according to the applicable process.
               </p>
               <p>
-                Unpublishing or suspending a passport does not itself delete
+                Unpublishing or suspending a verified badge does not itself delete
                 verification data. Deletion requests are assessed across
                 Olio&apos;s records and information processed on our behalf by
                 providers. Provider-independent processing may require a
@@ -860,7 +860,7 @@ export default function PrivacyPolicyPage() {
                 screening. Olio also applies credential eligibility rules based
                 on verification results and their freshness. These can prevent
                 publication, require further information, or make an existing
-                passport unavailable.
+                verified badge unavailable.
               </p>
               <p>
                 If you believe a result or restriction is incorrect, contact{" "}
@@ -899,7 +899,7 @@ export default function PrivacyPolicyPage() {
                 consent is not a blanket authorization for indefinite retention.
               </p>
               <p>
-                You can request that a passport be unpublished separately from
+                You can request that a verified badge be unpublished separately from
                 requesting deletion of personal data.
               </p>
             </PolicySection>

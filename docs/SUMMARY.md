@@ -34,4 +34,4 @@
 * [Developer Reference](reference.md)
 * [CCTP settlement operations](cctp-operations.md)
 * [Verification operations](verification-operations.md)
-* [Business passport: invoices and settlements](business-passport.md)
+* [Track Record: invoices and settlements](business-passport.md)

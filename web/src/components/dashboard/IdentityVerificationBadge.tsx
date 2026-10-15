@@ -10,7 +10,6 @@ export function IdentityVerificationBadge({
   type,
   checkedAt,
   validUntil,
-  policyVersion,
   className,
   compact = false,
 }: {
@@ -19,7 +18,6 @@ export function IdentityVerificationBadge({
   type: "individual" | "company";
   checkedAt: string | null;
   validUntil: string | null;
-  policyVersion: number | null;
   className?: string;
   compact?: boolean;
 }) {
@@ -66,22 +64,10 @@ export function IdentityVerificationBadge({
       {!compact ? (
         <dl
           className={cn(
-            "grid gap-x-6 gap-y-1 text-xs sm:grid-cols-3",
+            "grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2",
             verified ? "text-brand-obsidian/70" : "text-brand-linen/60",
           )}
         >
-          <div>
-            <dt>Issued by</dt>
-            <dd className="font-medium">Olio</dd>
-          </div>
-          <div>
-            <dt>Scope</dt>
-            <dd className="font-medium">Identity only</dd>
-          </div>
-          <div>
-            <dt>Policy</dt>
-            <dd className="font-medium">v{policyVersion ?? "—"}</dd>
-          </div>
           <div>
             <dt>Last checked</dt>
             <dd className="font-medium">{formatDate(checkedAt)}</dd>

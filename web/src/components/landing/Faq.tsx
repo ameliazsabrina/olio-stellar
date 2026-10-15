@@ -37,9 +37,9 @@ const FAQ_ITEMS = [
       "Yes. Each payment is matched to the invoice it paid, so nobody can mark an invoice paid by hand. When a bank, accountant or tax office asks, disclose that single payment as a PDF receipt. The rest stays private.",
   },
   {
-    question: "What is the Business Passport?",
+    question: "What is the Track Record?",
     answer:
-      "Once your verification is approved, Olio issues an Identity Verified badge with a public link. Customers can confirm Olio verified your business without seeing your revenue, customers or balance. The badge stays private until you choose to publish it.",
+      "Your track record is how you prove your business is real and gets paid, without publishing your books. Once your verification is approved, Olio issues an Identity Verified badge with a public link, so customers can confirm who they're paying without seeing your revenue, customers or balance. The badge stays private until you choose to publish it. When a bank or client asks for your payment history, download a payment statement and send it only to them.",
   },
   {
     question: "How is Olio different from a crypto mixer?",

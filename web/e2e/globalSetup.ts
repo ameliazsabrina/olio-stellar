@@ -2,6 +2,7 @@ import { MongoClient } from "mongodb";
 import type {
   BusinessProfileDoc,
   IdentityCredentialDoc,
+  PassportStatementDoc,
 } from "../src/server/db/mongo";
 
 export const E2E_DATABASE_URI =
@@ -12,6 +13,47 @@ export const SUSPENDED_PUBLIC_ID = "pub_e2e_suspended";
 export const UNPUBLISHED_PUBLIC_ID = "pub_e2e_unpublished";
 export const STALE_PUBLIC_ID = "pub_e2e_stale";
 export const SANDBOX_PUBLIC_ID = "pub_e2e_sandbox";
+export const VALID_STATEMENT_ID = "pst_e2eValidStatement00000";
+export const REVOKED_STATEMENT_ID = "pst_e2eRevokedStatement000";
+export const STATEMENT_DIGEST = "5a".repeat(32);
+
+function statementFor(
+  _id: string,
+  overrides: Partial<PassportStatementDoc> = {},
+): PassportStatementDoc {
+  const now = new Date();
+  return {
+    _id,
+    businessId: "biz_e2e_published",
+    network: "testnet",
+    poolId: "CE2EPOOL",
+    version: 1,
+    businessName: "Warung Verified",
+    digest: STATEMENT_DIGEST,
+    recordsAsOf: now,
+    period: {
+      preset: "12m",
+      from: new Date(
+        Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth() + 1, 1),
+      ),
+      to: now,
+    },
+    detail: "full",
+    payerMask: "masked",
+    summary: {
+      totalReceived: "12345000000",
+      paymentCount: 14,
+      distinctPayers: 6,
+      excludedCount: 2,
+    },
+    issuedBy: "did:privy:e2e",
+    issuedAt: now,
+    expiresAt: new Date(now.getTime() + 90 * 86_400_000),
+    revokedAt: null,
+    revokedBy: null,
+    ...overrides,
+  };
+}
 
 function profile(
   publicId: string,
@@ -98,6 +140,18 @@ export default async function globalSetup(): Promise<void> {
           checkedAt: new Date(Date.now() - 30 * 86_400_000),
         }),
         credentialFor("biz_e2e_sandbox", { environment: "sandbox" }),
+      ]);
+    await db
+      .collection<PassportStatementDoc>("passport_statements")
+      .deleteMany({ businessId: { $regex: "^biz_e2e_" } });
+    await db
+      .collection<PassportStatementDoc>("passport_statements")
+      .insertMany([
+        statementFor(VALID_STATEMENT_ID),
+        statementFor(REVOKED_STATEMENT_ID, {
+          revokedAt: new Date(),
+          revokedBy: "did:privy:e2e",
+        }),
       ]);
   } finally {
     await client.close();

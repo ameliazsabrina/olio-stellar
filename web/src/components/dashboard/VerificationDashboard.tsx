@@ -117,7 +117,7 @@ export function VerificationDashboard() {
     <>
       <DashboardPageHeader
         title="Verification"
-        description="Verify your identity or company once. Olio keeps the result private until you choose to publish an Identity Verified badge."
+        description="Verify your identity or company once. Olio keeps the result private and only puts it on the payment statements you download and share."
       />
 
       <div className="grid grid-cols-1 gap-4 pb-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
@@ -256,15 +256,21 @@ function CreateBusinessTile({
 }) {
   const [type, setType] = useState<BusinessType>("individual");
   const [displayName, setDisplayName] = useState("");
-  const { createBusiness } = verification;
+  const { createBusiness, bindAccount } = verification;
+  const pending = createBusiness.isPending || bindAccount.isPending;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await createBusiness.mutateAsync({
+      const profile = await createBusiness.mutateAsync({
         type,
         displayName: displayName.trim() || null,
       });
+      // create returns an existing unlinked draft as-is, and only the profile
+      // bound to this account is shown, so link it like the onboarding dialog.
+      if (!profile.accountBound) {
+        await bindAccount.mutateAsync({ businessId: profile.businessId });
+      }
       toast.success("Business profile created");
     } catch (cause) {
       toast.error(
@@ -339,18 +345,14 @@ function CreateBusinessTile({
               value={displayName}
               maxLength={80}
               onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Shown on your public badge if you publish it"
+              placeholder="Shown on your payment statement"
             />
           </div>
-          <Button
-            type="submit"
-            disabled={createBusiness.isPending}
-            aria-busy={createBusiness.isPending}
-          >
-            {createBusiness.isPending ? (
+          <Button type="submit" disabled={pending} aria-busy={pending}>
+            {pending ? (
               <Loader className="size-4 animate-spin" aria-hidden="true" />
             ) : null}
-            {createBusiness.isPending ? "Creating…" : "Create profile"}
+            {pending ? "Creating…" : "Create profile"}
           </Button>
         </form>
       }
@@ -590,7 +592,7 @@ function PrivacyTile() {
           <li>Documents go to our verification partner, not Olio.</li>
           <li>Your balance, notes and payment history are never shared.</li>
           <li>
-            Nothing is published until you turn on your badge in Settings.
+            Nothing is shared until you send someone your payment statement.
           </li>
         </ul>
       }
@@ -603,7 +605,7 @@ function NextStepsTile({ status }: { status: VerificationStatus | null }) {
     "Create your profile and link your Olio account.",
     "Complete the secure session with your ID or company documents.",
     "We check the result against Olio's policy and record the outcome.",
-    "Decide whether to publish an Identity Verified badge.",
+    "Download a payment statement to share with the people you choose.",
   ];
   const activeIndex = !status
     ? 0

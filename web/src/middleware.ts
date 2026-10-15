@@ -7,7 +7,7 @@ import {
   PRIVY_SESSION_COOKIE,
   REFRESH_PATH,
   SIGN_IN_PATH,
-} from "./src/lib/auth-routes";
+} from "./lib/auth-routes";
 
 const OAUTH_QUERY_KEYS = [
   "privy_oauth_code",

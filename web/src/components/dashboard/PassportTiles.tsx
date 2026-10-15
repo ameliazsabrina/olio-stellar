@@ -1,17 +1,19 @@
 "use client";
 
-import { Check, Copy, Loader } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useVerification } from "../../features/verification/useVerification";
-import { PASSPORT_ANCHOR } from "../../lib/auth-routes";
 import { trpc } from "../../trpc/react";
 import { Button } from "../ui/button";
-import { DashboardTile } from "./DashboardTile";
+import type { IdentityBadgeState } from "./IdentityVerificationBadge";
 import {
-  type IdentityBadgeState,
-  IdentityVerificationBadge,
-} from "./IdentityVerificationBadge";
+  DETAIL_OPTIONS,
+  PassportDownloadDialog,
+  PERIOD_OPTIONS,
+} from "./PassportDownloadDialog";
+import { SettingsRow } from "./SettingsRow";
+import { formatDate } from "./verificationCopy";
 
 export function badgeStateFor(
   credential: { status: "active" | "suspended" | "expired" } | null | undefined,
@@ -22,186 +24,155 @@ export function badgeStateFor(
 }
 
 /**
- * The Business Passport controls (private preview, publication consent and
- * scope disclosure), rendered as tiles inside the Settings 12-column grid.
+ * The Track Record section of Settings: the payment statement PDF once
+ * identity verification is approved.
  */
 export function PassportTiles() {
   const { business, businessesLoading } = useVerification();
-  const utils = trpc.useUtils();
   const businessId = business?.businessId ?? null;
   const identity = trpc.passport.identity.useQuery(
     { businessId: businessId ?? "" },
     { enabled: businessId !== null },
   );
-  const setVisibility = trpc.passport.setVisibility.useMutation({
-    onSuccess: (next) => {
-      if (businessId) utils.passport.identity.setData({ businessId }, next);
-    },
+
+  if (businessesLoading || (businessId && identity.isLoading)) return null;
+
+  const badgeState = badgeStateFor(identity.data?.credential);
+  if (businessId && badgeState === "verified") {
+    return <PassportStatementsRow businessId={businessId} />;
+  }
+
+  return (
+    <p className="py-5 text-sm leading-6 text-muted-foreground">
+      Your payment statement becomes available once identity verification is
+      approved.
+    </p>
+  );
+}
+
+const DETAIL_LABEL = Object.fromEntries(DETAIL_OPTIONS);
+const PERIOD_LABEL = Object.fromEntries(PERIOD_OPTIONS);
+const STATUS_LABEL = {
+  valid: "Valid",
+  revoked: "Revoked",
+  expired: "Expired",
+} as const;
+
+/**
+ * The payment statement: download it as a PDF and revoke copies
+ * already shared. Statement rows are never stored, so the list shows totals.
+ */
+function PassportStatementsRow({ businessId }: { businessId: string }) {
+  const utils = trpc.useUtils();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const statements = trpc.passport.listStatements.useQuery({ businessId });
+  const revoke = trpc.passport.revokeStatement.useMutation({
+    onSuccess: () => utils.passport.listStatements.invalidate({ businessId }),
   });
-  const [origin, setOrigin] = useState("");
-  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
-  const preview = identity.data ?? null;
-  const badgeState = badgeStateFor(preview?.credential);
-  const published = Boolean(preview?.credential?.published);
-  const publicUrl = preview?.publicPath ? `${origin}${preview.publicPath}` : "";
-
-  async function toggle(next: boolean) {
-    if (!businessId) return;
+  async function revokeStatement(statementId: string) {
     try {
-      await setVisibility.mutateAsync({ businessId, published: next });
-      toast.success(next ? "Badge published" : "Badge hidden");
+      await revoke.mutateAsync({ businessId, statementId });
+      setConfirming(null);
+      toast.success("Statement revoked");
     } catch (cause) {
       toast.error(
         cause instanceof Error
           ? cause.message
-          : "Visibility could not be changed.",
+          : "The statement could not be revoked.",
       );
     }
   }
 
-  async function copy() {
-    if (!publicUrl) return;
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Copy failed. Select the link and copy it manually.");
-    }
-  }
+  const items = statements.data ?? [];
 
   return (
     <>
-      <section
-        id={PASSPORT_ANCHOR}
-        className="min-w-0 scroll-mt-6 lg:col-span-7"
-        aria-labelledby="passport-claim-heading"
+      <SettingsRow
+        title="Payment statement"
+        description="A PDF with your verified identity and the payments you received, as a monthly summary or a full list. Only people you send this file to will see your payment history. Anyone holding it can check it with Olio through the link printed on it."
+        action={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Download className="size-4" aria-hidden="true" />
+            Download
+          </Button>
+        }
       >
-        <DashboardTile
-          appearance="glass"
-          className="min-h-[19rem] text-brand-linen"
-          header={
-            <h2
-              id="passport-claim-heading"
-              className="dashboard-tile-title text-brand-linen"
-            >
-              Business Passport
-            </h2>
-          }
-          content={
-            <div className="mt-6">
-              {businessesLoading || (businessId && identity.isLoading) ? (
-                <div
-                  role="status"
-                  aria-busy="true"
-                  aria-label="Loading passport"
-                  className="h-32 rounded-[1.5rem] bg-brand-linen/8 motion-safe:animate-pulse"
-                />
-              ) : preview ? (
-                <IdentityVerificationBadge
-                  state={badgeState}
-                  displayName={preview.displayName}
-                  type={preview.type}
-                  checkedAt={preview.credential?.checkedAt ?? null}
-                  validUntil={preview.credential?.validUntil ?? null}
-                  policyVersion={preview.credential?.policyVersion ?? null}
-                />
-              ) : (
-                <p className="max-w-md text-sm leading-6 text-brand-linen/70">
-                  No verified identity yet. Complete verification to create a
-                  claim you can choose to publish.
-                </p>
-              )}
-            </div>
-          }
-          footer={
-            <p className="text-xs text-brand-linen/75">
-              {badgeState === "verified"
-                ? "This claim covers identity only. It says nothing about revenue, customers or creditworthiness."
-                : "Your passport appears here once identity verification is approved."}
-            </p>
-          }
-        />
-      </section>
-
-      <section
-        className="min-w-0 lg:col-span-5"
-        aria-labelledby="passport-visibility-heading"
-      >
-        <DashboardTile
-          appearance="linen"
-          className="min-h-[19rem]"
-          header={
-            <h2
-              id="passport-visibility-heading"
-              className="dashboard-tile-title"
-            >
-              Who can see it
-            </h2>
-          }
-          content={
-            <div className="mt-6 space-y-4 text-sm leading-6">
-              <p className="text-muted-foreground">
-                {published
-                  ? "Your badge is public. Anyone with the link below can confirm that Olio verified this identity."
-                  : "Your badge is private. Only you can see it until you publish it."}
-              </p>
-              {publicUrl ? (
-                <div className="flex items-center gap-2">
-                  <code
-                    className="min-w-0 flex-1 truncate rounded-lg bg-foreground/6 px-3 py-2 font-mono text-xs"
-                    data-testid="public-identity-url"
-                  >
-                    {publicUrl}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    onClick={copy}
-                    aria-label={copied ? "Link copied" : "Copy public link"}
-                  >
-                    {copied ? (
-                      <Check className="size-4" aria-hidden="true" />
-                    ) : (
-                      <Copy className="size-4" aria-hidden="true" />
-                    )}
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          }
-          footer={
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant={published ? "outline" : "default"}
-                onClick={() => toggle(!published)}
-                disabled={
-                  setVisibility.isPending ||
-                  !preview ||
-                  (!published && !preview.publishable)
-                }
-                aria-busy={setVisibility.isPending}
-                aria-pressed={published}
+        {items.length > 0 ? (
+          <ul
+            className="mb-4 divide-y divide-border-subtle rounded-2xl border border-border-subtle px-4 text-sm leading-6"
+            aria-label="Issued statements"
+          >
+            {items.map((item) => (
+              <li
+                key={item.statementId}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                data-testid="passport-statement"
               >
-                {setVisibility.isPending ? (
-                  <Loader className="size-4 animate-spin" aria-hidden="true" />
-                ) : null}
-                {published ? "Hide badge" : "Publish badge"}
-              </Button>
-              {preview && !preview.publishable ? (
-                <p className="text-xs text-muted-foreground">
-                  Publishing unlocks once verification is approved and current.
-                </p>
-              ) : null}
-            </div>
-          }
-        />
-      </section>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">
+                    {DETAIL_LABEL[item.detail]} ·{" "}
+                    {PERIOD_LABEL[item.period.preset]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Issued {formatDate(item.issuedAt)} ·{" "}
+                    {item.status === "valid"
+                      ? `valid until ${formatDate(item.expiresAt)}`
+                      : STATUS_LABEL[item.status].toLowerCase()}{" "}
+                    · <span className="font-mono">{item.statementId}</span>
+                  </p>
+                </div>
+                {item.status === "valid" ? (
+                  confirming === item.statementId ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => revokeStatement(item.statementId)}
+                        disabled={revoke.isPending}
+                        aria-busy={revoke.isPending}
+                      >
+                        Confirm revoke
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirming(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirming(item.statementId)}
+                      aria-label={`Revoke statement ${item.statementId}`}
+                    >
+                      Revoke
+                    </Button>
+                  )
+                ) : (
+                  <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 text-xs text-muted-foreground">
+                    {STATUS_LABEL[item.status]}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="max-w-xl text-xs leading-5 text-muted-foreground">
+          Revoking a statement makes its verify link report it as revoked.
+          Copies already sent still exist, but anyone who checks will see it is
+          no longer valid.
+        </p>
+      </SettingsRow>
+      <PassportDownloadDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        businessId={businessId}
+      />
     </>
   );
 }

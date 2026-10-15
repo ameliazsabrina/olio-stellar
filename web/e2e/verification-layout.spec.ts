@@ -20,7 +20,7 @@ const approvedScenario = () =>
       credential: credential(),
       userMessage: "Identity verified.",
     }),
-    identity: identity({ credential: credential(), publishable: true }),
+    identity: identity({ credential: credential() }),
   });
 
 async function noHorizontalOverflow(page: Parameters<typeof stubTrpc>[0]) {
@@ -54,7 +54,7 @@ test.describe("bento layout", () => {
     await stubProviderSdk(page);
     await page.goto("/e2e-harness?screen=passport");
     await expect(
-      page.getByRole("heading", { name: "Business Passport", exact: true }),
+      page.getByRole("heading", { name: "Track Record", exact: true }),
     ).toBeVisible();
     expect(await noHorizontalOverflow(page)).toBe(true);
     await testInfo.attach(`passport-${testInfo.project.name}.png`, {
@@ -75,7 +75,7 @@ test.describe("bento layout", () => {
     const radius = await tiles
       .first()
       .evaluate((node) => getComputedStyle(node).borderTopLeftRadius);
-    expect(radius).toBe("36px");
+    expect(radius).toBe("28px");
     const headingFont = await page
       .getByRole("heading", { name: "Verification status" })
       .evaluate((node) => getComputedStyle(node).fontFamily);
@@ -125,33 +125,28 @@ test.describe("keyboard and assistive technology", () => {
       "How it works",
       "What stays private",
     ]) {
-      await expect(page.getByRole("region", { name })).toBeVisible();
+      await expect(
+        page.getByRole("region", { name, exact: true }),
+      ).toBeVisible();
     }
     await page.goto("/e2e-harness?screen=passport");
     for (const name of [
-      "Business Passport",
+      "Track Record",
       "Who can see it",
-      "What this badge means",
+      "Payment statement",
     ]) {
-      await expect(page.getByRole("region", { name })).toBeVisible();
+      await expect(
+        page.getByRole("region", { name, exact: true }),
+      ).toBeVisible();
     }
   });
 
   test("gives icon-only controls an accessible name", async ({ page }) => {
-    await stubTrpc(
-      page,
-      scenario({
-        identity: identity({
-          credential: credential({ published: true }),
-          publishable: true,
-          publicPath: "/business/pub_e2e_individual",
-        }),
-      }),
-    );
+    await stubTrpc(page, approvedScenario());
     await stubProviderSdk(page);
     await page.goto("/e2e-harness?screen=passport");
     await expect(
-      page.getByRole("button", { name: "Copy public link" }),
+      page.getByRole("region", { name: "Payment statement", exact: true }),
     ).toBeVisible();
     const unnamed = await page
       .locator("button:not([aria-label])")
@@ -207,7 +202,12 @@ test.describe("existing dashboard regressions", () => {
   }) => {
     const errors: string[] = [];
     page.on("console", (message) => {
-      if (message.type() === "error") errors.push(message.text());
+      if (message.type() !== "error") return;
+      // Privy's analytics endpoint 403s from a local origin; Chromium logs that
+      // as a bare "Failed to load resource", so match on the source URL too.
+      const source = message.location().url ?? "";
+      if (source.includes("privy.io")) return;
+      errors.push(message.text());
     });
     const failed: string[] = [];
     page.on("requestfailed", (request) => failed.push(request.url()));
@@ -215,7 +215,7 @@ test.describe("existing dashboard regressions", () => {
     await page.goto("/");
     await expect(page.locator("body")).toBeVisible();
     await page.goto(`/business/${PUBLISHED_PUBLIC_ID}`);
-    await expect(page.getByTestId("identity-badge")).toBeVisible();
+    await expect(page.getByTestId("public-identity-retired")).toBeVisible();
 
     const relevantErrors = errors.filter(
       (text) => !text.includes("privy") && !text.includes("favicon"),

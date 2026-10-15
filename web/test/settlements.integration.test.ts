@@ -69,9 +69,6 @@ vi.mock("../src/lib/stellar", () => ({
     getTransaction: vi.fn(),
   },
 }));
-vi.mock("../src/server/modules/passport/passport.service", () => ({
-  publishedPublicIdsFor: async () => new Map(),
-}));
 vi.mock("../src/server/modules/verification/verification.submission", () => ({
   requireSubmission: async () => ({ contractId: "CACME" }),
 }));

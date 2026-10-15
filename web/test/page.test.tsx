@@ -246,8 +246,11 @@ describe("Dashboard route", () => {
       expect.stringContaining("/pay/alice"),
     );
     expect(
-      screen.getByRole("link", { name: "Add cash through your payment page" }),
-    ).toHaveAttribute("href", expect.stringContaining("/pay/alice"));
+      screen.getByRole("region", { name: "Track Record" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Add cash through your payment page" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("DEPOSIT_FORM")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /claim your username/i }),

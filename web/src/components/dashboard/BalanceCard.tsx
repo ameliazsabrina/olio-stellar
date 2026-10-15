@@ -215,7 +215,7 @@ function CurrencySelector() {
       >
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-2 pt-1 pb-2 text-xs font-semibold text-brand-linen/65">
-            Stellar stablecoins
+            Stablecoins options
           </DropdownMenuLabel>
           <DropdownMenuItem className="min-h-12 gap-3 rounded-lg bg-brand-linen/12 px-3 py-2 text-brand-linen focus:bg-brand-linen/18 focus:text-brand-linen [&_svg]:text-brand-linen">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-linen">

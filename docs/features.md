@@ -17,6 +17,8 @@ Bill a customer for a specific amount and keep a record of what was paid.
 * **Share.** Copy the invoice's payment link and send it to your customer. The
   link carries the key that decrypts the invoice, so only people you send it to
   can read it.
+* **Download.** Download any invoice as a one-page PDF. It includes the payment
+  link when the invoice has one, and the PDF is built in your browser.
 * **Private content.** Customer names, line items and notes are encrypted in
   your browser. Olio sees the amount, due date and status, which it needs to
   match payments to the invoice.
@@ -54,20 +56,24 @@ them at once. Each payment is cashed out whole. See
 ## History
 
 A private record of payments received and payments cashed out, readable only by
-you. From here you can create a **payment receipt**: a PDF disclosure that
-proves one payment to a bank, accountant or tax office without revealing any
-other. See [Traceability, on your terms](practical-privacy.md#traceability-on-your-terms).
+you. From here you can download a **payment receipt**: a one-page PDF for one
+payment that you can hand to a bank, accountant or tax office. It shows no
+other payments or balances. See [Traceability, on your terms](practical-privacy.md#traceability-on-your-terms).
 
 ## Verification
 
 Verify your company, or yourself as a sole proprietor, through Sumsub. You need
 to submit verification before you can receive payments.
 
-## Passport
+## Track Record
 
-When your verification is approved, you get an **Identity Verified** badge. It
-stays private until you publish it. Once published, you can share its public
-link so customers can confirm Olio verified your business.
+Your track record lets you prove your business is real and gets paid, without
+publishing your books. When your verification is approved, you get an
+**Identity Verified** badge. It stays private until you publish it. Once
+published, you can share its public link so customers can confirm Olio verified
+your business. When a bank or client asks for your payment history, download a
+**payment statement**: a PDF of your verified identity and the payments you
+received, which anyone holding it can check with Olio.
 
 ## Settings
 

@@ -155,10 +155,7 @@ import {
   listMine,
   updateProfile,
 } from "../src/server/modules/businesses/businesses.service";
-import {
-  identityPreview,
-  setVisibility,
-} from "../src/server/modules/passport/passport.service";
+import { identityPreview } from "../src/server/modules/passport/passport.service";
 import type { VerificationConfig } from "../src/server/modules/verification/verification.config";
 import { VerificationStateError } from "../src/server/modules/verification/verification.errors";
 import {
@@ -229,7 +226,6 @@ describe("cross-account access", () => {
       () => startVerification(OUTSIDER, business.businessId, { config }),
       () => issueSdkToken(OUTSIDER, business.businessId, { config }),
       () => identityPreview(OUTSIDER, business.businessId, config),
-      () => setVisibility(OUTSIDER, business.businessId, true, config),
       () =>
         updateProfile(OUTSIDER, {
           businessId: business.businessId,

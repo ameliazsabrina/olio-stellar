@@ -35,7 +35,7 @@ sole proprietor. Olio uses Sumsub for the identity checks. You need to submit
 verification before you can receive payments.
 
 When your verification is approved, Olio shows a verified badge on your
-**Passport** page. The badge is private until you choose to publish it.
+**Track Record** page. The badge is private until you choose to publish it.
 
 ## 5. Issue an invoice
 
@@ -67,9 +67,9 @@ your **private balance**, which only you can read.
 ## 7. Prove a payment when asked
 
 To show a bank, accountant or tax office that a payment happened, open
-**History**, pick the payment and create a **payment receipt**. It is a PDF
-disclosure that proves that one payment and nothing else. You can also publish your verified badge
-from **Passport** and share its public link, so customers can check that Olio
+**History**, pick the payment and download a **payment receipt**. It is a
+one-page PDF that covers that one payment and nothing else. You can also publish your verified badge
+from **Track Record** and share its public link, so customers can check that Olio
 verified your business.
 
 ## 8. Cash out

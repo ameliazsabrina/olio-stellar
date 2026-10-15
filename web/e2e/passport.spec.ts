@@ -11,10 +11,13 @@ import {
 } from "./fixtures/verification";
 import {
   PUBLISHED_PUBLIC_ID,
+  REVOKED_STATEMENT_ID,
   SANDBOX_PUBLIC_ID,
   STALE_PUBLIC_ID,
+  STATEMENT_DIGEST,
   SUSPENDED_PUBLIC_ID,
   UNPUBLISHED_PUBLIC_ID,
+  VALID_STATEMENT_ID,
 } from "./globalSetup";
 
 const HARNESS = "/e2e-harness?screen=passport";
@@ -25,167 +28,207 @@ async function open(page: Parameters<typeof stubTrpc>[0], state: Scenario) {
   await page.goto(HARNESS);
 }
 
-test.describe("private passport", () => {
-  test("keeps an approved badge private until it is published", async ({
-    page,
-  }) => {
-    const state = scenario({
-      status: status({
-        eligibility: "approved",
-        nextAction: "done",
-        credential: credential(),
-      }),
-      identity: identity({ credential: credential(), publishable: true }),
-    });
-    await open(page, state);
-
-    await expect(page.getByTestId("identity-badge")).toHaveAttribute(
-      "data-state",
-      "verified",
-    );
-    await expect(page.getByText(/Your badge is private/)).toBeVisible();
-    await expect(page.getByTestId("public-identity-url")).toBeHidden();
-    await expect(
-      page.getByRole("button", { name: "Publish badge" }),
-    ).toBeEnabled();
-  });
-
-  test("publishes and then hides the badge on explicit action", async ({
-    page,
-  }) => {
-    const state = scenario({
-      status: status({
-        eligibility: "approved",
-        nextAction: "done",
-        credential: credential(),
-      }),
-      identity: identity({ credential: credential(), publishable: true }),
-    });
-    await open(page, state);
-
-    await page.getByRole("button", { name: "Publish badge" }).click();
-    await expect(page.getByText("Badge published")).toBeVisible();
-    await expect(page.getByTestId("public-identity-url")).toContainText(
-      "/business/pub_e2e_individual",
-    );
-
-    await page.getByRole("button", { name: "Hide badge" }).click();
-    await expect(page.getByText("Badge hidden")).toBeVisible();
-    await expect(page.getByTestId("public-identity-url")).toBeHidden();
-  });
-
-  test("refuses publication while verification is not approved", async ({
-    page,
-  }) => {
-    const state = scenario({
-      status: status({ eligibility: "pending", nextAction: "wait" }),
-      identity: identity({ credential: null, publishable: false }),
-    });
-    await open(page, state);
-    await expect(
-      page.getByRole("button", { name: "Publish badge" }),
-    ).toBeDisabled();
-    await expect(
-      page.getByText(/Publishing unlocks once verification is approved/),
-    ).toBeVisible();
-  });
-
-  test("shows a suspended badge as suspended and blocks publishing", async ({
-    page,
-  }) => {
-    const state = scenario({
-      status: status({
-        eligibility: "manual_review",
-        nextAction: "wait",
-        credential: credential({ status: "suspended" }),
-      }),
-      identity: identity({
-        credential: credential({ status: "suspended" }),
-        publishable: false,
-      }),
-    });
-    await open(page, state);
-    await expect(page.getByTestId("identity-badge")).toHaveAttribute(
-      "data-state",
-      "suspended",
-    );
-    await expect(
-      page.getByRole("button", { name: "Publish badge" }),
-    ).toBeDisabled();
-  });
-
-  test("shows an expired badge as expired", async ({ page }) => {
-    const expired = credential({ status: "expired" });
+test.describe("passport settings", () => {
+  test("offers no badge publishing controls", async ({ page }) => {
     await open(
       page,
       scenario({
         status: status({
           eligibility: "approved",
           nextAction: "done",
-          credential: expired,
+          credential: credential(),
         }),
-        identity: identity({ credential: expired, publishable: false }),
+        identity: identity({ credential: credential() }),
       }),
     );
-    await expect(page.getByTestId("identity-badge")).toHaveAttribute(
-      "data-state",
-      "expired",
-    );
-  });
-
-  test("states the scope of the claim", async ({ page }) => {
-    await open(
-      page,
-      scenario({
-        identity: identity({ credential: credential(), publishable: true }),
-      }),
-    );
-    const scope = page.getByRole("region", { name: "What this badge means" });
-    await expect(scope).toContainText("identity documents and checks passed");
-    await expect(scope).toContainText("revenue");
-    await expect(scope).toContainText("creditworthiness");
-  });
-
-  test("surfaces a server refusal to publish", async ({ page }) => {
-    const state = scenario({
-      identity: identity({ credential: credential(), publishable: true }),
-      failures: {
-        "passport.setVisibility": {
-          code: "PRECONDITION_FAILED",
-          message:
-            "Your identity badge can be published once verification is approved and current.",
-        },
-      },
-    });
-    await open(page, state);
-    await page.getByRole("button", { name: "Publish badge" }).click();
     await expect(
-      page.getByText(
-        "Your identity badge can be published once verification is approved and current.",
-      ),
+      page.getByRole("region", { name: "Payment statement" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Publish badge/ }),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("identity-badge")).toHaveCount(0);
+    await expect(page.getByTestId("public-identity-url")).toHaveCount(0);
   });
 });
 
-test.describe("public identity page", () => {
-  test("shows the verified claim for a published badge", async ({ page }) => {
-    await page.goto(`/business/${PUBLISHED_PUBLIC_ID}`);
+test.describe("passport PDF", () => {
+  const verified = () =>
+    scenario({
+      status: status({
+        eligibility: "approved",
+        nextAction: "done",
+        credential: credential(),
+      }),
+      identity: identity({ credential: credential() }),
+    });
+
+  test("downloads a monthly summary and lists it", async ({ page }) => {
+    await open(page, verified());
+    const tile = page.getByRole("region", { name: "Payment statement" });
+    await expect(tile).toContainText("Only people you send this file to");
+    await tile.getByRole("button", { name: "Download" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Download payment statement" });
     await expect(
-      page.getByRole("heading", { name: "Identity verified by Olio" }),
-    ).toBeVisible();
-    const badge = page.getByTestId("identity-badge");
-    await expect(badge).toHaveAttribute("data-state", "verified");
-    await expect(badge).toContainText("Warung Verified");
-    await expect(badge).toContainText("Company");
-    await expect(page.getByText("Identity only")).toBeVisible();
+      dialog.getByRole("button", { name: "Monthly summary" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      dialog.getByRole("button", { name: "12 months" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(dialog.getByText("Payer addresses")).toBeHidden();
+
+    const download = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Download PDF" }).click();
+    expect((await download).suggestedFilename()).toMatch(
+      /^OlioStatement-.*\d{4}-\d{2}-\d{2}\.pdf$/,
+    );
+    await expect(page.getByText("Payment statement downloaded")).toBeVisible();
+    await expect(page.getByTestId("passport-statement")).toHaveCount(1);
   });
 
-  test("never exposes internal identifiers or contact details", async ({
+  test("offers payer address options only for a full list", async ({
+    page,
+  }) => {
+    await open(page, verified());
+    await page
+      .getByRole("region", { name: "Payment statement" })
+      .getByRole("button", { name: "Download" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Download payment statement" });
+    await dialog.getByRole("button", { name: "Full payment list" }).click();
+    await expect(
+      dialog.getByRole("button", { name: "Masked" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(dialog.getByText(/GABC…WXYZ/)).toBeVisible();
+  });
+
+  test("revokes a statement after confirmation", async ({ page }) => {
+    await open(page, verified());
+    await page
+      .getByRole("region", { name: "Payment statement" })
+      .getByRole("button", { name: "Download" })
+      .click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download PDF" }).click();
+    await download;
+    await page.getByRole("button", { name: /^Revoke statement/ }).click();
+    await page.getByRole("button", { name: "Confirm revoke" }).click();
+    await expect(page.getByText("Statement revoked")).toBeVisible();
+    await expect(page.getByTestId("passport-statement")).toContainText(
+      "Revoked",
+    );
+  });
+
+  test("hides the PDF until the badge is verified", async ({ page }) => {
+    await open(
+      page,
+      scenario({
+        status: status({ eligibility: "pending", nextAction: "wait" }),
+        identity: identity({ credential: null }),
+      }),
+    );
+    await expect(
+      page.getByRole("region", { name: "Payment statement" }),
+    ).toBeHidden();
+    await expect(
+      page.getByText(/available once identity verification is approved/),
+    ).toBeVisible();
+  });
+
+  test("explains that recent payments are still syncing", async ({ page }) => {
+    await open(
+      page,
+      scenario({
+        ...verified(),
+        failures: {
+          "passport.issueStatement": {
+            code: "PRECONDITION_FAILED",
+            message:
+              "Payments after 2026-10-15 14:02 UTC are still syncing. Try again in a few minutes.",
+          },
+        },
+      }),
+    );
+    await page
+      .getByRole("region", { name: "Payment statement" })
+      .getByRole("button", { name: "Download" })
+      .click();
+    await page.getByRole("button", { name: "Download PDF" }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Payments after 2026-10-15 14:02 UTC are still syncing",
+    );
+  });
+});
+
+test.describe("statement verify page", () => {
+  test("confirms a valid statement and shows its digest", async ({ page }) => {
+    await page.goto(`/verify/${VALID_STATEMENT_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "Statement verified by Olio" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("statement-status")).toHaveAttribute(
+      "data-status",
+      "valid",
+    );
+    await expect(
+      page.getByText(/Issued by Olio on .* for Warung Verified/),
+    ).toBeVisible();
+    await expect(page.getByText("1,234.50 USDC")).toBeVisible();
+    await expect(page.getByTestId("statement-digest")).toHaveText(
+      STATEMENT_DIGEST,
+    );
+  });
+
+  test("reports a revoked statement", async ({ page }) => {
+    await page.goto(`/verify/${REVOKED_STATEMENT_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "Statement revoked" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("statement-status")).toHaveAttribute(
+      "data-status",
+      "revoked",
+    );
+  });
+
+  test("never exposes internal identifiers", async ({ page }) => {
+    await page.goto(`/verify/${VALID_STATEMENT_ID}`);
+    const body = (await page.locator("body").innerText()).toLowerCase();
+    for (const secret of ["biz_e2e_published", "did:privy", "ce2eaccount"]) {
+      expect(body).not.toContain(secret);
+    }
+  });
+
+  test("returns nothing for an unknown or malformed id", async ({ page }) => {
+    await page.goto("/verify/pst_doesNotExist0000000000");
+    await expect(page.getByTestId("statement-not-found")).toBeVisible();
+    await page.goto("/verify/not-a-statement");
+    await expect(page.getByTestId("statement-not-found")).toBeVisible();
+  });
+});
+
+test.describe("retired public identity page", () => {
+  test("shows no badge for a business that had published one", async ({
+    page,
+  }) => {
+    await page.goto(`/business/${PUBLISHED_PUBLIC_ID}`);
+    await expect(
+      page.getByRole("heading", { name: "Identity badges are retired" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("public-identity-retired")).toContainText(
+      "payment statement",
+    );
+    await expect(page.getByTestId("identity-badge")).toHaveCount(0);
+  });
+
+  test("never exposes business details, payments or internal identifiers", async ({
     page,
   }) => {
     await page.goto(`/business/${PUBLISHED_PUBLIC_ID}`);
     const body = (await page.locator("body").innerText()).toLowerCase();
     for (const secret of [
+      "warung verified",
+      "usdc",
       "biz_e2e_published",
       "cred_biz_e2e_published",
       "case_biz_e2e_published",
@@ -193,48 +236,23 @@ test.describe("public identity page", () => {
       "did:privy",
       "app_",
     ]) {
-      expect(body).not.toContain(secret.toLowerCase());
+      expect(body).not.toContain(secret);
     }
   });
 
-  test("hides an unpublished badge", async ({ page }) => {
-    await page.goto(`/business/${UNPUBLISHED_PUBLIC_ID}`);
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-    await expect(page.getByTestId("identity-badge")).toBeHidden();
-  });
-
-  test("hides a suspended badge", async ({ page }) => {
-    await page.goto(`/business/${SUSPENDED_PUBLIC_ID}`);
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-  });
-
-  test("hides a badge whose evidence has gone stale", async ({ page }) => {
-    await page.goto(`/business/${STALE_PUBLIC_ID}`);
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-  });
-
-  test("never publishes a sandbox credential from this production runtime", async ({
-    page,
-  }) => {
-    await page.goto(`/business/${SANDBOX_PUBLIC_ID}`);
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-    await expect(page.getByTestId("identity-badge")).toBeHidden();
-  });
-
-  test("returns nothing for an unknown or malformed public id", async ({
-    page,
-  }) => {
-    await page.goto("/business/pub_does_not_exist");
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-    await page.goto("/business/not%20a%20valid%20id");
-    await expect(page.getByTestId("public-identity-empty")).toBeVisible();
-  });
-
-  test("states what the badge does not cover", async ({ page }) => {
-    await page.goto(`/business/${PUBLISHED_PUBLIC_ID}`);
-    await expect(
-      page.getByText(/does not verify revenue, customers, creditworthiness/),
-    ).toBeVisible();
+  test("answers every link the same way", async ({ page }) => {
+    for (const publicId of [
+      UNPUBLISHED_PUBLIC_ID,
+      SUSPENDED_PUBLIC_ID,
+      STALE_PUBLIC_ID,
+      SANDBOX_PUBLIC_ID,
+      "pub_does_not_exist",
+      "not%20a%20valid%20id",
+    ]) {
+      await page.goto(`/business/${publicId}`);
+      await expect(page.getByTestId("public-identity-retired")).toBeVisible();
+      await expect(page.getByTestId("identity-badge")).toHaveCount(0);
+    }
   });
 });
 
@@ -242,12 +260,19 @@ test.describe("authenticated route protection", () => {
   test("shows no verification content to an unauthenticated visitor", async ({
     page,
   }) => {
-    for (const [path, label] of [
-      ["/verification", "Loading verification"],
-      ["/settings", "Loading settings"],
+    // Without Privy cookies the middleware sends every protected route to
+    // sign-in before any page renders.
+    for (const path of [
+      "/verification",
+      "/dashboard?verification=1",
+      "/settings",
     ]) {
+      const response = await page.request.get(path, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toBe("/");
+
       await page.goto(path);
-      await expect(page.getByRole("status", { name: label })).toBeVisible();
+      await expect(page).toHaveURL("/");
       await expect(
         page.getByRole("region", { name: "Verification status" }),
       ).toBeHidden();

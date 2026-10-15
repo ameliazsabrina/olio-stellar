@@ -645,7 +645,7 @@ export async function reconcileLeaf(
   return reconcileDeposit(deposit);
 }
 
-async function invoiceRefsFor(
+export async function invoiceRefsFor(
   settlementIds: string[],
 ): Promise<Map<string, { invoiceId: string; number: number }[]>> {
   const refs = new Map<string, { invoiceId: string; number: number }[]>();

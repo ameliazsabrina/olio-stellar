@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
-import { middleware } from "../middleware";
+import { middleware } from "../src/middleware";
 import {
   PRIVY_ACCESS_TOKEN_COOKIE,
   PRIVY_SESSION_COOKIE,
