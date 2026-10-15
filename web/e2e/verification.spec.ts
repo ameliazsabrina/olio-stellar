@@ -44,9 +44,7 @@ test.describe("individual onboarding", () => {
       page.getByRole("heading", { name: "Secure verification session" }),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        /Documents and selfies are collected by our verification partner/,
-      ),
+      page.getByText(/Documents are collected by our verification partner/),
     ).toBeVisible();
   });
 
@@ -76,15 +74,30 @@ test.describe("individual onboarding", () => {
       businesses: [{ ...BUSINESS, accountBound: false, username: null }],
       status: status({ canStart: false }),
     });
+    const binds: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("businesses.bindAccount")) {
+        binds.push(request.url());
+      }
+    });
     await open(page, state);
+    // Only the profile bound to the signed-in account counts, so an unlinked
+    // draft leaves the create form up and nothing to start.
+    await expect(
+      page.getByRole("heading", { name: "Who is being verified?" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Start verification" }),
     ).toBeHidden();
+    await page.getByRole("button", { name: "Create profile" }).click();
     await expect(
-      page.getByText("Link your Olio account to start."),
+      page.getByRole("heading", { name: "Individual profile" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Link my account" }).click();
-    await expect(page.getByText("Not linked")).toBeHidden();
+    await expect(page.getByText("@ayu")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start verification" }),
+    ).toBeVisible();
+    expect(binds).toHaveLength(1);
   });
 });
 
@@ -194,7 +207,9 @@ test.describe("status states", () => {
     });
   }
 
-  test("links to the passport in settings once approved", async ({ page }) => {
+  test("links to the payment statement in settings once approved", async ({
+    page,
+  }) => {
     await open(
       page,
       scenario({
@@ -204,12 +219,12 @@ test.describe("status states", () => {
           canStart: false,
           credential: credential(),
         }),
-        identity: identity({ credential: credential(), publishable: true }),
+        identity: identity({ credential: credential() }),
       }),
     );
-    const link = page.getByRole("link", { name: "Manage badge" });
+    const link = page.getByRole("link", { name: "Get payment statement" });
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute("href", "/settings#passport");
+    await expect(link).toHaveAttribute("href", "/settings#track-record");
   });
 });
 
@@ -288,10 +303,12 @@ test.describe("failure handling", () => {
     });
     await open(page, state);
     await page.getByRole("button", { name: "Continue verification" }).click();
+    // The same error is also raised as a toast; assert the inline session copy.
+    const main = page.locator("#main-content");
     await expect(
-      page.getByText("The verification session could not be opened."),
+      main.getByText("The verification session could not be opened."),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });
 

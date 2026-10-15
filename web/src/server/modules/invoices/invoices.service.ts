@@ -23,7 +23,6 @@ import {
   newOpaqueId,
   recordAudit,
 } from "../businesses/businesses.service";
-import { publishedPublicIdsFor } from "../passport/passport.service";
 import { requireSubmission } from "../verification/verification.submission";
 import {
   InvoiceConfigError,
@@ -722,7 +721,6 @@ export async function publicInvoiceView(
     (await getBusinessProfiles()).findOne({ _id: head.businessId }),
   ]);
   if (!current || !business) return null;
-  const published = await publishedPublicIdsFor([business._id]);
   return {
     invoiceId: head._id,
     number: head.number,
@@ -741,10 +739,7 @@ export async function publicInvoiceView(
     encryptedContent: current.encryptedContent,
     contentCommitment: current.contentCommitment,
     invoiceCommitment: current.invoiceCommitment,
-    business: {
-      displayName: business.displayName,
-      verifiedPublicId: published.get(business._id) ?? null,
-    },
+    business: { displayName: business.displayName },
   };
 }
 

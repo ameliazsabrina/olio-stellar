@@ -1,6 +1,6 @@
 # Verification onboarding and inbox
 
-The dashboard layout mounts one verification controller after wallet setup, recovery PIN and username creation finish. `/verification` redirects to `/dashboard?verification=1`; Settings, Passport and navigation open the same controller in place. A provider SDK event only starts confirmation. Dashboard access depends on the authenticated `verification.onboarding` response.
+The dashboard layout mounts one verification controller after wallet setup, recovery PIN and username creation finish. `/verification` redirects to `/dashboard?verification=1`; Settings, Track Record and navigation open the same controller in place. A provider SDK event only starts confirmation. Dashboard access depends on the authenticated `verification.onboarding` response.
 
 ## Submission and enforcement
 

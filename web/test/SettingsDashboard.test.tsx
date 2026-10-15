@@ -73,6 +73,15 @@ vi.mock("sonner", () => ({
 
 import { SettingsDashboard } from "../src/components/dashboard/SettingsDashboard";
 
+// Selecting a tab writes its hash, which would leak into the next test.
+beforeEach(() => {
+  window.history.replaceState(null, "", "/");
+});
+
+async function openSection(name: string) {
+  await userEvent.click(screen.getByRole("tab", { name }));
+}
+
 const configuredEscrow = {
   encryptedMasterHex: "aa".repeat(60),
   masterSaltHex: "bb".repeat(16),
@@ -90,8 +99,9 @@ describe("SettingsDashboard recovery", () => {
     mocks.validateCurrentPin.mockResolvedValue(true);
   });
 
-  it("does not offer rotation when recovery is missing", () => {
+  it("does not offer rotation when recovery is missing", async () => {
     render(<SettingsDashboard />);
+    await openSection("Security");
     expect(
       screen.queryByRole("button", { name: "Change PIN" }),
     ).not.toBeInTheDocument();
@@ -101,6 +111,7 @@ describe("SettingsDashboard recovery", () => {
   it("shows Change PIN only for configured recovery and opens the dialog", async () => {
     mocks.escrow = configuredEscrow;
     render(<SettingsDashboard />);
+    await openSection("Security");
     await userEvent.click(screen.getByRole("button", { name: "Change PIN" }));
     expect(
       screen.getByRole("dialog", { name: "Change recovery PIN" }),
@@ -111,6 +122,7 @@ describe("SettingsDashboard recovery", () => {
     mocks.escrow = configuredEscrow;
     render(<SettingsDashboard />);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Security" }));
     await user.click(screen.getByRole("button", { name: "Change PIN" }));
     await user.type(screen.getByLabelText("Current PIN"), "123456");
     await user.type(screen.getByLabelText("New PIN"), "654321");
@@ -130,42 +142,76 @@ describe("SettingsDashboard recovery", () => {
 });
 
 describe("SettingsDashboard identity verification", () => {
-  it("offers to start verification when no business profile exists", () => {
+  it("offers to start verification from Account when no business profile exists", () => {
     render(<SettingsDashboard />);
     expect(
       screen.getByRole("link", { name: "Start verification" }),
     ).toHaveAttribute("href", "/verification");
     expect(
-      screen.queryByRole("link", { name: "Manage badge" }),
+      screen.queryByRole("tab", { name: "Verification" }),
     ).not.toBeInTheDocument();
   });
 
-  it("shows the eligibility badge and passport anchor once verified", () => {
+  it("shows the verified status in Account once verified", () => {
     mocks.business = { businessId: "biz_1", type: "individual" };
     mocks.verificationStatus = {
       eligibility: "approved",
       credential: { status: "active", published: false },
     };
     render(<SettingsDashboard />);
-    expect(screen.getByText("Verified")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Manage badge" })).toHaveAttribute(
-      "href",
-      "/settings#passport",
+    const verified = screen.getByRole("region", {
+      name: "Your identity is verified",
+    });
+    expect(verified).toBeVisible();
+    expect(verified).toHaveTextContent(
+      "Your identity is verified. You can download a payment statement of your track record.",
     );
-    expect(
-      screen.getByText(/stays private until you publish it/),
-    ).toBeInTheDocument();
   });
 });
 
 describe("SettingsDashboard passport", () => {
-  it("hosts the Business Passport controls", () => {
+  it("hosts the passport PDF without publishing controls", async () => {
     render(<SettingsDashboard />);
-    for (const name of ["Business Passport", "Who can see it"]) {
-      expect(screen.getByRole("region", { name })).toBeInTheDocument();
-    }
+    await openSection("Track Record");
     expect(
-      screen.getByRole("button", { name: /Publish badge/ }),
-    ).toBeDisabled();
+      screen.getByText(/available once identity verification is approved/),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /Publish badge/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "/settings#track-record",
+    "/settings#passport",
+  ])("opens the Track Record section from a %s deep link", (url) => {
+    window.history.replaceState(null, "", url);
+    render(<SettingsDashboard />);
+    expect(screen.getByRole("tab", { name: "Track Record" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("tabpanel", { name: "Track Record" }),
+    ).toBeVisible();
+  });
+});
+
+describe("SettingsDashboard section tabs", () => {
+  it("shows one section at a time and moves with the arrow keys", async () => {
+    render(<SettingsDashboard />);
+    const account = screen.getByRole("tab", { name: "Account" });
+    expect(account).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("@alice")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Change PIN" }),
+    ).not.toBeInTheDocument();
+
+    account.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    const security = screen.getByRole("tab", { name: "Security" });
+    expect(security).toHaveAttribute("aria-selected", "true");
+    expect(security).toHaveFocus();
+    expect(screen.getByRole("tabpanel", { name: "Security" })).toBeVisible();
   });
 });

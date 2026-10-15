@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { Asset, Keypair, Networks, StrKey } from "@stellar/stellar-sdk";
 import { describe, expect, it, vi } from "vitest";
+import {
+  POOL_INDEXER_GAP_MESSAGE,
+  POOL_INDEXER_ROOT_MESSAGE,
+} from "../src/server/modules/deposits/deposits.errors";
 import { checkFeeQuoteReadiness } from "../src/server/modules/feeQuotes/feeQuotes.readiness";
 
 const pool = StrKey.encodeContract(Buffer.alloc(32, 1));
@@ -42,6 +46,7 @@ function database(options?: {
   wrongPool?: boolean;
   staleIndexer?: boolean;
   needsAttention?: number;
+  indexerState?: Record<string, unknown>;
 }) {
   return {
     collection(name: string) {
@@ -66,6 +71,7 @@ function database(options?: {
                 indexedAt: options?.staleIndexer
                   ? new Date(Date.now() - 121_000)
                   : new Date(),
+                ...options?.indexerState,
               }
             : null,
       };
@@ -199,6 +205,96 @@ describe("fee quote readiness", () => {
     } as never);
     expect(report.ready).toBe(true);
     expect(refreshIndexer).not.toHaveBeenCalled();
+  });
+
+  it("keeps payments open on a nullifier retention gap but warns", async () => {
+    const refreshIndexer = vi.fn();
+    const report = await checkFeeQuoteReadiness({
+      ...healthyDependencies,
+      getDatabase: async () =>
+        database({
+          indexerState: {
+            health: "degraded",
+            nullifiersComplete: false,
+            rootsMismatch: false,
+            lastError: POOL_INDEXER_GAP_MESSAGE,
+          },
+        }) as never,
+      refreshIndexer,
+    } as never);
+    expect(report.ready).toBe(true);
+    expect(refreshIndexer).not.toHaveBeenCalled();
+    expect(report.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "NULLIFIER_MIRROR_INCOMPLETE",
+        severity: "warning",
+        channels: ["direct", "cctp"],
+      }),
+    ]);
+  });
+
+  it.each([
+    [
+      "a root mismatch",
+      {
+        health: "degraded",
+        rootsMismatch: true,
+        lastError: POOL_INDEXER_ROOT_MESSAGE,
+      },
+    ],
+    [
+      "a root mismatch on top of a gap",
+      {
+        health: "degraded",
+        nullifiersComplete: false,
+        rootsMismatch: true,
+        lastError: POOL_INDEXER_GAP_MESSAGE,
+      },
+    ],
+    [
+      "a failed sync after a gap",
+      {
+        health: "degraded",
+        nullifiersComplete: false,
+        lastError: "deposit index gap detected: on-chain leaf_count=5, mirrored=4",
+      },
+    ],
+    [
+      "a failed sync",
+      { health: "degraded", lastError: "RPC unavailable" },
+    ],
+  ])("blocks payments on %s", async (_label, indexerState) => {
+    const report = await checkFeeQuoteReadiness({
+      ...healthyDependencies,
+      getDatabase: async () => database({ indexerState }) as never,
+    } as never);
+    expect(report.channels.direct.ready).toBe(false);
+    expect(report.channels.cctp.ready).toBe(false);
+    expect(report.diagnostics.map(({ code }) => code)).toContain(
+      "INDEXER_NOT_READY",
+    );
+  });
+
+  it("blocks a stale watermark even when the only degradation is a gap", async () => {
+    const report = await checkFeeQuoteReadiness({
+      ...healthyDependencies,
+      getDatabase: async () =>
+        database({
+          staleIndexer: true,
+          indexerState: {
+            health: "degraded",
+            nullifiersComplete: false,
+            lastError: POOL_INDEXER_GAP_MESSAGE,
+          },
+        }) as never,
+    } as never);
+    expect(report.channels.direct.ready).toBe(false);
+    expect(report.diagnostics.map(({ code }) => code)).toEqual(
+      expect.arrayContaining([
+        "INDEXER_NOT_READY",
+        "NULLIFIER_MIRROR_INCOMPLETE",
+      ]),
+    );
   });
 
   it("surfaces parked CCTP sessions as a warning without closing the route", async () => {

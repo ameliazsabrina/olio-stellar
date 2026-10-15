@@ -88,6 +88,44 @@ describe("environment schemas", () => {
     expect(getServerEnv().SUMSUB_MODE).toBe("off");
   });
 
+  it("keeps retention-gap tolerance off by default and allows it in local testnet dev", () => {
+    expect(
+      serverEnvSchema.parse({ NODE_ENV: "test" })
+        .POOL_INDEXER_TOLERATE_RETENTION_GAP,
+    ).toBe("false");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    expect(getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP).toBe("true");
+  });
+
+  it("rejects retention-gap tolerance at production runtime", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PHASE", "phase-production-server");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    expect(() => getServerEnv()).toThrow(
+      "POOL_INDEXER_TOLERATE_RETENTION_GAP",
+    );
+  });
+
+  it("rejects retention-gap tolerance on mainnet even in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "mainnet");
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    expect(() => getServerEnv()).toThrow(
+      "POOL_INDEXER_TOLERATE_RETENTION_GAP",
+    );
+  });
+
+  it("does not block a production build that inherits a local env file", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+    vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    expect(getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP).toBe("true");
+  });
+
   it("isolates pool collections when a storage scope is configured", () => {
     vi.stubEnv("MONGO_POOL_STORAGE_SCOPE", "CPOOL_123");
     expect(poolCollectionName("deposits")).toBe("deposits__CPOOL_123");

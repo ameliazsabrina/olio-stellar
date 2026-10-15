@@ -4,27 +4,15 @@ import Link from "next/link";
 import { DashboardBackground } from "@/components/dashboard/DashboardBackground";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { DashboardTile } from "@/components/dashboard/DashboardTile";
-import { IdentityVerificationBadge } from "@/components/dashboard/IdentityVerificationBadge";
-import { publicIdSchema } from "@/server/modules/businesses/businesses.schema";
-import { publicIdentity } from "@/server/modules/passport/passport.service";
 
-export const dynamic = "force-dynamic";
-
+// Identity badges are retired; old shared links land here instead of a 404.
 export const metadata: Metadata = {
   title: "Olio identity check",
-  description: "Confirm whether Olio has verified this business identity.",
+  description: "Olio no longer publishes identity badges.",
   robots: { index: false, follow: false },
 };
 
-export default async function PublicIdentityPage({
-  params,
-}: {
-  params: Promise<{ publicId: string }>;
-}) {
-  const { publicId } = await params;
-  const parsed = publicIdSchema.safeParse(publicId);
-  const identity = parsed.success ? await publicIdentity(parsed.data) : null;
-
+export default function PublicIdentityPage() {
   return (
     <DashboardBackground>
       <DashboardShell contentClassName="flex min-h-svh max-w-3xl flex-col">
@@ -46,38 +34,19 @@ export default async function PublicIdentityPage({
             className="min-h-0 text-brand-linen"
             header={
               <h2 className="dashboard-tile-title text-brand-linen">
-                {identity
-                  ? "Identity verified by Olio"
-                  : "No verified identity"}
+                Identity badges are retired
               </h2>
             }
             content={
-              <div className="mt-6 space-y-5">
-                {identity ? (
-                  <IdentityVerificationBadge
-                    state="verified"
-                    displayName={identity.displayName}
-                    type={identity.type}
-                    checkedAt={identity.checkedAt}
-                    validUntil={identity.validUntil}
-                    policyVersion={identity.policyVersion}
-                  />
-                ) : (
-                  <p
-                    className="max-w-md text-sm leading-6 text-brand-linen/70"
-                    data-testid="public-identity-empty"
-                  >
-                    Olio has no published verification for this link. The badge
-                    may be private, expired, suspended, or the link may be
-                    incorrect.
-                  </p>
-                )}
-                <p className="max-w-xl text-xs leading-5 text-brand-linen/60">
-                  An Olio identity badge confirms that identity checks passed
-                  Olio's policy at the time shown. It does not verify revenue,
-                  customers, creditworthiness or legal compliance.
-                </p>
-              </div>
+              <p
+                className="mt-6 max-w-md text-sm leading-6 text-brand-linen/70"
+                data-testid="public-identity-retired"
+              >
+                Olio no longer publishes identity badges, so this link does not
+                confirm anything about the business. Ask the business for its
+                Olio payment statement instead. You can check that PDF with
+                Olio through the link printed on it.
+              </p>
             }
           />
         </div>

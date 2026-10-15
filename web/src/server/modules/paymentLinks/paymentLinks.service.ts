@@ -8,7 +8,6 @@ import {
   assertLinkableInvoice,
   invoiceStates,
 } from "../invoices/invoices.service";
-import { publishedPublicIdsFor } from "../passport/passport.service";
 import {
   PaymentLinkBusinessMismatchError,
   PaymentLinkSlugUnavailableError,
@@ -58,7 +57,6 @@ function assertManageAuthorized(
 
 function toOutput(
   doc: PaymentLinkDoc,
-  verifiedBusinessPublicId: string | null = null,
   invoiceState: InvoiceState | null = null,
 ): LinkOutput {
   const description = doc.description ?? doc.label ?? null;
@@ -75,7 +73,6 @@ function toOutput(
     updatedAt: doc.updatedAt?.toISOString() ?? null,
     archivedAt: doc.archivedAt?.toISOString() ?? null,
     businessClaimed: typeof doc.businessId === "string",
-    verifiedBusinessPublicId,
     invoiceId: doc.invoiceId ?? null,
   };
 }
@@ -87,11 +84,8 @@ async function invoiceStateFor(
   return (await invoiceStates([doc.invoiceId])).get(doc.invoiceId) ?? null;
 }
 
-async function withIdentity(doc: PaymentLinkDoc): Promise<LinkOutput> {
-  const invoiceState = await invoiceStateFor(doc);
-  if (!doc.businessId) return toOutput(doc, null, invoiceState);
-  const published = await publishedPublicIdsFor([doc.businessId]);
-  return toOutput(doc, published.get(doc.businessId) ?? null, invoiceState);
+async function withInvoiceState(doc: PaymentLinkDoc): Promise<LinkOutput> {
+  return toOutput(doc, await invoiceStateFor(doc));
 }
 
 async function assertInvoiceBinding(
@@ -136,7 +130,7 @@ export async function createLink(
     }
     throw e;
   }
-  return { ...toOutput(doc, null, await invoiceStateFor(doc)), manageToken };
+  return { ...toOutput(doc, await invoiceStateFor(doc)), manageToken };
 }
 
 export async function getLink(id: string): Promise<LinkOutput | null> {
@@ -145,7 +139,7 @@ export async function getLink(id: string): Promise<LinkOutput | null> {
     _id: id,
     $or: [{ state: "active" }, { state: { $exists: false } }],
   });
-  return doc ? withIdentity(doc) : null;
+  return doc ? withInvoiceState(doc) : null;
 }
 
 export async function resolveLink(
@@ -157,7 +151,7 @@ export async function resolveLink(
     slug: input.slug,
     state: "active",
   });
-  return doc ? withIdentity(doc) : null;
+  return doc ? withInvoiceState(doc) : null;
 }
 
 export async function listLinksByOwner(
@@ -172,11 +166,7 @@ export async function listLinksByOwner(
     docs.flatMap((doc) => (doc.invoiceId ? [doc.invoiceId] : [])),
   );
   return docs.map((doc) =>
-    toOutput(
-      doc,
-      null,
-      doc.invoiceId ? (states.get(doc.invoiceId) ?? null) : null,
-    ),
+    toOutput(doc, doc.invoiceId ? (states.get(doc.invoiceId) ?? null) : null),
   );
 }
 
@@ -205,7 +195,7 @@ export async function updateLink(
     { returnDocument: "after" },
   );
   if (!res) throw new PaymentLinkStoreError(input.id);
-  return toOutput(res, null, await invoiceStateFor(res));
+  return toOutput(res, await invoiceStateFor(res));
 }
 
 export async function setLinkArchived(
@@ -227,7 +217,7 @@ export async function setLinkArchived(
     { returnDocument: "after" },
   );
   if (!res) throw new PaymentLinkStoreError(input.id);
-  return toOutput(res, null, await invoiceStateFor(res));
+  return toOutput(res, await invoiceStateFor(res));
 }
 
 export async function claimLinkForBusiness(
@@ -256,7 +246,7 @@ export async function claimLinkForBusiness(
     { returnDocument: "after" },
   );
   if (!res) throw new PaymentLinkStoreError(input.id);
-  return withIdentity(res);
+  return withInvoiceState(res);
 }
 
 export async function deleteLink(input: DeleteLinkInput): Promise<boolean> {

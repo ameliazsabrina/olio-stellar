@@ -53,8 +53,7 @@ export type VerificationStateCode =
   | "throttled"
   | "environment_mismatch"
   | "closed"
-  | "forbidden"
-  | "not_publishable";
+  | "forbidden";
 
 export class VerificationStateError extends Error {
   constructor(
@@ -72,9 +71,7 @@ export class VerificationStateError extends Error {
               ? "This business profile is not active."
               : code === "forbidden"
                 ? "You do not have permission to perform this action."
-                : code === "not_publishable"
-                  ? "Your identity badge can be published once verification is approved and current."
-                  : "Verification state changed. Refresh and try again.",
+                : "Verification state changed. Refresh and try again.",
     );
     this.name = "VerificationStateError";
   }

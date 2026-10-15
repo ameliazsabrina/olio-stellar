@@ -12,6 +12,7 @@ import type { EvidenceConfig } from "../src/server/modules/evidence/evidence.con
 import {
   credentialBacksNetwork,
   evaluateIssuanceGate,
+  evaluateRecordsGate,
 } from "../src/server/modules/evidence/evidence.gate";
 
 const config: EvidenceConfig = {
@@ -44,6 +45,36 @@ const reconciled: IndexerStateDoc = {
   health: "healthy",
   updatedAt: new Date(),
 };
+
+describe("records gate", () => {
+  it("ignores evidence config and reports when the index was published", () => {
+    const indexedAt = new Date("2026-10-15T08:55:00.000Z");
+    expect(
+      evaluateRecordsGate({
+        pool: { ...healthyPool, indexedAt },
+        settlements: reconciled,
+      }),
+    ).toEqual({ open: true, reasons: [], asOf: indexedAt });
+  });
+
+  it("stays closed with no time before the pool index is published", () => {
+    expect(
+      evaluateRecordsGate({
+        pool: { ...healthyPool, poolId: "COTHER" },
+        settlements: reconciled,
+      }),
+    ).toEqual({ open: false, reasons: ["pool_index_unpublished"], asOf: null });
+  });
+
+  it("closes while reconcile is behind but keeps the time", () => {
+    const gate = evaluateRecordsGate({
+      pool: healthyPool,
+      settlements: { ...reconciled, lastLeafIndex: 7 },
+    });
+    expect(gate.reasons).toEqual(["reconcile_behind"]);
+    expect(gate.asOf).toBe(healthyPool.updatedAt);
+  });
+});
 
 describe("evidence issuance gate", () => {
   it("opens only when every safety condition holds", () => {

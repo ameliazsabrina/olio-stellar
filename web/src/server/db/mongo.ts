@@ -56,6 +56,8 @@ export type IndexerStateDoc = {
   leaseOwner?: string;
   leaseUntil?: Date;
   nullifiersComplete?: boolean;
+  retentionGapToleratedAt?: Date;
+  nullifierGapAcknowledgedAt?: Date;
   rootLeafCount?: number;
   rootFrontier?: string[];
   rootsVerifiedAt?: Date;
@@ -354,6 +356,41 @@ export type EvidenceKeyDoc = {
   publicKey: string;
   validFrom: Date;
   validTo: Date | null;
+};
+
+export type PassportStatementDetail = "summary" | "full";
+export type PassportStatementPeriod = "3m" | "6m" | "12m" | "all";
+export type PassportPayerMask = "masked" | "full" | "hidden";
+
+/**
+ * A record of an issued passport statement. It keeps the digest, signature and
+ * totals so the statement can be verified later, and never the payment rows or
+ * payer addresses: those live only in the PDF the owner chose to share.
+ */
+export type PassportStatementDoc = {
+  _id: string;
+  businessId: string;
+  network: StellarNetworkName;
+  poolId: string;
+  version: number;
+  businessName: string | null;
+  digest: string;
+  /** When the pool index the statement was built from was last published. */
+  recordsAsOf: Date;
+  period: { preset: PassportStatementPeriod; from: Date; to: Date };
+  detail: PassportStatementDetail;
+  payerMask: PassportPayerMask | null;
+  summary: {
+    totalReceived: string;
+    paymentCount: number;
+    distinctPayers: number;
+    excludedCount: number;
+  };
+  issuedBy: string;
+  issuedAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  revokedBy: string | null;
 };
 
 export type BusinessType = "individual" | "company";
@@ -833,4 +870,12 @@ export async function getEvidenceEpochs(): Promise<
 
 export async function getEvidenceKeys(): Promise<Collection<EvidenceKeyDoc>> {
   return (await getDb()).collection<EvidenceKeyDoc>("evidence_keys");
+}
+
+export async function getPassportStatements(): Promise<
+  Collection<PassportStatementDoc>
+> {
+  return (await getDb()).collection<PassportStatementDoc>(
+    "passport_statements",
+  );
 }

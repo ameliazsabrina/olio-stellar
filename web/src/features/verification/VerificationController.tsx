@@ -544,8 +544,8 @@ function AccountVerification({ children }: { children: ReactNode }) {
                 {step === 1 && (
                   <p className="rounded-xl border border-(--control-border) bg-(--control) px-3.5 py-3 text-xs leading-[17px] text-(--control-muted)">
                     Documents are collected by our verification partner. Olio
-                    stores your verification status. Your public badge is
-                    optional.
+                    stores your verification status and only shares it on
+                    payment statements you send.
                   </p>
                 )}
                 {step === 2 &&

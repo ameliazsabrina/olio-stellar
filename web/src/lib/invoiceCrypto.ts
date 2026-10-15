@@ -41,7 +41,7 @@ export type InvoiceCommitmentFields = {
   contentCommitment: string;
 };
 
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 
 export function canonicalJson(value: Json): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);

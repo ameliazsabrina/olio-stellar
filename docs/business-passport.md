@@ -1,6 +1,9 @@
-# Business passport: invoices and settlement evidence
+# Track Record: invoices and settlement evidence
 
-The business passport turns verified identity into verifiable payment history.
+Track Record turns verified identity into verifiable payment history: a business
+proves it is real and gets paid, without publishing its books. It was called the
+business passport before, and code, collections and the statement `kind` keep
+that name (`passport.*`, `passport_statements`, `olio.passport.statement`).
 This page covers the first milestone: encrypted invoices, payment intents that
 bind an invoice to an on-chain deposit, and a settlement ledger built only from
 indexed pool events. Receipts that a third party can verify (M2) and private
@@ -166,7 +169,7 @@ nullifier mirror is incomplete, the mirrored root is mismatched or unverified,
 reconcile is behind the published deposits, or the signer and anchor accounts
 are not configured. A business's evidence also requires a current identity
 credential from an environment allowed for the network; a sandbox credential
-never backs a mainnet passport. Suspension, decline, or an ownership change
+never backs a mainnet track record. Suspension, decline, or an ownership change
 closes this path immediately, because the gate reads the credential state live.
 
 ### Environment
@@ -218,6 +221,90 @@ pnpm --dir web settlements:cases gaps
 `settlements-cases.mjs` lists unattributed deposits, inspects a leaf, reports
 mirror gaps and reconcile backlog, reruns reconciliation for one leaf (audited),
 and shows evidence epochs. It has no command that marks anything paid.
+
+## Payment statements
+
+The public badge at `/business/<publicId>` shows identity only: name, type,
+"Identity Verified", last checked and valid until. Payment history appears only
+in a payment statement, a PDF the owner downloads from Settings → Track Record and
+sends to the people they choose.
+
+### What the owner chooses
+
+| Option | Choices | Default |
+|---|---|---|
+| Detail | Monthly summary · Full payment list | Monthly summary |
+| Period | Last 3 / 6 / 12 months, All time | 12 months |
+| Payer addresses (full list only) | Masked `GABC…WXYZ` · Full · Hidden | Masked |
+
+Periods start on the first day of a UTC month and end at issuance, so every
+monthly bucket except the current one covers a whole month. A full list is
+refused above 1,000 payments; the owner picks a shorter period or the summary.
+
+### What counts toward the totals
+
+Statements read the settlement ledger for the business on the current network
+and pool. Only settlements with `qualification.counted` are included, and each
+is counted net of `refundedAmount`. Self-funded and fully refunded settlements
+are left out, and the statement says how many were left out. "Distinct payers"
+counts distinct payer addresses among the counted settlements.
+
+### Issuance
+
+`passport.issueStatement` requires a manager of the business and an active
+business with a current identity credential that backs this network (the same
+check as other evidence). Statements are always on: they need no evidence
+signer, anchor or `EVIDENCE_MODE`, so none of the evidence environment applies
+to them. It is rate-limited per business.
+
+A statement presents the payment history as complete, so issuance also needs
+the settlement ledger to mirror every published pool deposit (`recordsGate()`
+in `evidence.gate.ts`, the pool and reconcile half of the evidence gate):
+
+| Records state | Response |
+|---|---|
+| Pool index unpublished, roots unverified, nullifiers incomplete, or reconcile behind | `syncing`: "Payments after <time> UTC are still syncing. Try again in a few minutes." |
+| Pool index degraded, roots mismatch, or reconcile degraded | `records_on_hold`: statements wait until the records are repaired |
+
+`<time>` is when the pool index was last published. Issued statements carry it
+as `recordsAsOf`, and the PDF and verify page print it.
+
+The statement is a JSON document (`kind: "olio.passport.statement"`,
+`version: 1`) with the identity fields of the public badge, the period, detail,
+payer mask, totals, monthly buckets, optional rows, the qualification policy
+version, `recordsAsOf`, `issuedAt` and `expiresAt` (90 days). The server takes
+`digest = sha256(canonicalJSON(statement))` (sorted keys, no whitespace, as in
+`invoiceCrypto.canonicalJson`) and stores it with the statement record. The
+statement is not signed: authenticity comes from the verify page, which reads
+Olio's record. A signature can be added later if partners need to check
+statements offline. The browser renders the PDF (`web/src/lib/passportPdf.ts`) from the
+returned statement.
+
+### Verify flow
+
+Every page of the PDF carries the statement id, a short digest and the verify
+URL; page 1 carries a QR code, and the last section prints the full digest.
+`/verify/<statementId>` (backed by the public, rate-limited
+`passport.verifyStatement`) shows who it was issued for, the period, the totals,
+the digest, when its payment records were complete, whether the business's identity is current today, and
+one of three states: valid, revoked or expired. A reader compares the digest on
+the page with the one in the PDF. The totals on the page come from Olio's record,
+not from the PDF, so an edited PDF does not match.
+
+### Privacy
+
+`passport_statements` stores the id, business, digest, records-as-of time,
+period, detail, payer mask, totals, issue and expiry dates, and revocation.
+It never stores payment rows or payer addresses; those exist only in the PDF.
+Anyone holding a statement link learns the business name and totals, which is
+what the owner chose to share by sending the file.
+
+### Revocation
+
+The owner can revoke a statement from Settings. The verify page then reports it
+as revoked from that moment. Copies already sent still exist, but anyone who
+checks sees they are no longer valid. Revocation is recorded in the
+verification audit log, as is issuance.
 
 ## Trust model and limitations
 

@@ -165,7 +165,6 @@ export const linkOutput = z.object({
   updatedAt: z.string().nullable(),
   archivedAt: z.string().nullable(),
   businessClaimed: z.boolean(),
-  verifiedBusinessPublicId: z.string().nullable(),
   invoiceId: z.string().nullable(),
 });
 

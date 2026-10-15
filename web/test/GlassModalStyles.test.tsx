@@ -6,6 +6,7 @@ import { vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   buildDisclosure: vi.fn(),
   createPaymentLink: vi.fn(),
+  downloadReceiptPdf: vi.fn(),
   scanMyNotes: vi.fn(),
   verifyDisclosure: vi.fn(),
 }));
@@ -32,7 +33,17 @@ vi.mock("../src/lib/disclosure", () => ({
 }));
 
 vi.mock("../src/lib/disclosurePdf", () => ({
-  downloadDisclosurePdf: vi.fn(),
+  downloadReceiptPdf: mocks.downloadReceiptPdf,
+}));
+
+vi.mock("../src/trpc/react", () => ({
+  trpc: {
+    verification: {
+      onboarding: {
+        useQuery: () => ({ data: { business: { displayName: "Olive Co" } } }),
+      },
+    },
+  },
 }));
 
 import { DiscloseDialog } from "../src/components/dashboard/DiscloseDialog";
@@ -110,5 +121,43 @@ describe("dashboard glass modals", () => {
     );
     expect(screen.getByText("Recipient")).toHaveClass("text-foreground/65");
     expect(card).toHaveClass("rounded-2xl");
+  });
+
+  it("downloads a receipt with the business name and settlement", async () => {
+    mocks.scanMyNotes.mockResolvedValue({
+      notes: [{ leafIndex: 7, amount: 12_500_000n, salt: 2n }],
+    });
+    mocks.buildDisclosure.mockResolvedValue({
+      leafIndex: 7,
+      amount: "12500000",
+      username: "olive",
+    });
+    mocks.verifyDisclosure.mockResolvedValue({ valid: true });
+    const settlement = {
+      settlementId: "testnet:pool:7",
+      txHash: "ab".repeat(32),
+      ledgerClosedAt: "2026-10-14T09:30:00.000Z",
+      invoiceNumber: "INV-0003",
+    };
+
+    render(
+      <DiscloseDialog
+        open
+        onClose={vi.fn()}
+        leafIndex={7}
+        settlement={settlement}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Download PDF/ }),
+    );
+
+    expect(mocks.downloadReceiptPdf).toHaveBeenCalledWith({
+      amount: 12_500_000n,
+      leafIndex: 7,
+      username: "olive",
+      displayName: "Olive Co",
+      settlement,
+    });
   });
 });

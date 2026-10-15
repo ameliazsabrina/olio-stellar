@@ -224,17 +224,17 @@ describe("state rendering", () => {
     );
   });
 
-  it("links to the passport in settings once approved and offers no restart", () => {
+  it("links to the payment statement in settings once approved and offers no restart", () => {
     mocks.status = status({
       eligibility: "approved",
       nextAction: "done",
       canStart: false,
     });
     render(<VerificationDashboard />);
-    expect(screen.getByRole("link", { name: "Manage badge" })).toHaveAttribute(
-      "href",
-      "/settings#passport",
-    );
+    expect(
+      screen.getByRole("link", { name: "Get payment statement" }),
+    ).toHaveAttribute("href", "/settings#track-record");
+    expect(document.body).not.toHaveTextContent(/publish|badge in settings/i);
     expect(
       screen.queryByRole("button", { name: "Start verification" }),
     ).not.toBeInTheDocument();

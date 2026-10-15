@@ -1,6 +1,13 @@
 "use client";
 
-import { Check, Copy, ExternalLink, Loader, Lock } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  Loader,
+  Lock,
+} from "lucide-react";
 import { useState } from "react";
 import {
   keyedItems,
@@ -11,6 +18,7 @@ import { storeManageToken } from "../../features/paymentLinks/manageTokens";
 import type { PaymentLink } from "../../features/paymentLinks/types";
 import { fromBaseUnits } from "../../lib/crypto";
 import { invoiceNumberLabel, keyToFragment } from "../../lib/invoiceCrypto";
+import { downloadInvoicePdf } from "../../lib/invoicePdf";
 import { payUrl } from "../../lib/paymentLinks";
 import { explorerTxUrl } from "../../lib/stellar";
 import type { RouterOutputs } from "../../server/root";
@@ -65,6 +73,7 @@ export function InvoiceDetailDialog({
   invoiceId,
   open,
   username,
+  businessName,
   origin,
   opened,
   locked,
@@ -77,6 +86,7 @@ export function InvoiceDetailDialog({
   invoiceId: string | null;
   open: boolean;
   username: string;
+  businessName?: string | null;
   origin: string;
   opened: OpenedInvoice | null;
   locked: boolean;
@@ -148,6 +158,26 @@ export function InvoiceDetailDialog({
       storeManageToken(created.id, manageToken);
       await onLinkCreated();
     });
+  }
+
+  async function downloadPdf() {
+    if (!invoice || !opened) return;
+    await run("pdf", () =>
+      downloadInvoicePdf({
+        invoice: {
+          number: invoice.number,
+          issuedAt: invoice.issuedAt,
+          dueAt: invoice.current.dueAt,
+          amountDue: invoice.amountDue,
+          paidAmount: invoice.paidAmount,
+          remainingAmount: invoice.remainingAmount,
+        },
+        content: opened.content,
+        username,
+        businessName,
+        payLink: payable && linkUrl ? linkUrl : null,
+      }),
+    );
   }
 
   async function copyLink() {
@@ -468,6 +498,29 @@ export function InvoiceDetailDialog({
             />
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+              {!invoice.erased && invoice.state !== "void" ? (
+                <Button
+                  variant="secondary"
+                  onClick={downloadPdf}
+                  disabled={busy !== null || !opened}
+                  aria-busy={busy === "pdf"}
+                  title={
+                    opened
+                      ? "Download this invoice as a PDF"
+                      : "Unlock your account to download the PDF"
+                  }
+                >
+                  {busy === "pdf" ? (
+                    <Loader
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Download className="size-4" aria-hidden="true" />
+                  )}
+                  Download PDF
+                </Button>
+              ) : null}
               {invoice.state === "draft" ? (
                 <Button
                   onClick={() =>

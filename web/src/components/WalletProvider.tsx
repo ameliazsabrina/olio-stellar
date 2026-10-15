@@ -44,7 +44,7 @@ import {
 import { api } from "../trpc/client";
 import type { PinMode } from "./PinDialog";
 
-type WalletState = {
+export type WalletState = {
   address: string;
   connecting: boolean;
   error: string;
@@ -603,6 +603,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  return (
+    <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
+  );
+}
+
+// Supplies a fixed wallet state, for the E2E harness only.
+export function StaticWalletProvider({
+  value,
+  children,
+}: {
+  value: WalletState;
+  children: ReactNode;
+}) {
   return (
     <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
   );

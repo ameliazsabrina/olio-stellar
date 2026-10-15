@@ -284,8 +284,8 @@ export function ActivityFeed({
                       size="icon"
                       className="size-10"
                       onClick={() => setDiscloseLeaf(event.leafIndex)}
-                      aria-label={`Prove payment`}
-                      title="Generate a per-payment proof (PDF)"
+                      aria-label="Download receipt"
+                      title="Download a receipt (PDF)"
                     >
                       <FileCheck className="size-3.5" aria-hidden="true" />
                     </Button>
@@ -315,6 +315,11 @@ export function ActivityFeed({
         open={discloseLeaf !== null}
         onClose={() => setDiscloseLeaf(null)}
         leafIndex={discloseLeaf}
+        settlement={
+          discloseLeaf === null
+            ? null
+            : (settlements?.get(discloseLeaf) ?? null)
+        }
       />
     </Card>
   );

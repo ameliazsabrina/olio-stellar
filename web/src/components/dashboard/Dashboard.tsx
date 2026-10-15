@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   ArrowUpRight,
   Check,
   Copy,
@@ -8,7 +9,6 @@ import {
   Plus,
   QrCode,
   ShieldCheck,
-  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -20,11 +20,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { useVerification } from "../../features/verification/useVerification";
+import {
+  HISTORY_PATH,
+  LINKS_PATH,
+  VERIFICATION_PATH,
+  WITHDRAW_PATH,
+} from "../../lib/auth-routes";
 import { fromBaseUnits } from "../../lib/crypto";
-import { HISTORY_PATH, LINKS_PATH, WITHDRAW_PATH } from "../../lib/auth-routes";
 import type { MyNote } from "../../lib/notes";
 import { cn } from "../../lib/utils";
 import { trpc } from "../../trpc/react";
+import { PassportStamp } from "../PassportStamp";
+import { Button, buttonVariants } from "../ui/button";
 import { useWallet } from "../WalletProvider";
 import { BalanceCard, checkedAgo } from "./BalanceCard";
 import { DashboardTile } from "./DashboardTile";
@@ -34,7 +42,10 @@ import {
   topPaidLinks,
   weeklyActivity,
 } from "./dashboardAnalytics";
+import type { IdentityBadgeState } from "./IdentityVerificationBadge";
 import { LinkEditorDialog } from "./LinkEditorDialog";
+import { PassportDownloadDialog } from "./PassportDownloadDialog";
+import { badgeStateFor } from "./PassportTiles";
 import { PaymentQrDialog } from "./PaymentQrDialog";
 import { useMyNotes } from "./useMyNotes";
 
@@ -127,10 +138,7 @@ export function Dashboard() {
           />
         </section>
 
-        <AddCashTile
-          payLink={payLink}
-          className="order-3 min-w-0 md:order-none"
-        />
+        <BusinessPassportTile className="order-3 min-w-0 md:order-none" />
 
         <section className="order-2 col-span-2 min-w-0 md:order-none">
           <PayMeTile payLink={payLink} />
@@ -336,13 +344,15 @@ function TileHeading({
   title,
   description,
   arrow,
+  className,
 }: {
   title: string;
   description?: string;
   arrow?: "light" | "dark";
+  className?: string;
 }) {
   return (
-    <div className={cn("grid gap-3", compactHeader)}>
+    <div className={cn("grid gap-3", compactHeader, className)}>
       <div
         className={cn("flex items-center justify-between gap-4", compactRow)}
       >
@@ -409,55 +419,98 @@ function Chip({
   );
 }
 
-function AddCashTile({
-  payLink,
-  className,
-}: {
-  payLink: string;
-  className?: string;
-}) {
+const PASSPORT_STATUS_LABEL: Record<IdentityBadgeState, string> = {
+  none: "Not generated",
+  verified: "Verified",
+  suspended: "Suspended",
+  expired: "Expired",
+};
+
+function BusinessPassportTile({ className }: { className?: string }) {
+  const { business, businessesLoading } = useVerification();
+  const businessId = business?.businessId ?? null;
+  const identity = trpc.passport.identity.useQuery(
+    { businessId: businessId ?? "" },
+    { enabled: businessId !== null },
+  );
+  const state = badgeStateFor(identity.data?.credential);
+  const loading =
+    businessesLoading || (businessId !== null && identity.isLoading);
+  const canDownload = businessId !== null && state === "verified";
+  const [downloadOpen, setDownloadOpen] = useState(false);
+
+  const action = loading ? (
+    <Button size="sm" disabled aria-busy="true" className="max-md:w-full">
+      Checking…
+    </Button>
+  ) : canDownload ? (
+    <Button
+      size="sm"
+      onClick={() => setDownloadOpen(true)}
+      className="max-md:w-full"
+    >
+      Generate One
+      <ArrowRight aria-hidden="true" />
+    </Button>
+  ) : (
+    <Link
+      href={VERIFICATION_PATH}
+      className={buttonVariants({ size: "sm", className: "max-md:w-full" })}
+    >
+      {state === "none" ? "Get verified" : "Verify again"}
+      <ArrowRight aria-hidden="true" />
+    </Link>
+  );
+
   return (
-    <section className={className}>
+    <section
+      aria-label="Track Record"
+      className={cn("group relative min-h-full", className)}
+    >
       <DashboardTile
-        appearance="glass"
+        appearance="linen"
         compactOnMobile
-        className="text-brand-linen"
+        className="justify-between"
         header={
-          <div className={cn("grid gap-3", compactHeader)}>
-            <div
-              className={cn(
-                "flex items-center justify-between gap-4",
-                compactRow,
-              )}
-            >
-              <h2 className={cn("dashboard-tile-title", compactTitle)}>
-                Add cash
-              </h2>
-              <a
-                href={payLink || undefined}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={!payLink}
-                aria-label="Add cash through your payment page"
-                title="Add cash"
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-linen !text-brand-obsidian transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-linen focus-visible:ring-offset-2 focus-visible:ring-offset-brand-obsidian aria-disabled:pointer-events-none aria-disabled:opacity-45"
-              >
-                <Wallet className="size-[1.125rem]" aria-hidden="true" />
-              </a>
-            </div>
-            <p className={cn(bodySmall, "text-brand-linen/88 max-md:hidden")}>
-              Put money into your private balance by paying your own link. Use
-              it for payments, or withdraw it whenever you need it.
-            </p>
-          </div>
+          <TileHeading
+            title="Track Record"
+            className="md:pr-20"
+            description={
+              canDownload
+                ? "Download a payment statement of your verified identity and payment history to send to the people you choose."
+                : state === "none"
+                  ? "Verify your business once to get a badge clients can check and a payment statement of your track record."
+                  : "Verify your business again to download a payment statement of your track record."
+            }
+          />
         }
-        footer={
-          <div className="flex flex-wrap gap-1.5">
-            <Chip tone="glass">Stellar wallet</Chip>
-            <Chip tone="glass">USDC on other chains</Chip>
+        // The action sits in content, not footer: compact tiles hide their
+        // footer below md, which would leave no way to start.
+        content={
+          <div className="mt-5 flex flex-wrap items-center gap-1.5 max-md:mt-3">
+            <span className="max-md:hidden">
+              <Chip>
+                {loading ? "Checking…" : PASSPORT_STATUS_LABEL[state]}
+              </Chip>
+            </span>
+            {action}
           </div>
         }
       />
+      <PassportStamp
+        angle={8}
+        className={cn(
+          "pointer-events-none absolute top-4 right-4 w-16 text-ed-gold transition-[transform,opacity] duration-500 ease-out motion-safe:group-hover:-translate-x-0.5 motion-safe:group-hover:translate-y-0.5 md:top-5 md:right-5 md:w-20",
+          state !== "verified" && "opacity-35",
+        )}
+      />
+      {businessId ? (
+        <PassportDownloadDialog
+          open={downloadOpen}
+          onClose={() => setDownloadOpen(false)}
+          businessId={businessId}
+        />
+      ) : null}
     </section>
   );
 }

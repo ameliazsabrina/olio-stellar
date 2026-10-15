@@ -65,7 +65,6 @@ const link = {
   updatedAt: null,
   archivedAt: null,
   businessClaimed: false,
-  verifiedBusinessPublicId: null,
   invoiceId: "inv_00000001",
 } as const;
 
@@ -88,7 +87,7 @@ function publicInvoice(
     encryptedContent: encryptInvoice(content, key),
     contentCommitment: contentCommitment(content),
     invoiceCommitment: "00".repeat(32),
-    business: { displayName: "Acme", verifiedPublicId: null },
+    business: { displayName: "Acme" },
     ...overrides,
   };
 }

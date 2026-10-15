@@ -16,6 +16,7 @@ import type { Db } from "mongodb";
 import { env } from "../../../env";
 import { getServerEnv } from "../../../env.server-schema";
 import { getDb, poolCollectionName } from "../../db/mongo";
+import { POOL_INDEXER_GAP_MESSAGE } from "../deposits/deposits.errors";
 import { FeeQuoteReadinessError } from "./feeQuotes.errors";
 
 export type PaymentChannel = "direct" | "cctp";
@@ -41,6 +42,7 @@ export type ReadinessCode =
   | "MONGODB_UNAVAILABLE"
   | "MONGODB_INDEX_MISSING"
   | "INDEXER_NOT_READY"
+  | "NULLIFIER_MIRROR_INCOMPLETE"
   | "CCTP_SESSIONS_NEED_ATTENTION";
 
 export type ReadinessDiagnostic = {
@@ -210,7 +212,9 @@ async function checkDatabase(
       _id: string;
       poolId?: string;
       health?: string;
+      lastError?: string;
       nullifiersComplete?: boolean;
+      rootsMismatch?: boolean;
       publishedLedger?: number;
       indexedAt?: Date;
     }>(poolCollectionName("indexer_state", storageScope))
@@ -227,11 +231,21 @@ async function checkDatabase(
       "warning",
     );
   }
+  // Deposits only need a fresh, root-consistent leaf mirror for the right pool.
+  // The spent-nullifier mirror is not on that path (on-chain `is_spent` guards
+  // double-spends, and the evidence gate refuses issuance on its own), so a
+  // retention gap is a warning here rather than a payments outage. `health` is
+  // not used directly because it folds that gap in; instead any degradation
+  // other than the recorded gap — notably a failed sync, which keeps the old
+  // `indexedAt` and overwrites `lastError` — still blocks.
+  const gapOnlyDegradation =
+    state?.nullifiersComplete === false &&
+    state.lastError === POOL_INDEXER_GAP_MESSAGE;
   if (
     !state ||
     state.poolId !== poolId ||
-    state.health !== "healthy" ||
-    state.nullifiersComplete === false ||
+    (state.health !== "healthy" && !gapOnlyDegradation) ||
+    state.rootsMismatch === true ||
     typeof state.publishedLedger !== "number" ||
     !(state.indexedAt instanceof Date) ||
     Date.now() - state.indexedAt.getTime() > INDEXER_STALE_AFTER_MS
@@ -240,7 +254,16 @@ async function checkDatabase(
       diagnostics,
       "INDEXER_NOT_READY",
       ALL_CHANNELS,
-      "The configured pool indexer has not published a complete healthy watermark.",
+      "The configured pool indexer has not published a fresh, root-consistent watermark.",
+    );
+  }
+  if (state?.poolId === poolId && state.nullifiersComplete === false) {
+    diagnostic(
+      diagnostics,
+      "NULLIFIER_MIRROR_INCOMPLETE",
+      ALL_CHANNELS,
+      "The spent-nullifier mirror has a retention gap; balances may overstate and evidence issuance is halted until a full resync.",
+      "warning",
     );
   }
 }

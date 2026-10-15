@@ -14,6 +14,9 @@ export default async function globalTeardown(): Promise<void> {
     await db.collection("identity_credentials").deleteMany({
       businessId: { $regex: "^biz_e2e_" },
     });
+    await db.collection("passport_statements").deleteMany({
+      businessId: { $regex: "^biz_e2e_" },
+    });
   } finally {
     await client.close();
   }

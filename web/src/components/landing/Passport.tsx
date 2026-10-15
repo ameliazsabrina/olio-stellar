@@ -1,3 +1,4 @@
+import { PassportStampMark } from "../PassportStamp";
 import { LandingSection } from "./LandingSection";
 
 const KEPT_PRIVATE = ["Revenue", "Customers", "Balance"] as const;
@@ -17,12 +18,12 @@ const LEDGER_ROWS = [
 
 export function Passport() {
   return (
-    <LandingSection id="passport" aria-labelledby="passport-title">
+    <LandingSection id="track-record" aria-labelledby="track-record-title">
       <div className="grid w-full gap-14 lg:grid-cols-12 lg:gap-x-6">
         <div className="max-md:text-center lg:col-span-5 lg:self-center">
           <h2
             className="type-landing-section-title mt-5 max-w-[16ch] text-balance text-ink max-md:mx-auto"
-            id="passport-title"
+            id="track-record-title"
           >
             Your business, verified, without publishing your books.
           </h2>
@@ -220,50 +221,8 @@ function PassportSketch() {
           strokeDasharray="6 9"
           strokeWidth="1.6"
         />
-        <g className="transition-transform duration-500 ease-out motion-safe:group-hover/passport:-translate-x-1 motion-safe:group-hover/passport:translate-y-1">
-          <g transform="rotate(-12 470 276)">
-            <rect
-              x="388"
-              y="236"
-              width="164"
-              height="80"
-              rx="16"
-              className="stroke-gold"
-              strokeDasharray="70 3 40 2 120 4 60 3"
-              strokeWidth="2.6"
-            />
-            <rect
-              x="398"
-              y="246"
-              width="144"
-              height="60"
-              rx="10"
-              className="stroke-gold/60"
-              strokeWidth="1.4"
-            />
-            <path
-              d="M412 277L424 289L444 262"
-              className="stroke-gold"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="3.2"
-            />
-            <text
-              x="456"
-              y="284"
-              className="fill-gold text-[16px] font-bold"
-              lengthAdjust="spacingAndGlyphs"
-              textLength="80"
-            >
-              VERIFIED
-            </text>
-            <path
-              d="M456 296H520"
-              className="stroke-gold/55"
-              strokeLinecap="round"
-              strokeWidth="1.4"
-            />
-          </g>
+        <g className="text-gold transition-transform duration-500 ease-out motion-safe:group-hover/passport:-translate-x-1 motion-safe:group-hover/passport:translate-y-1">
+          <PassportStampMark />
         </g>
         <path
           d="M556 206L566 192M570 226L588 220"

@@ -52,7 +52,12 @@ const nextConfig = {
       },
       {
         source: "/passport",
-        destination: "/settings#passport",
+        destination: "/settings#track-record",
+        permanent: true,
+      },
+      {
+        source: "/track-record",
+        destination: "/settings#track-record",
         permanent: true,
       },
     ];

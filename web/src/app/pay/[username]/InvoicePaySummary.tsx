@@ -1,7 +1,6 @@
 "use client";
 
-import { BadgeCheck, Lock } from "lucide-react";
-import Link from "next/link";
+import { Lock } from "lucide-react";
 import { DashboardTile } from "../../../components/dashboard/DashboardTile";
 import { InvoiceStateBadge } from "../../../components/dashboard/InvoiceStateBadge";
 import {
@@ -9,7 +8,6 @@ import {
   lineItemIdentity,
 } from "../../../features/invoices/invoiceContent";
 import type { usePublicInvoice } from "../../../features/invoices/usePublicInvoice";
-import { PUBLIC_BUSINESS_PATH } from "../../../lib/auth-routes";
 import { fromBaseUnits } from "../../../lib/crypto";
 import { invoiceNumberLabel } from "../../../lib/invoiceCrypto";
 import { PayNotice } from "./PayStates";
@@ -64,20 +62,9 @@ export function InvoicePaySummary({ view }: { view: PublicInvoiceState }) {
       }
       content={
         <div className="mt-5 grid gap-5">
-          {invoice.business.displayName || invoice.business.verifiedPublicId ? (
-            <p className="flex flex-wrap items-center gap-2 text-sm text-brand-linen/70">
-              <span>
-                From {invoice.business.displayName ?? "this business"}
-              </span>
-              {invoice.business.verifiedPublicId ? (
-                <Link
-                  href={`${PUBLIC_BUSINESS_PATH}/${invoice.business.verifiedPublicId}`}
-                  className="inline-flex items-center gap-1 underline underline-offset-2"
-                >
-                  <BadgeCheck className="size-4" aria-hidden="true" />
-                  Verified business
-                </Link>
-              ) : null}
+          {invoice.business.displayName ? (
+            <p className="text-sm text-brand-linen/70">
+              From {invoice.business.displayName}
             </p>
           ) : null}
 
