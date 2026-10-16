@@ -156,7 +156,9 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
 
     const { events, scannedFromLedger, latestLedger } =
       await fetchPoolEventsSince(fromLedger);
-    const retentionGap = fromLedger > 0 && scannedFromLedger !== fromLedger + 1;
+    // A fallback window that starts before the watermark rescans a superset;
+    // only a start past it leaves ledgers unread.
+    const retentionGap = fromLedger > 0 && scannedFromLedger > fromLedger + 1;
     const tolerateGap =
       retentionGap &&
       getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP === "true";

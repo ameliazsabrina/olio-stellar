@@ -531,6 +531,11 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
   const filters = [{ type: "contract" as const, contractIds: [poolId] }];
 
   const preferred = Math.max(1, sinceLedger + 1);
+  // A load-balanced RPC node can lag the one that set the watermark; asking
+  // it for a start past its tip errors, which must not read as a gap.
+  if (preferred > latest.sequence) {
+    return { events: [], scannedFromLedger: preferred, latestLedger: sinceLedger };
+  }
   try {
     const events = await pageEvents(preferred, filters);
     return {
@@ -552,11 +557,9 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
       };
     } catch {}
   }
-  return {
-    events: [],
-    scannedFromLedger: latest.sequence,
-    latestLedger: latest.sequence,
-  };
+  // Every window failed: the RPC is unreachable, not past retention. Skipping
+  // ahead to the tip would silently drop events, so fail this run instead.
+  throw new Error(`Pool events unavailable from ledger ${preferred}.`);
 }
 
 export async function scanDepositsOnChain(): Promise<DepositEvent[]> {
