@@ -136,7 +136,7 @@ describe("evidence issuance gate", () => {
     ).toEqual(expect.arrayContaining(["signer_missing", "anchor_missing"]));
   });
 
-  it("never lets a sandbox credential back a mainnet passport", () => {
+  it("lets a sandbox credential back testnet but never mainnet", () => {
     const now = new Date();
     const credential = {
       _id: "cred",
@@ -157,7 +157,6 @@ describe("evidence issuance gate", () => {
     };
     const verification = {
       environment: "sandbox" as const,
-      productionRuntime: false,
     } as Parameters<typeof credentialBacksNetwork>[3];
     expect(
       credentialBacksNetwork(credential, now, "testnet", verification),
@@ -173,6 +172,41 @@ describe("evidence issuance gate", () => {
         verification,
       ),
     ).toBe(false);
+  });
+
+  it("rejects a credential from another Sumsub environment", () => {
+    const now = new Date();
+    const credential = {
+      _id: "cred",
+      businessId: "biz",
+      environment: "sandbox" as const,
+      caseId: "case",
+      caseRevision: 1,
+      issuer: "olio" as const,
+      policyVersion: 1,
+      checkedAt: now,
+      validUntil: new Date(now.getTime() + 86_400_000),
+      status: "active" as const,
+      suspensionReason: null,
+      published: false,
+      publishedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const live = {
+      environment: "live" as const,
+    } as Parameters<typeof credentialBacksNetwork>[3];
+    expect(credentialBacksNetwork(credential, now, "testnet", live)).toBe(
+      false,
+    );
+    expect(
+      credentialBacksNetwork(
+        { ...credential, environment: "live" },
+        now,
+        "mainnet",
+        live,
+      ),
+    ).toBe(true);
   });
 });
 

@@ -32,7 +32,6 @@ const baseConfig: VerificationConfig = {
   policyVersion: 1,
   workerEnabled: true,
   operatorIds: [],
-  productionRuntime: false,
 };
 
 const payload = {

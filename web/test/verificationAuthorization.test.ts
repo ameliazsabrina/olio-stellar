@@ -182,7 +182,6 @@ const config: VerificationConfig = {
   policyVersion: 1,
   workerEnabled: true,
   operatorIds: ["did:privy:operator"],
-  productionRuntime: false,
 };
 
 async function seedBusiness(type: "individual" | "company" = "individual") {

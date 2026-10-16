@@ -21,7 +21,6 @@ export type VerificationConfig = {
   policyVersion: number;
   workerEnabled: boolean;
   operatorIds: string[];
-  productionRuntime: boolean;
 };
 
 export function verificationConfig(): VerificationConfig {
@@ -43,7 +42,6 @@ export function verificationConfig(): VerificationConfig {
     policyVersion: env.VERIFICATION_POLICY_VERSION,
     workerEnabled: env.VERIFICATION_WORKER_ENABLED === "true",
     operatorIds: env.VERIFICATION_OPERATOR_PRIVY_IDS,
-    productionRuntime: env.NODE_ENV === "production",
   };
 }
 
@@ -101,7 +99,5 @@ export function credentialEnvironmentAllowed(
   environment: VerificationEnvironment,
   config = verificationConfig(),
 ): boolean {
-  if (config.environment !== environment) return false;
-  if (config.productionRuntime && environment !== "live") return false;
-  return true;
+  return config.environment === environment;
 }

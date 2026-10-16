@@ -123,9 +123,9 @@ export function credentialBacksNetwork(
 ): credential is IdentityCredentialDoc {
   return Boolean(
     credential &&
-      credentialIsCurrent(credential, now) &&
-      credentialEnvironmentAllowed(credential.environment, config) &&
-      (network !== "mainnet" || credential.environment === "live"),
+    credentialIsCurrent(credential, now) &&
+    credentialEnvironmentAllowed(credential.environment, config) &&
+    (network !== "mainnet" || credential.environment === "live"),
   );
 }
 

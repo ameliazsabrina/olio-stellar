@@ -68,7 +68,6 @@ const config: VerificationConfig = {
   policyVersion: 1,
   workerEnabled: true,
   operatorIds: [],
-  productionRuntime: false,
 };
 
 function event(
