@@ -30,6 +30,10 @@ vi.mock("../src/server/db/mongo", () => ({
   getSpentNullifiers: vi.fn(async () => ({ find: mocks.nullifierFind })),
 }));
 
+vi.mock("../src/server/modules/goldsky/goldsky.events", () => ({
+  fillRetentionGap: vi.fn(),
+}));
+
 describe("getPoolSnapshot", () => {
   beforeEach(() => {
     vi.clearAllMocks();

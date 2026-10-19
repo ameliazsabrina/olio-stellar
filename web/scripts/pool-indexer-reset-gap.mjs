@@ -54,6 +54,8 @@ export function planReset(state, scope, mirroredDeposits, now = new Date()) {
       health: state.health ?? null,
       lastError: state.lastError ?? null,
       rootsMismatch: state.rootsMismatch ?? null,
+      // Abandoned by the reset: the assertion covers them too.
+      pendingGaps: state.pendingGaps ?? [],
       healthAfterReset: rootsOk ? "healthy" : state.health ?? null,
     },
     filter: {
@@ -72,7 +74,12 @@ export function planReset(state, scope, mirroredDeposits, now = new Date()) {
         updatedAt: now,
         ...(rootsOk ? { health: "healthy" } : {}),
       },
-      ...(rootsOk ? { $unset: { lastError: "" } } : {}),
+      // Left in place, a pending gap would mark the mirror incomplete again.
+      $unset: {
+        pendingGaps: "",
+        incompleteCauses: "",
+        ...(rootsOk ? { lastError: "" } : {}),
+      },
     },
   };
 }

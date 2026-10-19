@@ -1,5 +1,6 @@
 import { type Binary, type Collection, type Db, MongoClient } from "mongodb";
 import { getServerEnv } from "../../env.server-schema";
+import type { GapFillReason } from "../modules/goldsky/goldsky.events";
 
 export type DepositDoc = {
   _id: number;
@@ -42,8 +43,17 @@ export type UsernameDoc = {
   bio?: string;
 };
 
+export type IncompleteCause = "retention_gap";
+
+export type PendingGap = {
+  fromLedger: number;
+  toLedger: number;
+  firstSeenAt: Date;
+  lastReason: GapFillReason;
+};
+
 export type IndexerStateDoc = {
-  _id: "pool" | "registry" | "settlements" | "evidence";
+  _id: "pool" | "registry" | "settlements" | "evidence" | "goldsky";
   lastLedger: number;
   lastLeafIndex?: number;
   updatedAt: Date;
@@ -56,7 +66,18 @@ export type IndexerStateDoc = {
   leaseOwner?: string;
   leaseUntil?: Date;
   nullifiersComplete?: boolean;
+  // Why `nullifiersComplete` is false. Absent while false means an unknown or
+  // unrecoverable cause, which only an operator reset clears.
+  incompleteCauses?: IncompleteCause[];
+  // Retention gaps the archive refused, retried on every tick.
+  pendingGaps?: PendingGap[];
   retentionGapToleratedAt?: Date;
+  retentionGapFilledAt?: Date;
+  heartbeatAt?: Date;
+  lastEventLedger?: number;
+  rejectedRows?: number;
+  lastRejectedAt?: Date;
+  correctionAt?: Date;
   nullifierGapAcknowledgedAt?: Date;
   rootLeafCount?: number;
   rootFrontier?: string[];
@@ -652,6 +673,27 @@ export async function getSpentNullifiers(): Promise<
 
 export async function getFees(): Promise<Collection<FeeDoc>> {
   return (await getDb()).collection<FeeDoc>(poolCollectionName("pool_fees"));
+}
+
+// Pool events as delivered by the Goldsky pipeline, keyed by the RPC event id
+// rebuilt from the row; decoded on read so the webhook never depends on the
+// ScVal encoding.
+export type RawPoolEventDoc = {
+  _id: string;
+  goldskyId: string;
+  ledger: number;
+  txHash: string;
+  ledgerClosedAt: Date;
+  topics: string;
+  data: string;
+  receivedAt: Date;
+  correctedAt?: Date;
+};
+
+export async function getRawPoolEvents(): Promise<Collection<RawPoolEventDoc>> {
+  return (await getDb()).collection<RawPoolEventDoc>(
+    poolCollectionName("pool_raw_events"),
+  );
 }
 
 export async function getCctpRelays(): Promise<Collection<CctpRelayDoc>> {

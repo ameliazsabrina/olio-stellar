@@ -126,6 +126,28 @@ describe("environment schemas", () => {
     expect(getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP).toBe("true");
   });
 
+  it("requires the Goldsky secret and start ledger when gap fill is on", () => {
+    vi.stubEnv("POOL_GAP_FILL_SOURCE", "goldsky");
+    vi.stubEnv("GOLDSKY_WEBHOOK_SECRET", "");
+    vi.stubEnv("GOLDSKY_PIPELINE_START_LEDGER", "");
+    expect(() => getServerEnv()).toThrow(/GOLDSKY_WEBHOOK_SECRET/);
+
+    vi.stubEnv("GOLDSKY_WEBHOOK_SECRET", "a".repeat(64));
+    vi.stubEnv("GOLDSKY_PIPELINE_START_LEDGER", "1234");
+    const env = getServerEnv();
+    expect(env.POOL_GAP_FILL_SOURCE).toBe("goldsky");
+    expect(env.GOLDSKY_PIPELINE_START_LEDGER).toBe(1234);
+  });
+
+  it("defaults gap fill off and scopes the raw archive", () => {
+    expect(
+      serverEnvSchema.parse({ NODE_ENV: "test" }).POOL_GAP_FILL_SOURCE,
+    ).toBe("off");
+    expect(poolCollectionName("pool_raw_events", "CPOOL")).toBe(
+      "pool_raw_events__CPOOL",
+    );
+  });
+
   it("isolates pool collections when a storage scope is configured", () => {
     vi.stubEnv("MONGO_POOL_STORAGE_SCOPE", "CPOOL_123");
     expect(poolCollectionName("deposits")).toBe("deposits__CPOOL_123");

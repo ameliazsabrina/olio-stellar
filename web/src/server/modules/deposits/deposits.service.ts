@@ -9,6 +9,7 @@ import { bytesToHex } from "../../../lib/crypto";
 import {
   fetchPoolEventsSince,
   networkPassphrase,
+  type PoolEvent,
   parseDepositEvent,
   parseFeeEvent,
   parseSpentEvent,
@@ -23,8 +24,14 @@ import {
   getIndexerState,
   getSpentNullifiers,
   getWithdrawals,
+  type IncompleteCause,
   type IndexerStateDoc,
+  type PendingGap,
 } from "../../db/mongo";
+import {
+  fillRetentionGap,
+  type GapFillReason,
+} from "../goldsky/goldsky.events";
 import { I64_MAX } from "../invoices/invoices.state";
 import {
   DepositIndexGapError,
@@ -54,7 +61,29 @@ export type PoolSyncResult = {
   rootCheck: RootCheck | "failed" | "skipped";
   durationMs: number;
   error?: string;
+  gapFill?: "filled" | GapFillReason;
+  pendingGapsFilled?: number;
+  pendingGaps?: number;
 };
+
+// Overlapping or adjacent ranges become one; it keeps the earliest sighting
+// and the refusal reason of the range that reaches furthest.
+export function mergePendingGaps(gaps: PendingGap[]): PendingGap[] {
+  const merged: PendingGap[] = [];
+  for (const gap of [...gaps].sort((a, b) => a.fromLedger - b.fromLedger)) {
+    const last = merged.at(-1);
+    if (!last || gap.fromLedger > last.toLedger + 1) {
+      merged.push({ ...gap });
+      continue;
+    }
+    if (gap.toLedger >= last.toLedger) {
+      last.toLedger = gap.toLedger;
+      last.lastReason = gap.lastReason;
+    }
+    if (gap.firstSeenAt < last.firstSeenAt) last.firstSeenAt = gap.firstSeenAt;
+  }
+  return merged;
+}
 
 type RootProgress = {
   check: RootCheck | "failed";
@@ -154,19 +183,76 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     }
     fromLedger = state?.publishedLedger ?? state?.lastLedger ?? 0;
 
-    const { events, scannedFromLedger, latestLedger } =
-      await fetchPoolEventsSince(fromLedger);
+    // Gaps an earlier tick could not fill get the same vouch rules again.
+    const stillPending: PendingGap[] = [];
+    const retriedEvents: PoolEvent[] = [];
+    let pendingGapsFilled = 0;
+    for (const gap of state?.pendingGaps ?? []) {
+      const retry = await fillRetentionGap(
+        gap.fromLedger - 1,
+        gap.toLedger + 1,
+      );
+      if (retry.events === null) {
+        stillPending.push({ ...gap, lastReason: retry.reason });
+        continue;
+      }
+      retriedEvents.push(...retry.events);
+      pendingGapsFilled += 1;
+      console.info(
+        `[pool-indexer] pending retention gap filled from Goldsky: ledgers ${retry.fromLedger}-${retry.toLedger}, ${retry.events.length} events`,
+      );
+    }
+
+    const fetched = await fetchPoolEventsSince(fromLedger);
+    const { scannedFromLedger, latestLedger } = fetched;
     // A fallback window that starts before the watermark rescans a superset;
     // only a start past it leaves ledgers unread.
     const retentionGap = fromLedger > 0 && scannedFromLedger > fromLedger + 1;
+    const gapFill = retentionGap
+      ? await fillRetentionGap(fromLedger, scannedFromLedger)
+      : null;
+    const refusal = gapFill?.events === null ? gapFill.reason : null;
+    const events = [
+      ...retriedEvents,
+      ...(gapFill?.events ?? []),
+      ...fetched.events,
+    ];
     const tolerateGap =
-      retentionGap &&
+      refusal !== null &&
       getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP === "true";
-    const nullifiersComplete =
-      (state?.nullifiersComplete ?? true) && (!retentionGap || tolerateGap);
-    if (retentionGap) {
+    // With gap fill off nothing could ever fill the gap, so it is burnt and
+    // the mirror stays incomplete until an operator resets it, as before.
+    const burntGap = refusal === "off" && !tolerateGap;
+    const newGap: PendingGap | null =
+      refusal !== null && refusal !== "off" && !tolerateGap
+        ? {
+            fromLedger: fromLedger + 1,
+            toLedger: scannedFromLedger - 1,
+            firstSeenAt: new Date(),
+            lastReason: refusal,
+          }
+        : null;
+    const pendingGaps = mergePendingGaps(
+      newGap ? [...stillPending, newGap] : stillPending,
+    );
+    // Only a mirror that was incomplete purely because of pending gaps may
+    // become complete again; any other cause stays sticky.
+    const priorComplete = state?.nullifiersComplete ?? true;
+    const gapsOnly =
+      !burntGap &&
+      (priorComplete ||
+        (!!state?.incompleteCauses?.length &&
+          state.incompleteCauses.every((cause) => cause === "retention_gap")));
+    const nullifiersComplete = gapsOnly && pendingGaps.length === 0;
+    const incompleteCauses: IncompleteCause[] | null =
+      gapsOnly && pendingGaps.length > 0 ? ["retention_gap"] : null;
+    if (gapFill?.events) {
+      console.info(
+        `[pool-indexer] retention gap filled from Goldsky: ledgers ${gapFill.fromLedger}-${gapFill.toLedger}, ${gapFill.events.length} events`,
+      );
+    } else if (retentionGap) {
       console.warn(
-        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; spend events in the gap may be unindexed (${tolerateGap ? "tolerated by POOL_INDEXER_TOLERATE_RETENTION_GAP" : "nullifier mirror marked incomplete"})`,
+        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; Goldsky gap fill ${refusal}; spend events in the gap may be unindexed (${tolerateGap ? "tolerated by POOL_INDEXER_TOLERATE_RETENTION_GAP" : newGap ? "nullifier mirror marked incomplete; gap kept pending for retry" : "nullifier mirror marked incomplete"})`,
       );
     }
 
@@ -291,6 +377,17 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       roots.fields.rootsMismatch ?? state?.rootsMismatch ?? false;
     const indexedAt = new Date();
     const healthy = nullifiersComplete && !rootsMismatch;
+    const unset: Partial<
+      Record<"lastError" | "pendingGaps" | "incompleteCauses", "">
+    > = {
+      ...(healthy ? { lastError: "" } : {}),
+      ...(pendingGaps.length === 0 && state?.pendingGaps
+        ? { pendingGaps: "" }
+        : {}),
+      ...(!incompleteCauses && state?.incompleteCauses
+        ? { incompleteCauses: "" }
+        : {}),
+    };
     await states.updateOne(
       { _id: "pool", leaseOwner: owner },
       {
@@ -303,7 +400,12 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
           indexedAt,
           updatedAt: indexedAt,
           nullifiersComplete,
+          ...(incompleteCauses ? { incompleteCauses } : {}),
+          ...(pendingGaps.length ? { pendingGaps } : {}),
           ...(tolerateGap ? { retentionGapToleratedAt: indexedAt } : {}),
+          ...(gapFill?.events || pendingGapsFilled
+            ? { retentionGapFilledAt: indexedAt }
+            : {}),
           ...roots.fields,
           health: healthy ? "healthy" : "degraded",
           ...(healthy
@@ -314,7 +416,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
                   : POOL_INDEXER_GAP_MESSAGE,
               }),
         },
-        ...(healthy ? { $unset: { lastError: "" } } : {}),
+        ...(Object.keys(unset).length ? { $unset: unset } : {}),
       },
     );
 
@@ -327,6 +429,12 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       feesUpserted: feeOps.length,
       withdrawalsUpserted: withdrawalOps.length,
       rootCheck: roots.check,
+      ...(gapFill
+        ? { gapFill: gapFill.events ? "filled" : gapFill.reason }
+        : {}),
+      ...(pendingGapsFilled || pendingGaps.length
+        ? { pendingGapsFilled, pendingGaps: pendingGaps.length }
+        : {}),
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {
