@@ -17,7 +17,7 @@ export function parsePoolStorageArgs(argv) {
   };
 }
 
-function readEnvironmentFile(file) {
+export function readEnvironmentFile(file) {
   const values = {};
   for (const rawLine of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
     const line = rawLine.trim();

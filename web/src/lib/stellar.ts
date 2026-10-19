@@ -425,14 +425,19 @@ export type FeeEvent = {
   quoteId: string;
 };
 
-function poolEventKind(e: rpc.Api.EventResponse): string | null {
+// The fields pool parsing and the indexer read; RPC responses and Goldsky
+// archive rows both satisfy it.
+export type PoolEvent = Pick<
+  rpc.Api.EventResponse,
+  "id" | "ledger" | "ledgerClosedAt" | "txHash" | "topic" | "value"
+>;
+
+function poolEventKind(e: PoolEvent): string | null {
   const topic = e.topic.at(0);
   return topic ? String(scValToNative(topic)) : null;
 }
 
-export function parseDepositEvent(
-  e: rpc.Api.EventResponse,
-): DepositEvent | null {
+export function parseDepositEvent(e: PoolEvent): DepositEvent | null {
   if (poolEventKind(e) !== "deposit") return null;
   const val = scValToNative(
     typeof e.value === "string"
@@ -448,7 +453,7 @@ export function parseDepositEvent(
   };
 }
 
-export function parseSpentEvent(e: rpc.Api.EventResponse): SpentEvent | null {
+export function parseSpentEvent(e: PoolEvent): SpentEvent | null {
   if (poolEventKind(e) !== "spend") return null;
   const val = scValToNative(
     typeof e.value === "string"
@@ -460,9 +465,7 @@ export function parseSpentEvent(e: rpc.Api.EventResponse): SpentEvent | null {
   return { nullifierHex: bytesToHex(bytes) };
 }
 
-export function parseWithdrawEvent(
-  e: rpc.Api.EventResponse,
-): WithdrawEvent | null {
+export function parseWithdrawEvent(e: PoolEvent): WithdrawEvent | null {
   if (poolEventKind(e) !== "withdraw") return null;
   const val = scValToNative(
     typeof e.value === "string"
@@ -484,7 +487,7 @@ export function parseWithdrawEvent(
   }
 }
 
-export function parseFeeEvent(e: rpc.Api.EventResponse): FeeEvent | null {
+export function parseFeeEvent(e: PoolEvent): FeeEvent | null {
   if (poolEventKind(e) !== "fee") return null;
   const val = scValToNative(
     typeof e.value === "string"

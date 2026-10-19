@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   fetchPoolEventsSince: vi.fn(),
+  fillRetentionGap: vi.fn(),
   simulateRead: vi.fn(),
   parseDepositEvent: vi.fn(),
   parseSpentEvent: vi.fn(),
@@ -71,6 +72,10 @@ vi.mock("../src/server/db/mongo", () => ({
   })),
 }));
 
+vi.mock("../src/server/modules/goldsky/goldsky.events", () => ({
+  fillRetentionGap: mocks.fillRetentionGap,
+}));
+
 import { toBE32, zeros } from "../src/lib/crypto";
 
 async function emptyRoot(): Promise<Uint8Array> {
@@ -80,6 +85,10 @@ async function emptyRoot(): Promise<Uint8Array> {
 describe("syncPoolIndex", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.fillRetentionGap.mockReset();
+    // The real default: POOL_GAP_FILL_SOURCE is off.
+    mocks.fillRetentionGap.mockResolvedValue({ events: null, reason: "off" });
+    mocks.parseSpentEvent.mockReset();
     mocks.stateFindOneAndUpdate.mockImplementation((_filter, update) => ({
       leaseOwner: update.$set.leaseOwner,
     }));
@@ -223,6 +232,7 @@ describe("syncPoolIndex", () => {
     const result = await syncPoolIndex();
 
     expect(result.status).toBe("synced");
+    expect(result.gapFill).toBe("off");
     expect(mocks.stateUpdateOne).toHaveBeenCalledWith(
       expect.objectContaining({ _id: "pool" }),
       expect.objectContaining({
@@ -419,5 +429,417 @@ describe("syncPoolIndex", () => {
         }),
       }),
     );
+  });
+
+  const lastStateSet = () =>
+    mocks.stateUpdateOne.mock.calls
+      .map(([, u]) => u.$set)
+      .filter((s) => s && "nullifiersComplete" in s)
+      .at(-1);
+
+  it("fills a retention gap from the Goldsky archive and stays complete", async () => {
+    const gapEvent = {
+      id: "g1",
+      ledger: 50,
+      ledgerClosedAt: "2026-10-01T00:00:00Z",
+      txHash: "b".repeat(64),
+      topic: [],
+      value: {},
+    };
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 200_000,
+      latestLedger: 217_280,
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: [gapEvent],
+      fromLedger: 11,
+      toLedger: 199_999,
+    });
+    mocks.parseSpentEvent.mockImplementation((e) =>
+      e.id === "g1" ? { nullifierHex: "ab".repeat(32) } : null,
+    );
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    const result = await syncPoolIndex();
+
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(10, 200_000);
+    expect(mocks.nullifierBulkWrite).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          updateOne: expect.objectContaining({
+            filter: { _id: "ab".repeat(32) },
+          }),
+        }),
+      ],
+      { ordered: false },
+    );
+    expect(result.gapFill).toBe("filled");
+    expect(lastStateSet()).toMatchObject({
+      nullifiersComplete: true,
+      retentionGapFilledAt: expect.any(Date),
+    });
+  });
+
+  it("keeps the old degraded behaviour when the archive cannot vouch", async () => {
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 200_000,
+      latestLedger: 217_280,
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: null,
+      reason: "archive_behind",
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    const result = await syncPoolIndex();
+
+    expect(result.gapFill).toBe("archive_behind");
+    expect(lastStateSet()).toMatchObject({ nullifiersComplete: false });
+  });
+
+  it("never consults the archive without a gap", async () => {
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+    await syncPoolIndex();
+    expect(mocks.fillRetentionGap).not.toHaveBeenCalled();
+  });
+
+  // A pool doc that persists the indexer's own writes across ticks.
+  function statefulPool(initial: Record<string, unknown>) {
+    const doc: Record<string, unknown> = {
+      _id: "pool",
+      poolId: "CPOOL",
+      publishedLeafIndex: -1,
+      ...initial,
+    };
+    mocks.stateFindOne.mockImplementation(async () => ({ ...doc }));
+    mocks.stateUpdateOne.mockImplementation(async (filter, update) => {
+      if (filter._id !== "pool") return { acknowledged: true };
+      Object.assign(doc, update.$set ?? {});
+      for (const key of Object.keys(update.$unset ?? {})) delete doc[key];
+      return { acknowledged: true };
+    });
+    return doc;
+  }
+
+  const gapEvent = {
+    id: "g1",
+    ledger: 50,
+    ledgerClosedAt: "2026-10-01T00:00:00Z",
+    txHash: "b".repeat(64),
+    topic: [],
+    value: {},
+  };
+
+  it("keeps an archive_behind gap pending and fills it on the next tick", async () => {
+    const doc = statefulPool({ publishedLedger: 10 });
+    mocks.fetchPoolEventsSince.mockResolvedValueOnce({
+      events: [],
+      scannedFromLedger: 200_000,
+      latestLedger: 217_280,
+    });
+    mocks.fillRetentionGap.mockResolvedValueOnce({
+      events: null,
+      reason: "archive_behind",
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    const first = await syncPoolIndex();
+
+    expect(first).toMatchObject({
+      gapFill: "archive_behind",
+      pendingGaps: 1,
+      pendingGapsFilled: 0,
+    });
+    expect(doc).toMatchObject({
+      publishedLedger: 217_280,
+      nullifiersComplete: false,
+      incompleteCauses: ["retention_gap"],
+      pendingGaps: [
+        {
+          fromLedger: 11,
+          toLedger: 199_999,
+          firstSeenAt: expect.any(Date),
+          lastReason: "archive_behind",
+        },
+      ],
+      health: "degraded",
+    });
+
+    // The archive caught up; the watermark is past the gap, so only the
+    // pending retry can still fill it.
+    mocks.fetchPoolEventsSince.mockResolvedValueOnce({
+      events: [],
+      scannedFromLedger: 217_281,
+      latestLedger: 217_300,
+    });
+    mocks.fillRetentionGap.mockResolvedValueOnce({
+      events: [gapEvent],
+      fromLedger: 11,
+      toLedger: 199_999,
+    });
+    mocks.parseSpentEvent.mockImplementation((e) =>
+      e.id === "g1" ? { nullifierHex: "ab".repeat(32) } : null,
+    );
+
+    const second = await syncPoolIndex();
+
+    expect(mocks.fillRetentionGap).toHaveBeenLastCalledWith(10, 200_000);
+    expect(mocks.fillRetentionGap).toHaveBeenCalledTimes(2);
+    expect(mocks.nullifierBulkWrite).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          updateOne: expect.objectContaining({
+            filter: { _id: "ab".repeat(32) },
+            upsert: true,
+          }),
+        }),
+      ],
+      { ordered: false },
+    );
+    expect(second).toMatchObject({ pendingGapsFilled: 1, pendingGaps: 0 });
+    expect(second).not.toHaveProperty("gapFill");
+    expect(doc).toMatchObject({
+      publishedLedger: 217_300,
+      nullifiersComplete: true,
+      retentionGapFilledAt: expect.any(Date),
+      health: "healthy",
+    });
+    expect(doc).not.toHaveProperty("pendingGaps");
+    expect(doc).not.toHaveProperty("incompleteCauses");
+    expect(doc).not.toHaveProperty("lastError");
+  });
+
+  it("merges a new gap that overlaps a pending one", async () => {
+    const firstSeenAt = new Date("2026-10-01T00:00:00Z");
+    const doc = statefulPool({
+      publishedLedger: 50,
+      nullifiersComplete: false,
+      incompleteCauses: ["retention_gap"],
+      pendingGaps: [
+        {
+          fromLedger: 40,
+          toLedger: 120,
+          firstSeenAt,
+          lastReason: "archive_untrusted",
+        },
+      ],
+    });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 200,
+      latestLedger: 300,
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: null,
+      reason: "archive_behind",
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    await syncPoolIndex();
+
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(39, 121);
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(50, 200);
+    expect(doc.pendingGaps).toEqual([
+      {
+        fromLedger: 40,
+        toLedger: 199,
+        firstSeenAt,
+        lastReason: "archive_behind",
+      },
+    ]);
+    expect(doc).toMatchObject({
+      nullifiersComplete: false,
+      incompleteCauses: ["retention_gap"],
+    });
+  });
+
+  it("merges overlapping and adjacent ranges but keeps disjoint ones apart", async () => {
+    const { mergePendingGaps } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+    const early = new Date("2026-10-01T00:00:00Z");
+    const late = new Date("2026-10-02T00:00:00Z");
+    expect(
+      mergePendingGaps([
+        {
+          fromLedger: 500,
+          toLedger: 600,
+          firstSeenAt: late,
+          lastReason: "archive_behind",
+        },
+        {
+          fromLedger: 10,
+          toLedger: 20,
+          firstSeenAt: late,
+          lastReason: "corrected_rows",
+        },
+        {
+          fromLedger: 21,
+          toLedger: 30,
+          firstSeenAt: early,
+          lastReason: "archive_untrusted",
+        },
+        {
+          fromLedger: 15,
+          toLedger: 25,
+          firstSeenAt: late,
+          lastReason: "archive_behind",
+        },
+      ]),
+    ).toEqual([
+      {
+        fromLedger: 10,
+        toLedger: 30,
+        firstSeenAt: early,
+        lastReason: "archive_untrusted",
+      },
+      {
+        fromLedger: 500,
+        toLedger: 600,
+        firstSeenAt: late,
+        lastReason: "archive_behind",
+      },
+    ]);
+  });
+
+  it("keeps nullifiers incomplete when a cause other than a pending gap remains", async () => {
+    // Incomplete before pending-gap tracking existed, so the cause is unknown.
+    const doc = statefulPool({
+      publishedLedger: 10,
+      nullifiersComplete: false,
+      pendingGaps: [
+        {
+          fromLedger: 5,
+          toLedger: 9,
+          firstSeenAt: new Date(),
+          lastReason: "archive_behind",
+        },
+      ],
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: [gapEvent],
+      fromLedger: 5,
+      toLedger: 9,
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    const result = await syncPoolIndex();
+
+    expect(result.pendingGapsFilled).toBe(1);
+    expect(doc).not.toHaveProperty("pendingGaps");
+    expect(doc).toMatchObject({
+      nullifiersComplete: false,
+      health: "degraded",
+    });
+    expect(doc).not.toHaveProperty("incompleteCauses");
+  });
+
+  it("leaves off mode exactly as before: the gap is burnt, not pended", async () => {
+    statefulPool({ publishedLedger: 10 });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    const result = await syncPoolIndex();
+    const write = mocks.stateUpdateOne.mock.calls.find(
+      ([, u]) => u.$set && "nullifiersComplete" in u.$set,
+    )?.[1];
+
+    expect(result.gapFill).toBe("off");
+    expect(result).not.toHaveProperty("pendingGaps");
+    expect(write.$set).toMatchObject({ nullifiersComplete: false });
+    expect(write.$set).not.toHaveProperty("pendingGaps");
+    expect(write.$set).not.toHaveProperty("incompleteCauses");
+    expect(write).not.toHaveProperty("$unset");
+
+    // Stays sticky on a later clean tick.
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 61,
+      latestLedger: 70,
+    });
+    await syncPoolIndex();
+    expect(lastStateSet()).toMatchObject({ nullifiersComplete: false });
+    expect(mocks.fillRetentionGap).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the gap-only cause when off mode burns a later gap", async () => {
+    const doc = statefulPool({
+      publishedLedger: 10,
+      nullifiersComplete: false,
+      incompleteCauses: ["retention_gap"],
+      pendingGaps: [
+        {
+          fromLedger: 5,
+          toLedger: 9,
+          firstSeenAt: new Date(),
+          lastReason: "archive_behind",
+        },
+      ],
+    });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    const { syncPoolIndex } = await import(
+      "../src/server/modules/deposits/deposits.service"
+    );
+
+    await syncPoolIndex();
+
+    expect(doc).toMatchObject({
+      nullifiersComplete: false,
+      pendingGaps: [
+        expect.objectContaining({ fromLedger: 5, lastReason: "off" }),
+      ],
+    });
+    expect(doc).not.toHaveProperty("incompleteCauses");
+  });
+
+  it("does not pend a tolerated gap", async () => {
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    const doc = statefulPool({ publishedLedger: 10 });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: null,
+      reason: "archive_behind",
+    });
+    try {
+      const { syncPoolIndex } = await import(
+        "../src/server/modules/deposits/deposits.service"
+      );
+      await syncPoolIndex();
+      expect(doc).toMatchObject({
+        nullifiersComplete: true,
+        retentionGapToleratedAt: expect.any(Date),
+      });
+      expect(doc).not.toHaveProperty("pendingGaps");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

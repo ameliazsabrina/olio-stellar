@@ -100,6 +100,14 @@ export const serverEnvSchema = z.object({
   POOL_INDEXER_TOLERATE_RETENTION_GAP: z
     .enum(["true", "false"])
     .default("false"),
+  // Goldsky pipeline that archives pool events past the RPC retention window;
+  // "goldsky" lets the indexer fill a retention gap from that archive.
+  POOL_GAP_FILL_SOURCE: z.enum(["off", "goldsky"]).default("off"),
+  GOLDSKY_WEBHOOK_SECRET: optionalString,
+  GOLDSKY_PIPELINE_START_LEDGER: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().optional(),
+  ),
   EVIDENCE_MODE: z.enum(["off", "testnet", "mainnet"]).default("off"),
   EVIDENCE_SIGNER_SECRET: optionalString,
   EVIDENCE_SIGNER_KEY_ID: z.preprocess(
@@ -195,6 +203,9 @@ export function getServerEnv() {
     SETTLEMENTS_WORKER_ENABLED: process.env.SETTLEMENTS_WORKER_ENABLED,
     POOL_INDEXER_TOLERATE_RETENTION_GAP:
       process.env.POOL_INDEXER_TOLERATE_RETENTION_GAP,
+    POOL_GAP_FILL_SOURCE: process.env.POOL_GAP_FILL_SOURCE,
+    GOLDSKY_WEBHOOK_SECRET: process.env.GOLDSKY_WEBHOOK_SECRET,
+    GOLDSKY_PIPELINE_START_LEDGER: process.env.GOLDSKY_PIPELINE_START_LEDGER,
     EVIDENCE_MODE: process.env.EVIDENCE_MODE,
     EVIDENCE_SIGNER_SECRET: process.env.EVIDENCE_SIGNER_SECRET,
     EVIDENCE_SIGNER_KEY_ID: process.env.EVIDENCE_SIGNER_KEY_ID,
@@ -214,6 +225,14 @@ export function getServerEnv() {
   ) {
     throw new Error(
       "POOL_INDEXER_TOLERATE_RETENTION_GAP is a local-development setting and is not allowed in production or on mainnet.",
+    );
+  }
+  if (
+    parsed.POOL_GAP_FILL_SOURCE === "goldsky" &&
+    (!parsed.GOLDSKY_WEBHOOK_SECRET || !parsed.GOLDSKY_PIPELINE_START_LEDGER)
+  ) {
+    throw new Error(
+      "POOL_GAP_FILL_SOURCE=goldsky requires GOLDSKY_WEBHOOK_SECRET and GOLDSKY_PIPELINE_START_LEDGER.",
     );
   }
   if (

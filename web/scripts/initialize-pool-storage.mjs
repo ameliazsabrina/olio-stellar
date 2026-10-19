@@ -68,6 +68,10 @@ try {
   ]);
   const { up: initializeSessions } = await import("../migrations/20260910090000-cctp-sessions.js");
   await initializeSessions(db, config.scope);
+  const { up: initializeRawEvents } = await import(
+    "../migrations/20261017090000-pool-raw-events.js"
+  );
+  await initializeRawEvents(db, config.scope);
   process.stdout.write(
     `Initialized scoped pool storage for ${config.scope} in ${config.databaseName}.\n`,
   );

@@ -34,7 +34,7 @@ describe("pool indexer retention-gap reset", () => {
     const plan = planReset(gapState(), "CPOOL", 10, now);
     expect(plan?.update).toEqual({
       $set: { nullifiersComplete: true, nullifierGapAcknowledgedAt: now, updatedAt: now, health: "healthy" },
-      $unset: { lastError: "" },
+      $unset: { pendingGaps: "", incompleteCauses: "", lastError: "" },
     });
     expect(plan?.filter).toMatchObject({ _id: "pool", poolId: "CPOOL", nullifiersComplete: false });
     expect(plan?.summary.healthAfterReset).toBe("healthy");
@@ -43,8 +43,15 @@ describe("pool indexer retention-gap reset", () => {
   it("keeps a root mismatch degraded while still clearing the nullifier flag", () => {
     const plan = planReset(gapState({ rootsMismatch: true }), "CPOOL", 10, now);
     expect(plan?.update.$set).toEqual({ nullifiersComplete: true, nullifierGapAcknowledgedAt: now, updatedAt: now });
-    expect(plan?.update).not.toHaveProperty("$unset");
+    expect(plan?.update.$unset).toEqual({ pendingGaps: "", incompleteCauses: "" });
     expect(plan?.summary.healthAfterReset).toBe("degraded");
+  });
+
+  it("abandons pending gaps so the next tick does not re-flag the mirror", () => {
+    const pendingGaps = [{ fromLedger: 11, toLedger: 99, firstSeenAt: now, lastReason: "archive_behind" }];
+    const plan = planReset(gapState({ pendingGaps, incompleteCauses: ["retention_gap"] }), "CPOOL", 10, now);
+    expect(plan?.summary.pendingGaps).toEqual(pendingGaps);
+    expect(plan?.update.$unset).toMatchObject({ pendingGaps: "", incompleteCauses: "" });
   });
 
   it("is a no-op when the mirror is not marked incomplete", () => {
