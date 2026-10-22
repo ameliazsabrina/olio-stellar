@@ -16,7 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { DASHBOARD_PATH, isProtectedRoute } from "../lib/auth-routes";
+import { DASHBOARD_PATH, isAuthOnlyPublicRoute } from "../lib/auth-routes";
 import { bytesToHex } from "../lib/crypto";
 import { deriveNoteSecrets, randomMaster } from "../lib/keys";
 import {
@@ -143,11 +143,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setPinModalOpen(true);
   }, []);
 
+  // Only the sign-in page bounces to the dashboard; other public pages
+  // (e.g. /pay/[username]) must stay usable while signed in.
   const routeToDashboard = useCallback(() => {
     if (
       typeof window !== "undefined" &&
-      window.location.pathname !== DASHBOARD_PATH &&
-      !isProtectedRoute(window.location.pathname)
+      isAuthOnlyPublicRoute(window.location.pathname)
     ) {
       router.replace(DASHBOARD_PATH);
     }
@@ -163,9 +164,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setUsernameResolved(false);
       setAddress(mapping.contractId);
       if (!escrow) {
-        // Do not publish or cache a new key generation until its recovery
-        // envelope is durable. Username lookup below distinguishes a truly new
-        // account from a legacy account that already received payments.
         pendingMasterRef.current = null;
         setAccountUnlocked(false);
       } else if (hasLocalAccount()) {
@@ -418,9 +416,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               console.warn("re-key on-chain ok but Mongo mirror failed", cause);
             }
           }
-          const { serializeEscrow, encryptMaster } = await import(
-            "../lib/keys"
-          );
+          const { serializeEscrow, encryptMaster } =
+            await import("../lib/keys");
           await api.wallets.saveEscrow.mutate({
             ...serializeEscrow(encryptMaster(master, pin)),
             ...(priorEscrows.length ? { priorEscrows } : {}),
@@ -429,9 +426,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           escrowMissingRef.current = false;
         } else if (pinMode === "set") {
           const master = pendingMasterRef.current ?? randomMaster();
-          const { serializeEscrow, encryptMaster } = await import(
-            "../lib/keys"
-          );
+          const { serializeEscrow, encryptMaster } =
+            await import("../lib/keys");
           await api.wallets.saveEscrow.mutate(
             serializeEscrow(encryptMaster(master, pin)),
           );
@@ -444,9 +440,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             openPinModal("secure");
             return;
           }
-          const { decryptMaster, deserializeEscrow } = await import(
-            "../lib/keys"
-          );
+          const { decryptMaster, deserializeEscrow } =
+            await import("../lib/keys");
           let master: Uint8Array | undefined;
           try {
             master = decryptMaster(deserializeEscrow(wire), pin);
@@ -521,8 +516,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setPinModalOpen(false);
     setAccountUnlocked(false);
     await logout();
-    // Privy logout and an already-resolved bootstrap can settle in the same
-    // microtask turn. Reassert the disconnected state after logout completes.
     privyWalletRef.current = null;
     mappingRef.current = null;
     setAddress("");

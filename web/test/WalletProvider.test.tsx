@@ -183,6 +183,24 @@ describe("WalletProvider Privy session", () => {
     expect(mocks.replace).toHaveBeenCalledWith("/dashboard");
   });
 
+  it("keeps a signed-in user on a public pay page", async () => {
+    window.history.pushState({}, "", "/pay/bob");
+    try {
+      render(
+        <WalletProvider>
+          <Probe />
+        </WalletProvider>,
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId("ready")).toHaveTextContent("yes"),
+      );
+      expect(screen.getByTestId("address")).toHaveTextContent("CCONTRACT");
+      expect(mocks.replace).not.toHaveBeenCalled();
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("does not restart setup when Privy returns unstable hook identities", async () => {
     mocks.unstableHookValues = true;
     render(
