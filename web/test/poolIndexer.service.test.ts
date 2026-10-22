@@ -72,7 +72,7 @@ vi.mock("../src/server/db/mongo", () => ({
   })),
 }));
 
-vi.mock("../src/server/modules/goldsky/goldsky.events", () => ({
+vi.mock("../src/server/modules/datalake/datalake.events", () => ({
   fillRetentionGap: mocks.fillRetentionGap,
 }));
 
@@ -86,7 +86,6 @@ describe("syncPoolIndex", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.fillRetentionGap.mockReset();
-    // The real default: POOL_GAP_FILL_SOURCE is off.
     mocks.fillRetentionGap.mockResolvedValue({ events: null, reason: "off" });
     mocks.parseSpentEvent.mockReset();
     mocks.stateFindOneAndUpdate.mockImplementation((_filter, update) => ({
@@ -437,7 +436,7 @@ describe("syncPoolIndex", () => {
       .filter((s) => s && "nullifiersComplete" in s)
       .at(-1);
 
-  it("fills a retention gap from the Goldsky archive and stays complete", async () => {
+  it("fills a retention gap from the data lake and stays complete", async () => {
     const gapEvent = {
       id: "g1",
       ledger: 50,
@@ -465,7 +464,11 @@ describe("syncPoolIndex", () => {
 
     const result = await syncPoolIndex();
 
-    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(10, 200_000);
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(
+      10,
+      200_000,
+      expect.any(Number),
+    );
     expect(mocks.nullifierBulkWrite).toHaveBeenCalledWith(
       [
         expect.objectContaining({
@@ -483,7 +486,7 @@ describe("syncPoolIndex", () => {
     });
   });
 
-  it("keeps the old degraded behaviour when the archive cannot vouch", async () => {
+  it("keeps the old degraded behaviour when the data lake cannot fill", async () => {
     mocks.fetchPoolEventsSince.mockResolvedValue({
       events: [],
       scannedFromLedger: 200_000,
@@ -491,7 +494,7 @@ describe("syncPoolIndex", () => {
     });
     mocks.fillRetentionGap.mockResolvedValue({
       events: null,
-      reason: "archive_behind",
+      reason: "scanning",
     });
     const { syncPoolIndex } = await import(
       "../src/server/modules/deposits/deposits.service"
@@ -499,11 +502,11 @@ describe("syncPoolIndex", () => {
 
     const result = await syncPoolIndex();
 
-    expect(result.gapFill).toBe("archive_behind");
+    expect(result.gapFill).toBe("scanning");
     expect(lastStateSet()).toMatchObject({ nullifiersComplete: false });
   });
 
-  it("never consults the archive without a gap", async () => {
+  it("never consults the data lake without a gap", async () => {
     const { syncPoolIndex } = await import(
       "../src/server/modules/deposits/deposits.service"
     );
@@ -538,7 +541,7 @@ describe("syncPoolIndex", () => {
     value: {},
   };
 
-  it("keeps an archive_behind gap pending and fills it on the next tick", async () => {
+  it("keeps an scanning gap pending and fills it on the next tick", async () => {
     const doc = statefulPool({ publishedLedger: 10 });
     mocks.fetchPoolEventsSince.mockResolvedValueOnce({
       events: [],
@@ -547,7 +550,7 @@ describe("syncPoolIndex", () => {
     });
     mocks.fillRetentionGap.mockResolvedValueOnce({
       events: null,
-      reason: "archive_behind",
+      reason: "scanning",
     });
     const { syncPoolIndex } = await import(
       "../src/server/modules/deposits/deposits.service"
@@ -556,7 +559,7 @@ describe("syncPoolIndex", () => {
     const first = await syncPoolIndex();
 
     expect(first).toMatchObject({
-      gapFill: "archive_behind",
+      gapFill: "scanning",
       pendingGaps: 1,
       pendingGapsFilled: 0,
     });
@@ -569,7 +572,7 @@ describe("syncPoolIndex", () => {
           fromLedger: 11,
           toLedger: 199_999,
           firstSeenAt: expect.any(Date),
-          lastReason: "archive_behind",
+          lastReason: "scanning",
         },
       ],
       health: "degraded",
@@ -593,7 +596,11 @@ describe("syncPoolIndex", () => {
 
     const second = await syncPoolIndex();
 
-    expect(mocks.fillRetentionGap).toHaveBeenLastCalledWith(10, 200_000);
+    expect(mocks.fillRetentionGap).toHaveBeenLastCalledWith(
+      10,
+      200_000,
+      expect.any(Number),
+    );
     expect(mocks.fillRetentionGap).toHaveBeenCalledTimes(2);
     expect(mocks.nullifierBulkWrite).toHaveBeenCalledWith(
       [
@@ -630,7 +637,7 @@ describe("syncPoolIndex", () => {
           fromLedger: 40,
           toLedger: 120,
           firstSeenAt,
-          lastReason: "archive_untrusted",
+          lastReason: "ledger_missing",
         },
       ],
     });
@@ -641,7 +648,7 @@ describe("syncPoolIndex", () => {
     });
     mocks.fillRetentionGap.mockResolvedValue({
       events: null,
-      reason: "archive_behind",
+      reason: "scanning",
     });
     const { syncPoolIndex } = await import(
       "../src/server/modules/deposits/deposits.service"
@@ -649,14 +656,22 @@ describe("syncPoolIndex", () => {
 
     await syncPoolIndex();
 
-    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(39, 121);
-    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(50, 200);
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(
+      39,
+      121,
+      expect.any(Number),
+    );
+    expect(mocks.fillRetentionGap).toHaveBeenCalledWith(
+      50,
+      200,
+      expect.any(Number),
+    );
     expect(doc.pendingGaps).toEqual([
       {
         fromLedger: 40,
         toLedger: 199,
         firstSeenAt,
-        lastReason: "archive_behind",
+        lastReason: "scanning",
       },
     ]);
     expect(doc).toMatchObject({
@@ -677,25 +692,25 @@ describe("syncPoolIndex", () => {
           fromLedger: 500,
           toLedger: 600,
           firstSeenAt: late,
-          lastReason: "archive_behind",
+          lastReason: "scanning",
         },
         {
           fromLedger: 10,
           toLedger: 20,
           firstSeenAt: late,
-          lastReason: "corrected_rows",
+          lastReason: "ledger_chain_broken",
         },
         {
           fromLedger: 21,
           toLedger: 30,
           firstSeenAt: early,
-          lastReason: "archive_untrusted",
+          lastReason: "ledger_missing",
         },
         {
           fromLedger: 15,
           toLedger: 25,
           firstSeenAt: late,
-          lastReason: "archive_behind",
+          lastReason: "scanning",
         },
       ]),
     ).toEqual([
@@ -703,13 +718,13 @@ describe("syncPoolIndex", () => {
         fromLedger: 10,
         toLedger: 30,
         firstSeenAt: early,
-        lastReason: "archive_untrusted",
+        lastReason: "ledger_missing",
       },
       {
         fromLedger: 500,
         toLedger: 600,
         firstSeenAt: late,
-        lastReason: "archive_behind",
+        lastReason: "scanning",
       },
     ]);
   });
@@ -724,7 +739,7 @@ describe("syncPoolIndex", () => {
           fromLedger: 5,
           toLedger: 9,
           firstSeenAt: new Date(),
-          lastReason: "archive_behind",
+          lastReason: "scanning",
         },
       ],
     });
@@ -792,7 +807,7 @@ describe("syncPoolIndex", () => {
           fromLedger: 5,
           toLedger: 9,
           firstSeenAt: new Date(),
-          lastReason: "archive_behind",
+          lastReason: "scanning",
         },
       ],
     });
@@ -826,7 +841,7 @@ describe("syncPoolIndex", () => {
     });
     mocks.fillRetentionGap.mockResolvedValue({
       events: null,
-      reason: "archive_behind",
+      reason: "ledger_missing",
     });
     try {
       const { syncPoolIndex } = await import(
@@ -838,6 +853,39 @@ describe("syncPoolIndex", () => {
         retentionGapToleratedAt: expect.any(Date),
       });
       expect(doc).not.toHaveProperty("pendingGaps");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("pends an unfinished scan even when gaps are tolerated", async () => {
+    vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
+    const doc = statefulPool({ publishedLedger: 10 });
+    mocks.fetchPoolEventsSince.mockResolvedValue({
+      events: [],
+      scannedFromLedger: 50,
+      latestLedger: 60,
+    });
+    mocks.fillRetentionGap.mockResolvedValue({
+      events: null,
+      reason: "scanning",
+    });
+    try {
+      const { syncPoolIndex } = await import(
+        "../src/server/modules/deposits/deposits.service"
+      );
+      await syncPoolIndex();
+      expect(doc).toMatchObject({
+        nullifiersComplete: false,
+        pendingGaps: [
+          expect.objectContaining({
+            fromLedger: 11,
+            toLedger: 49,
+            lastReason: "scanning",
+          }),
+        ],
+      });
+      expect(doc).not.toHaveProperty("retentionGapToleratedAt");
     } finally {
       vi.unstubAllEnvs();
     }

@@ -425,8 +425,6 @@ export type FeeEvent = {
   quoteId: string;
 };
 
-// The fields pool parsing and the indexer read; RPC responses and Goldsky
-// archive rows both satisfy it.
 export type PoolEvent = Pick<
   rpc.Api.EventResponse,
   "id" | "ledger" | "ledgerClosedAt" | "txHash" | "topic" | "value"
@@ -537,7 +535,11 @@ export async function fetchPoolEventsSince(sinceLedger: number): Promise<{
   // A load-balanced RPC node can lag the one that set the watermark; asking
   // it for a start past its tip errors, which must not read as a gap.
   if (preferred > latest.sequence) {
-    return { events: [], scannedFromLedger: preferred, latestLedger: sinceLedger };
+    return {
+      events: [],
+      scannedFromLedger: preferred,
+      latestLedger: sinceLedger,
+    };
   }
   try {
     const events = await pageEvents(preferred, filters);

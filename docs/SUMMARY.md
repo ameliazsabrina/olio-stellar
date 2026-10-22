@@ -33,6 +33,6 @@
 * [Glossary](glossary.md)
 * [Developer Reference](reference.md)
 * [CCTP settlement operations](cctp-operations.md)
-* [Pool indexer: Goldsky event archive](pool-indexer-goldsky.md)
+* [Pool indexer: retention-gap fill](pool-indexer-gap-fill.md)
 * [Verification operations](verification-operations.md)
 * [Track Record: invoices and settlements](business-passport.md)
