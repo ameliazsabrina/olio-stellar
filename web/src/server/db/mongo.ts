@@ -1,6 +1,6 @@
 import { type Binary, type Collection, type Db, MongoClient } from "mongodb";
 import { getServerEnv } from "../../env.server-schema";
-import type { GapFillReason } from "../modules/goldsky/goldsky.events";
+import type { GapFillReason } from "../modules/datalake/datalake.events";
 
 export type DepositDoc = {
   _id: number;
@@ -52,8 +52,15 @@ export type PendingGap = {
   lastReason: GapFillReason;
 };
 
+export type ScannedRange = {
+  fromLedger: number;
+  toLedger: number;
+  prevHash: string;
+  toHash: string;
+};
+
 export type IndexerStateDoc = {
-  _id: "pool" | "registry" | "settlements" | "evidence" | "goldsky";
+  _id: "pool" | "registry" | "settlements" | "evidence" | "datalake";
   lastLedger: number;
   lastLeafIndex?: number;
   updatedAt: Date;
@@ -73,11 +80,7 @@ export type IndexerStateDoc = {
   pendingGaps?: PendingGap[];
   retentionGapToleratedAt?: Date;
   retentionGapFilledAt?: Date;
-  heartbeatAt?: Date;
-  lastEventLedger?: number;
-  rejectedRows?: number;
-  lastRejectedAt?: Date;
-  correctionAt?: Date;
+  scannedRanges?: ScannedRange[];
   nullifierGapAcknowledgedAt?: Date;
   rootLeafCount?: number;
   rootFrontier?: string[];
@@ -675,19 +678,14 @@ export async function getFees(): Promise<Collection<FeeDoc>> {
   return (await getDb()).collection<FeeDoc>(poolCollectionName("pool_fees"));
 }
 
-// Pool events as delivered by the Goldsky pipeline, keyed by the RPC event id
-// rebuilt from the row; decoded on read so the webhook never depends on the
-// ScVal encoding.
 export type RawPoolEventDoc = {
   _id: string;
-  goldskyId: string;
   ledger: number;
   txHash: string;
   ledgerClosedAt: Date;
-  topics: string;
-  data: string;
-  receivedAt: Date;
-  correctedAt?: Date;
+  topics: string[];
+  value: string;
+  scannedAt: Date;
 };
 
 export async function getRawPoolEvents(): Promise<Collection<RawPoolEventDoc>> {

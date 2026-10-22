@@ -31,7 +31,7 @@ import {
 import {
   fillRetentionGap,
   type GapFillReason,
-} from "../goldsky/goldsky.events";
+} from "../datalake/datalake.events";
 import { I64_MAX } from "../invoices/invoices.state";
 import {
   DepositIndexGapError,
@@ -48,6 +48,7 @@ import {
 import type { DepositOutput, PoolSnapshotOutput } from "./deposits.schema";
 
 const LEASE_MS = 50_000;
+const GAP_FILL_BUDGET_MS = 25_000;
 const STALE_AFTER_MS = 120_000;
 
 export type PoolSyncResult = {
@@ -183,7 +184,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     }
     fromLedger = state?.publishedLedger ?? state?.lastLedger ?? 0;
 
-    // Gaps an earlier tick could not fill get the same vouch rules again.
+    const fillDeadline = startedAt + GAP_FILL_BUDGET_MS;
     const stillPending: PendingGap[] = [];
     const retriedEvents: PoolEvent[] = [];
     let pendingGapsFilled = 0;
@@ -191,6 +192,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       const retry = await fillRetentionGap(
         gap.fromLedger - 1,
         gap.toLedger + 1,
+        fillDeadline,
       );
       if (retry.events === null) {
         stillPending.push({ ...gap, lastReason: retry.reason });
@@ -199,7 +201,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       retriedEvents.push(...retry.events);
       pendingGapsFilled += 1;
       console.info(
-        `[pool-indexer] pending retention gap filled from Goldsky: ledgers ${retry.fromLedger}-${retry.toLedger}, ${retry.events.length} events`,
+        `[pool-indexer] pending retention gap filled from the data lake: ledgers ${retry.fromLedger}-${retry.toLedger}, ${retry.events.length} events`,
       );
     }
 
@@ -209,7 +211,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     // only a start past it leaves ledgers unread.
     const retentionGap = fromLedger > 0 && scannedFromLedger > fromLedger + 1;
     const gapFill = retentionGap
-      ? await fillRetentionGap(fromLedger, scannedFromLedger)
+      ? await fillRetentionGap(fromLedger, scannedFromLedger, fillDeadline)
       : null;
     const refusal = gapFill?.events === null ? gapFill.reason : null;
     const events = [
@@ -219,6 +221,7 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
     ];
     const tolerateGap =
       refusal !== null &&
+      refusal !== "scanning" &&
       getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP === "true";
     // With gap fill off nothing could ever fill the gap, so it is burnt and
     // the mirror stays incomplete until an operator resets it, as before.
@@ -248,11 +251,11 @@ export async function syncPoolIndex(): Promise<PoolSyncResult> {
       gapsOnly && pendingGaps.length > 0 ? ["retention_gap"] : null;
     if (gapFill?.events) {
       console.info(
-        `[pool-indexer] retention gap filled from Goldsky: ledgers ${gapFill.fromLedger}-${gapFill.toLedger}, ${gapFill.events.length} events`,
+        `[pool-indexer] retention gap filled from the data lake: ledgers ${gapFill.fromLedger}-${gapFill.toLedger}, ${gapFill.events.length} events`,
       );
     } else if (retentionGap) {
       console.warn(
-        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; Goldsky gap fill ${refusal}; spend events in the gap may be unindexed (${tolerateGap ? "tolerated by POOL_INDEXER_TOLERATE_RETENTION_GAP" : newGap ? "nullifier mirror marked incomplete; gap kept pending for retry" : "nullifier mirror marked incomplete"})`,
+        `[pool-indexer] retention gap: watermark ledger ${fromLedger + 1}, RPC resumed at ${scannedFromLedger}; data-lake gap fill ${refusal}; spend events in the gap may be unindexed (${tolerateGap ? "tolerated by POOL_INDEXER_TOLERATE_RETENTION_GAP" : newGap ? "nullifier mirror marked incomplete; gap kept pending for retry" : "nullifier mirror marked incomplete"})`,
       );
     }
 

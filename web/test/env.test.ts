@@ -104,18 +104,14 @@ describe("environment schemas", () => {
     vi.stubEnv("NEXT_PHASE", "phase-production-server");
     vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "testnet");
     vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
-    expect(() => getServerEnv()).toThrow(
-      "POOL_INDEXER_TOLERATE_RETENTION_GAP",
-    );
+    expect(() => getServerEnv()).toThrow("POOL_INDEXER_TOLERATE_RETENTION_GAP");
   });
 
   it("rejects retention-gap tolerance on mainnet even in development", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("NEXT_PUBLIC_STELLAR_NETWORK", "mainnet");
     vi.stubEnv("POOL_INDEXER_TOLERATE_RETENTION_GAP", "true");
-    expect(() => getServerEnv()).toThrow(
-      "POOL_INDEXER_TOLERATE_RETENTION_GAP",
-    );
+    expect(() => getServerEnv()).toThrow("POOL_INDEXER_TOLERATE_RETENTION_GAP");
   });
 
   it("does not block a production build that inherits a local env file", () => {
@@ -126,23 +122,17 @@ describe("environment schemas", () => {
     expect(getServerEnv().POOL_INDEXER_TOLERATE_RETENTION_GAP).toBe("true");
   });
 
-  it("requires the Goldsky secret and start ledger when gap fill is on", () => {
+  it("reads the retired goldsky gap-fill value as datalake", () => {
     vi.stubEnv("POOL_GAP_FILL_SOURCE", "goldsky");
-    vi.stubEnv("GOLDSKY_WEBHOOK_SECRET", "");
-    vi.stubEnv("GOLDSKY_PIPELINE_START_LEDGER", "");
-    expect(() => getServerEnv()).toThrow(/GOLDSKY_WEBHOOK_SECRET/);
-
-    vi.stubEnv("GOLDSKY_WEBHOOK_SECRET", "a".repeat(64));
-    vi.stubEnv("GOLDSKY_PIPELINE_START_LEDGER", "1234");
-    const env = getServerEnv();
-    expect(env.POOL_GAP_FILL_SOURCE).toBe("goldsky");
-    expect(env.GOLDSKY_PIPELINE_START_LEDGER).toBe(1234);
+    expect(getServerEnv().POOL_GAP_FILL_SOURCE).toBe("datalake");
+    vi.stubEnv("POOL_GAP_FILL_SOURCE", "off");
+    expect(getServerEnv().POOL_GAP_FILL_SOURCE).toBe("off");
   });
 
-  it("defaults gap fill off and scopes the raw archive", () => {
+  it("defaults gap fill to the data lake and scopes the raw archive", () => {
     expect(
       serverEnvSchema.parse({ NODE_ENV: "test" }).POOL_GAP_FILL_SOURCE,
-    ).toBe("off");
+    ).toBe("datalake");
     expect(poolCollectionName("pool_raw_events", "CPOOL")).toBe(
       "pool_raw_events__CPOOL",
     );
