@@ -21,6 +21,7 @@ vi.mock("../src/env", async importOriginal => {
   const { StrKey } = await import("@stellar/stellar-sdk");
   return { ...actual, env: { ...actual.env, NEXT_PUBLIC_OLIO_POOL_ID: StrKey.encodeContract(Buffer.alloc(32, 9)) } };
 });
+vi.mock("../src/server/modules/verification/verification.submission", () => ({ requireAccountSubmission: async () => {} }));
 vi.mock("../src/server/modules/cctp/cctp.readiness", () => ({ assertRouteReady: mocks.route }));
 vi.mock("../src/server/modules/feeQuotes/feeQuotes.readiness", () => ({ assertPaymentIngressReady: async () => {} }));
 vi.mock("../src/server/modules/cctp/cctp.rpc", () => ({ sourceRpc: mocks.rpc }));
